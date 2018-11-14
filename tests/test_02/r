@@ -1,0 +1,6 @@
+#! /bin/bash
+  
+go run ./test_02.go test_02 ${MERCURY_ROOT} 2018_11_08
+  
+
+
