@@ -11,6 +11,8 @@ var fp = fmt.Fprintf
 
 
 
+
+
 func Available_port () ( port string, err error ) {
 
   server, err := net.Listen ( "tcp", ":0" )
@@ -64,15 +66,13 @@ func End_test_and_exit ( result_path string, test_error string ) {
 
 
 func
-Make_paths ( mercury_root, test_id, test_name string ) ( dispatch_install_root,
-                                                         proton_install_root, router_path, result_path, config_path, log_path string ) {
-  dispatch_install_root = mercury_root + "/system_code/install/dispatch"
-  proton_install_root   = mercury_root + "/system_code/install/proton"
-  router_path           = dispatch_install_root + "/sbin/qdrouterd"
-  result_path           = mercury_root + "/results/" + test_name + "/" + test_id
-  config_path           = result_path + "/config"
-  log_path              = result_path + "/log"
+Make_paths ( mercury_root, test_id, test_name string ) ( router_path, result_path, config_path, log_path string ) {
+  dispatch_install_root := os.Getenv ( "DISPATCH_INSTALL_ROOT" )
+  router_path            = dispatch_install_root + "/sbin/qdrouterd"
+  result_path            = mercury_root + "/results/" + test_name + "/" + test_id
+  config_path            = result_path + "/config"
+  log_path               = result_path + "/log"
 
-  return dispatch_install_root, proton_install_root, router_path, result_path, config_path, log_path
+  return router_path, result_path, config_path, log_path
 }
 

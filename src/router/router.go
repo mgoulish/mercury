@@ -82,8 +82,9 @@ type Router struct {
   client_port             string
   router_port             string
   edge_port               string
-  state                   router_state            
+  verbose                 bool
 
+  state                   router_state            
   cmd                   * exec.Cmd
   connect_to_ports        [] string
 }
@@ -104,18 +105,22 @@ func New_Router ( name                  string,
                   proton_install_root   string,
                   client_port           string,
                   router_port           string,
-                  edge_port             string ) * Router {
+                  edge_port             string,
+                  verbose               bool ) * Router {
   var r * Router
 
-  r = & Router { name            : name, 
-                 router_type     : router_type,
-                 worker_threads  : worker_threads,
-                 executable_path : executable_path,
-                 config_path     : config_path,
-                 log_path        : log_path,
-                 client_port     : client_port,
-                 router_port     : router_port,
-                 edge_port       : edge_port }
+  r = & Router { name                  : name, 
+                 router_type           : router_type,
+                 worker_threads        : worker_threads,
+                 executable_path       : executable_path,
+                 config_path           : config_path,
+                 log_path              : log_path,
+                 dispatch_install_root : dispatch_install_root,
+                 proton_install_root   : proton_install_root,
+                 client_port           : client_port,
+                 router_port           : router_port,
+                 edge_port             : edge_port,
+                 verbose               : verbose }
   return r
 }
 
@@ -165,34 +170,6 @@ func ( r * Router ) Router_Port ( ) string {
 
 func ( r * Router ) Edge_Port ( ) string {
   return r.edge_port
-}
-
-
-
-
-
-func make_indent ( indent_size int ) * strings.Builder {
-  var indent strings.Builder
-  indent.Grow ( indent_size )
-  for i := 0; i < indent_size; i ++ {
-    indent.WriteByte ( ' ' )
-  }
-  return & indent
-}
-
-
-
-
-
-func ( r * Router ) Print ( indent_size int ) {
-  indent := make_indent ( indent_size )
-
-  fp ( os.Stdout, "%srouter\n"                , indent.String() )
-  fp ( os.Stdout, "%s{\n"                     , indent.String() )
-  fp ( os.Stdout, "%s  name            : %s\n", indent.String(), r.name )
-  fp ( os.Stdout, "%s  worker_threads  : %d\n", indent.String(), r.worker_threads )
-  fp ( os.Stdout, "%s  executable_path : %s\n", indent.String(), r.executable_path )
-  fp ( os.Stdout, "%s}\n"                     , indent.String() )
 }
 
 
@@ -307,6 +284,10 @@ func ( r * Router ) write_config_file ( ) error {
     fp ( f, "}\n")
   }
 
+  if r.verbose {
+    fp ( os.Stdout, "router : config file written to |%s|\n", r.config_file_path )
+  }
+
   return nil
 }
 
@@ -320,25 +301,29 @@ func ( r * Router ) Run ( ) error {
     return nil
   }
 
-  INSTALL_ROOT          := "/home/mick/mercury/system_code/install"
-
-  PROTON_INSTALL_DIR    := INSTALL_ROOT + "/proton"
-  DISPATCH_INSTALL_DIR  := INSTALL_ROOT + "/dispatch"
-
-  DISPATCH_LIBRARY_PATH := DISPATCH_INSTALL_DIR + "/lib64"
-  PROTON_LIBRARY_PATH   := PROTON_INSTALL_DIR   + "/lib64"
+  DISPATCH_LIBRARY_PATH := r.dispatch_install_root + "/lib64"
+  PROTON_LIBRARY_PATH   := r.proton_install_root   + "/lib64"
   LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
 
-  DISPATCH_PYTHONPATH   := DISPATCH_INSTALL_DIR + "/lib/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := DISPATCH_INSTALL_DIR + "/lib/python2.7/site-packages"
+  DISPATCH_PYTHONPATH   := r.dispatch_install_root + "/lib/qpid-dispatch/python"
+  DISPATCH_PYTHONPATH2  := r.dispatch_install_root + "/lib/python2.7/site-packages"
   PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2
 
   os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
   os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
 
-  include := " -I /home/mick/mercury/system_code/qpid-dispatch/python"
+  if r.verbose {
+    fp ( os.Stdout, "router : LD_LIBRARY_PATH is |%s|\n", LD_LIBRARY_PATH )
+    fp ( os.Stdout, "router : PYTHONPATH is |%s|\n", PYTHONPATH )
+  }
+
+  include := " -I " + r.dispatch_install_root + "/lib/qpid-dispatch/python"
   args := " --config " + r.config_file_path + include
   args_list := strings.Fields ( args )
+
+  if r.verbose {
+    fp ( os.Stdout, "router : command is |%s %s|\n", r.executable_path, args )}
+
   r.cmd = exec.Command ( r.executable_path,  args_list... )
 
   r.cmd.Start ( )
