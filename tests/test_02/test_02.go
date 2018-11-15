@@ -5,6 +5,7 @@ import ( "fmt"
          "utils"
          rn "router_network"
          "time"
+         "flag"
        )
 
 
@@ -13,24 +14,38 @@ var fp = fmt.Fprintf
 
 
 
+func getenv ( key string ) string {
+  val := os.Getenv ( key )
+  if val == "" {
+    fp ( os.Stderr, "need environment variable |%s|.\n", key )
+    os.Exit ( 1 )
+  }
+  return val
+}
+
+
 
 
 func
 main ( ) {
-  test_name             := os.Args [ 1 ]
-  mercury_root          := os.Args [ 2 ]
-  test_id               := os.Args [ 3 ]
 
-  fp ( os.Stdout, "\n\ntest %s starting.\n", test_name )
+  mercury_root          := getenv ( "MERCURY_ROOT" )
+  dispatch_install_root := getenv ( "DISPATCH_INSTALL_ROOT" )
+  proton_install_root   := getenv ( "PROTON_INSTALL_ROOT" )
+
+  test_name_p := flag.String ( "name",    "test_02", "the name shared by all runs of this test." )
+  test_id_p   := flag.String ( "id",      "example", "the unique name for this run of the test." )
+  verbose_p   := flag.Bool   ( "verbose", false,     "if true, print out debugging aids."        )
+  flag.Parse ( )
+
+  fp ( os.Stdout, "\n\ntest %s starting.\n", * test_name_p )
   n_edges := 5
 
-  dispatch_install_root, 
-  proton_install_root, 
   router_path, 
   result_path, 
   config_path, 
   log_path := 
-  utils.Make_paths ( mercury_root, test_id, test_name )
+  utils.Make_paths ( mercury_root, * test_id_p, * test_name_p )
 
   utils.Find_or_create_dir ( result_path )
   utils.Find_or_create_dir ( config_path )
@@ -38,13 +53,14 @@ main ( ) {
 
   n_worker_threads := 4
 
-  network := rn.New_Router_Network ( test_name + "_router_network",
+  network := rn.New_Router_Network ( * test_name_p + "_router_network",
                                      n_worker_threads,
                                      router_path,
                                      config_path,
                                      log_path,
                                      dispatch_install_root,
-                                     proton_install_root )
+                                     proton_install_root,
+                                     * verbose_p )
 
   fp ( os.Stdout, "  Making interior routers.\n" )
   network.Add_Router ( "A" )
@@ -94,13 +110,13 @@ main ( ) {
   if err != nil {
     fp ( os.Stdout, "  Error.\n" )
     fp ( os.Stdout, "  Results are in |%s|\n", result_path )
-    fp ( os.Stdout, "test %s complete.\n", test_name )
+    fp ( os.Stdout, "test %s complete.\n", * test_name_p )
     utils.End_test_and_exit ( result_path, "error on halt: " + err.Error() )
   } 
 
   fp ( os.Stdout, "  Success.\n" );
   fp ( os.Stdout, "  Results are in |%s|\n", result_path )
-  fp ( os.Stdout, "test %s complete.\n\n\n", test_name )
+  fp ( os.Stdout, "test %s complete.\n\n\n", * test_name_p )
   utils.End_test_and_exit ( result_path, "" )
 
 }

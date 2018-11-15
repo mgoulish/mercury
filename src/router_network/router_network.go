@@ -54,9 +54,9 @@ type Router_Network struct {
   dispatch_root    string
   proton_root      string
   qdstat_path      string
+  verbose          bool
 
   routers          [] * router.Router
-
 }
 
 
@@ -91,7 +91,8 @@ func New_Router_Network ( name            string,
                           config_path     string,
                           log_path        string,
                           dispatch_root   string,
-                          proton_root     string ) * Router_Network {
+                          proton_root     string,
+                          verbose         bool ) * Router_Network {
   var rn * Router_Network
   rn = & Router_Network { Name            : name,
                           worker_threads  : worker_threads,
@@ -100,7 +101,8 @@ func New_Router_Network ( name            string,
                           log_path        : log_path,
                           dispatch_root   : dispatch_root,
                           proton_root     : proton_root,
-                          qdstat_path     : dispatch_root + "/bin/qdstat" }
+                          qdstat_path     : dispatch_root + "/bin/qdstat",
+                          verbose         : verbose }
 
   return rn
 }
@@ -124,7 +126,8 @@ func ( rn * Router_Network ) add_router ( name string, router_type string ) {
                                 rn.proton_root,
                                 client_port,
                                 router_port,
-                                edge_port )
+                                edge_port,
+                                rn.verbose )
   rn.routers = append ( rn.routers, router )
 }
 

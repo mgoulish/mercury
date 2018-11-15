@@ -35,11 +35,7 @@ main ( ) {
   test_name_p := flag.String ( "name",    "test_01", "the name shared by all runs of this test." )
   test_id_p   := flag.String ( "id",      "example", "the unique name for this run of the test." )
   verbose_p   := flag.Bool   ( "verbose", false,     "if true, print out debugging aids."        )
-
   flag.Parse ( )
-
-  // TEMP
-  fp ( os.Stderr, "verbose == %v\n", * verbose_p )
 
   router_path, 
   result_path, 

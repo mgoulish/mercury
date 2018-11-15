@@ -1,6 +1,16 @@
 #! /bin/bash
   
-go run ./test_02.go test_02 ${MERCURY_ROOT} 2018_11_08
+export MERCURY_ROOT=${HOME}/mercury
+export DISPATCH_INSTALL_ROOT=${HOME}/latest/install/dispatch
+export PROTON_INSTALL_ROOT=${HOME}/latest/install/proton
+
+export GOPATH=${MERCURY_ROOT}
+
+go run ./test_02.go -name test_02 -id 2018_11_15 
+
+# If it doesn't work, turn on verbosity so you can see all
+# the environment variables and commands : 
+#go run ./test_01.go -name test_01 -id 2018_10_31 -verbose
   
 
 
