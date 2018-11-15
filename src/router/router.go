@@ -94,6 +94,16 @@ type Router struct {
 
 
 /*
+  Create a new router.
+  The caller supplies all the paths and ports.
+  Every router will be given a listener for clients
+  to connect to. Even if a particular test does not
+  need clients to connect to this router, the support
+  libraries will sometimes need to talk to this port.
+
+  Interior routers will also be given a listener for 
+  other interior routers, and a separate listener for
+  edge routers.
 */
 func New_Router ( name                  string, 
                   router_type           string,
@@ -128,6 +138,10 @@ func New_Router ( name                  string,
 
 
 
+/*
+  Tell the router a port number (represented as a string)
+  that it should attach to.
+*/
 func ( r * Router ) Connect_To ( port string ) {
   r.connect_to_ports = append ( r.connect_to_ports, port )
 }
@@ -136,6 +150,9 @@ func ( r * Router ) Connect_To ( port string ) {
 
 
 
+/*
+  Get the router's name.
+*/
 func ( r * Router ) Name ( ) string  {
   return r.name
 }
@@ -144,6 +161,9 @@ func ( r * Router ) Name ( ) string  {
 
 
 
+/*
+  Get the router's type, i.e. interior or edge.
+*/
 func ( r * Router ) Router_Type ( ) string  {
   return r.router_type
 }
@@ -152,6 +172,9 @@ func ( r * Router ) Router_Type ( ) string  {
 
 
 
+/*
+  Get the router's client port number (as a string).
+*/
 func ( r * Router ) Client_Port ( ) string {
   return r.client_port
 }
@@ -160,6 +183,10 @@ func ( r * Router ) Client_Port ( ) string {
 
 
 
+/*
+  Get the router's router port number (as a string).
+  Or nil if this is an edge router.
+*/
 func ( r * Router ) Router_Port ( ) string {
   return r.router_port
 }
@@ -168,6 +195,10 @@ func ( r * Router ) Router_Port ( ) string {
 
 
 
+/*
+  Get the router's edge port number (as a string).
+  Or nil if this is an edge router.
+*/
 func ( r * Router ) Edge_Port ( ) string {
   return r.edge_port
 }
@@ -176,6 +207,11 @@ func ( r * Router ) Edge_Port ( ) string {
 
 
 
+/*
+  Initialization of a router does whatever is needed 
+  to get ready to launch the router, i.e. write the
+  configuration file.
+*/
 func ( r * Router ) Init ( ) error {
   if r.state >= initialized {
     return nil
@@ -295,6 +331,11 @@ func ( r * Router ) write_config_file ( ) error {
 
 
 
+/*
+  Call this only after calling Init() on the router.
+  This fn sets up the router's environment variables, 
+  and runs the router as a separate process.
+*/
 func ( r * Router ) Run ( ) error {
 
   if r.state == running {
@@ -336,8 +377,23 @@ func ( r * Router ) Run ( ) error {
 
 
 
+/*
+  Halt the router.
+  If it has already halted on its own, that is returned
+  as an error. If the process returned an error code, 
+  return that to the caller -- but early termination is
+  considered an error even if the process did not return 
+  an error code.
+*/
 func ( r * Router ) Halt ( ) error {
 
+  // Set up a channel that will return a 
+  // message immediately if the process has
+  // already terminated. Then set up a half-second 
+  // timer. If the timer expires before the Wait 
+  // returns a 'done' message, we judge that the 
+  // process was still running when we came along
+  // and killed it. Which is good.
   done := make ( chan error, 1 )
   go func ( ) {
       done <- r.cmd.Wait ( )
