@@ -156,7 +156,10 @@ func ( rn * Router_Network ) add_router ( name string, router_type string ) {
 
 /*
   Add a new router to the network. You can add all routers before
-  calling Init, but it's also OK to 
+  calling Init, but it's also OK to add more after the network has 
+  started. In that case, you must call Init() and Run() again.
+  Routers that have already been initialized and started will not 
+  be affected.
 */
 func ( rn * Router_Network ) Add_Router ( name string ) {
   rn.add_router ( name, "interior" )
@@ -166,6 +169,10 @@ func ( rn * Router_Network ) Add_Router ( name string ) {
 
 
 
+/*
+  Similar to Add_Router(), but adds an edge instead of an interior
+  router.
+*/
 func ( rn * Router_Network ) Add_Edge ( name string ) {
   rn.add_router ( name, "edge" )
 }
@@ -174,9 +181,19 @@ func ( rn * Router_Network ) Add_Edge ( name string ) {
 
 
 
+/*
+  Connect the first router to the second. I.e. the first router
+  will have a connector created in its config file that will 
+  connect to the appropriate port of the second router.
+  You cannot connect to an edge router.
+*/
 func ( rn * Router_Network ) Connect ( router_1_name string, router_2_name string ) {
   router_1 := rn.get_router_by_name ( router_1_name )
   router_2 := rn.get_router_by_name ( router_2_name )
+
+  if router_2.Router_Type() == "edge" {
+    return
+  }
 
   if router_1.Router_Type() == "edge" {
     router_1.Connect_To ( router_2.Edge_Port() )
@@ -188,6 +205,13 @@ func ( rn * Router_Network ) Connect ( router_1_name string, router_2_name strin
 
 
 
+/*
+  Initialize the network. This is usually called once just before
+  starting the network, but can also be called when the network is 
+  running, after new routers have been added.
+  And uninitialized routers will be initialized, i.e. their config
+  files will be created, so they will be ready to start.
+*/
 func ( rn * Router_Network ) Init ( ) {
   for _, router := range rn.routers {
     router.Init ( )
@@ -198,6 +222,9 @@ func ( rn * Router_Network ) Init ( ) {
 
 
 
+/*
+  Start all routers in the network that are not already started.
+*/
 func ( rn * Router_Network ) Run ( ) {
   for _, router := range rn.routers {
     router.Run ( )
@@ -208,6 +235,12 @@ func ( rn * Router_Network ) Run ( ) {
 
 
 
+/*
+  Call the qdstat tool on the named router, and confirm that all 
+  of its endpoint links are up and running. 
+  This is meant to let you check on an interior router to confirm 
+  that all its attached edge routers are still connected.
+*/
 func ( rn * Router_Network ) Check_Links ( router_name string ) error {
   // set up env ----------------------------------------------
   INSTALL_ROOT          := "/home/mick/mercury/system_code/install"
@@ -268,6 +301,11 @@ func ( rn * Router_Network ) Check_Links ( router_name string ) error {
 
 
 
+/*
+  Halt all routers in the network.
+  An error will be returned if any of the routers have 
+  already halted.
+*/
 func ( rn * Router_Network ) Halt ( ) error {
   var first_err error
   for _, router := range rn.routers {
