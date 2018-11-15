@@ -16,7 +16,7 @@ var fp = fmt.Fprintf
 func getenv ( key string ) string {
   val := os.Getenv ( key )
   if val == "" {
-    fp ( os.Stderr, "need environment variable |%s|.\n" )
+    fp ( os.Stderr, "need environment variable |%s|.\n", key )
     os.Exit ( 1 )
   }
   return val
