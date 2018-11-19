@@ -17,6 +17,11 @@
  * under the License.
  */
 
+/*
+  test_01 just starts a router, waits for a few seconds, and
+  shuts it down again. If the router has not already died on
+  its own, then the test succeeds.
+*/
 package main
   
 import ( "fmt"
@@ -45,6 +50,29 @@ func getenv ( key string ) string {
 
 
 
+/*
+  Create the paths that are derivable from the Mercury root 
+  and test name/ID and create the necessary directories.
+*/
+func do_paths ( mercury_root, test_name, test_id string ) ( router_path, result_path, config_path, log_path string ) {
+
+  router_path,
+  result_path,
+  config_path,
+  log_path =
+  utils.Make_paths ( mercury_root, test_id, test_name )
+
+  utils.Find_or_create_dir ( result_path )
+  utils.Find_or_create_dir ( config_path )
+  utils.Find_or_create_dir ( log_path )
+  
+  return router_path, result_path, config_path, log_path
+}
+
+
+
+
+
 func
 main ( ) {
   mercury_root          := getenv ( "MERCURY_ROOT" )
@@ -60,24 +88,24 @@ main ( ) {
   result_path, 
   config_path, 
   log_path := 
-  utils.Make_paths ( mercury_root, * test_id_p, * test_name_p )
+  do_paths ( mercury_root, * test_name_p, * test_id_p )
 
   router_name           := "A"
   n_worker_threads      := 4
   router_type           := "interior"
 
-  utils.Find_or_create_dir ( result_path )
-  utils.Find_or_create_dir ( config_path )
-  utils.Find_or_create_dir ( log_path )
-
   client_port, _ := utils.Available_port ( )
   router_port, _ := utils.Available_port ( )
   edge_port,   _ := utils.Available_port ( )
 
-  fp ( os.Stdout, "%s %s : creating router %s.\n", * test_name_p, * test_id_p, router_name )
+  if * verbose_p {
+    fp ( os.Stdout, "%s %s : creating router %s.\n", * test_name_p, * test_id_p, router_name )
+  }
+
   router := router.New_Router ( router_name,
                                 router_type,
                                 n_worker_threads, 
+                                result_path,
                                 router_path,
                                 config_path,
                                 log_path,
@@ -103,11 +131,11 @@ main ( ) {
   err = router.Halt ( )
   if err != nil {
     fp ( os.Stdout, "%s %s : test failed.\n",   * test_name_p, * test_id_p )
-    fp ( os.Stdout, "%s %s : results in %s.\n", * test_name_p, * test_id_p, result_path )
+    fp ( os.Stdout, "%s %s : results in %s .\n", * test_name_p, * test_id_p, result_path )
     utils.End_test_and_exit ( result_path, "error on shutdown: " + err.Error() )
   }
   fp ( os.Stdout, "%s %s : test successful.\n", * test_name_p, * test_id_p )
-  fp ( os.Stdout, "%s %s : results in %s.\n",   * test_name_p, * test_id_p, result_path )
+  fp ( os.Stdout, "%s %s : results in %s .\n",   * test_name_p, * test_id_p, result_path )
 
   utils.End_test_and_exit ( result_path, "" )
 }

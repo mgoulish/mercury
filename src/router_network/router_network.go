@@ -67,6 +67,7 @@ var fp = fmt.Fprintf
 type Router_Network struct {
   Name             string
   worker_threads   int
+  result_path      string
   executable_path  string
   config_path      string
   log_path         string
@@ -106,6 +107,7 @@ type Router_Network struct {
 */
 func New_Router_Network ( name            string,
                           worker_threads  int,
+                          result_path     string,
                           executable_path string,
                           config_path     string,
                           log_path        string,
@@ -115,6 +117,7 @@ func New_Router_Network ( name            string,
   var rn * Router_Network
   rn = & Router_Network { Name            : name,
                           worker_threads  : worker_threads,
+                          result_path     : result_path,
                           executable_path : executable_path,
                           config_path     : config_path,
                           log_path        : log_path,
@@ -138,6 +141,7 @@ func ( rn * Router_Network ) add_router ( name string, router_type string ) {
   router := router.New_Router ( name,
                                 router_type,
                                 rn.worker_threads,
+                                rn.result_path,
                                 rn.executable_path,
                                 rn.config_path,
                                 rn.log_path,

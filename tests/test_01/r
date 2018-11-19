@@ -18,13 +18,17 @@
 #  under the License.
 
   
-export MERCURY_ROOT=/home/mick/mercury
-export DISPATCH_INSTALL_ROOT=/home/mick/latest/install/dispatch
-export PROTON_INSTALL_ROOT=/home/mick/latest/install/proton
+# NOTE: the following environment variables are serving suggestions. 
+# Alter as desired, and use them in your ~/.bashrc, or directly
+# in this file.
+
+export MERCURY_ROOT=${HOME}/mercury
+export DISPATCH_INSTALL_ROOT=${HOME}/latest/install/dispatch
+export PROTON_INSTALL_ROOT=${HOME}/latest/install/proton
 
 export GOPATH=${MERCURY_ROOT}
 
-go run ./test_01.go -name test_01 -id 2018_10_31 
+go run ./test_01.go -name test_01 -id `date +%Y_%m_%d`
 
 # If it doesn't work, turn on verbosity so you can see all
 # the environment variables and commands : 

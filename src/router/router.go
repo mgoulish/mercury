@@ -36,12 +36,14 @@
 */
 package router
 
-import ( "fmt"
+import ( "errors"
+         "fmt"
          "os"
-         "strings"
          "os/exec"
+         "strconv"
+         "strings"
          "time"
-         "errors"
+         "utils"
        )
 
 
@@ -73,6 +75,7 @@ type Router struct {
   name                    string
   router_type             string
   worker_threads          int
+  result_path             string
   executable_path         string
   config_path             string
   log_path                string
@@ -84,9 +87,20 @@ type Router struct {
   edge_port               string
   verbose                 bool
 
+  results_dir             string
   state                   router_state            
   cmd                   * exec.Cmd
   connect_to_ports        [] string
+}
+
+
+
+
+
+func check ( err error ) {
+  if err != nil {
+    panic ( err )
+  }
 }
 
 
@@ -108,6 +122,7 @@ type Router struct {
 func New_Router ( name                  string, 
                   router_type           string,
                   worker_threads        int,
+                  result_path           string,
                   executable_path       string,
                   config_path           string,
                   log_path              string,
@@ -122,6 +137,7 @@ func New_Router ( name                  string,
   r = & Router { name                  : name, 
                  router_type           : router_type,
                  worker_threads        : worker_threads,
+                 result_path           : result_path,
                  executable_path       : executable_path,
                  config_path           : config_path,
                  log_path              : log_path,
@@ -350,25 +366,39 @@ func ( r * Router ) Run ( ) error {
   DISPATCH_PYTHONPATH2  := r.dispatch_install_root + "/lib/python2.7/site-packages"
   PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2
 
+  // Set up the environment for the router process.
   os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
   os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
-
-  if r.verbose {
-    fp ( os.Stdout, "router : LD_LIBRARY_PATH is |%s|\n", LD_LIBRARY_PATH )
-    fp ( os.Stdout, "router : PYTHONPATH is |%s|\n", PYTHONPATH )
-  }
-
   include := " -I " + r.dispatch_install_root + "/lib/qpid-dispatch/python"
   args := " --config " + r.config_file_path + include
   args_list := strings.Fields ( args )
 
-  if r.verbose {
-    fp ( os.Stdout, "router : command is |%s %s|\n", r.executable_path, args )}
-
+  // Start the router process and gets its pid for the result directory name.
   r.cmd = exec.Command ( r.executable_path,  args_list... )
-
   r.cmd.Start ( )
   r.state = running
+  r.results_dir = r.result_path + "/env/" + strconv.Itoa(r.cmd.Process.Pid) 
+  utils.Find_or_create_dir ( r.results_dir )
+
+  // Write the environment variables to the results directory.
+  // This helps the user to reproduce this test, if desired.
+  env_file_name := r.results_dir + "/environment_variables"
+  env_file, err := os.Create ( env_file_name )
+  check ( err )
+  defer env_file.Close ( )
+  env_string := "export LD_LIBRARY_PATH=" + LD_LIBRARY_PATH + "\n"
+  env_file.WriteString ( env_string )
+  env_string  = "export PYTHONPATH=" + PYTHONPATH + "\n"
+  env_file.WriteString ( env_string )
+
+  // Write the command line to the results directory.
+  // This helps the user to reproduce this test, if desired.
+  command_file_name := r.results_dir + "/command_line"
+  command_file, err := os.Create ( command_file_name )
+  check ( err )
+  defer command_file.Close ( )
+  command_string := r.executable_path + " " + args
+  command_file.WriteString ( command_string + "\n" )
 
   return nil
 }

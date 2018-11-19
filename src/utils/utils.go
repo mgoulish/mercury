@@ -85,8 +85,7 @@ func End_test_and_exit ( result_path string, test_error string ) {
 }
 
 
-func
-Make_paths ( mercury_root, test_id, test_name string ) ( router_path, result_path, config_path, log_path string ) {
+func Make_paths ( mercury_root, test_id, test_name string ) ( router_path, result_path, config_path, log_path string ) {
   dispatch_install_root := os.Getenv ( "DISPATCH_INSTALL_ROOT" )
   router_path            = dispatch_install_root + "/sbin/qdrouterd"
   result_path            = mercury_root + "/results/" + test_name + "/" + test_id
@@ -96,3 +95,14 @@ Make_paths ( mercury_root, test_id, test_name string ) ( router_path, result_pat
   return router_path, result_path, config_path, log_path
 }
 
+
+
+
+
+func Memory_usage ( pid int ) ( usage int ) {
+  
+  proc_file_name := "/proc/" + string(pid) + "/statm"
+  fp ( os.Stderr, "My file name is |%s|\n", proc_file_name );
+
+  return 0
+}

@@ -17,6 +17,12 @@
  * under the License.
  */
 
+/*
+  test_02 starts a linear network of 3 routers, adds several edge 
+  routers to 1 of them, and then checks those edge routers to make
+  sure that all of their links are up and running. If they are,
+  the test succeeds.
+*/
 
 package main
   
@@ -75,6 +81,7 @@ main ( ) {
 
   network := rn.New_Router_Network ( * test_name_p + "_router_network",
                                      n_worker_threads,
+                                     result_path,
                                      router_path,
                                      config_path,
                                      log_path,
