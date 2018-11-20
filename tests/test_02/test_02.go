@@ -132,6 +132,10 @@ main ( ) {
     }
   }
 
+  network.Record_resource_usage ( )
+  network.Record_resource_usage ( )
+  network.Record_resource_usage ( )
+
   fp ( os.Stdout, "  Halting.\n" )
   err := network.Halt ( )
   if err != nil {

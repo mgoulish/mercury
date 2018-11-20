@@ -87,20 +87,11 @@ type Router struct {
   edge_port               string
   verbose                 bool
 
-  results_dir             string
   state                   router_state            
   cmd                   * exec.Cmd
   connect_to_ports        [] string
-}
-
-
-
-
-
-func check ( err error ) {
-  if err != nil {
-    panic ( err )
-  }
+  resource_usage_dir      string
+  mem_usage_file_name     string
 }
 
 
@@ -377,14 +368,18 @@ func ( r * Router ) Run ( ) error {
   r.cmd = exec.Command ( r.executable_path,  args_list... )
   r.cmd.Start ( )
   r.state = running
-  r.results_dir = r.result_path + "/env/" + strconv.Itoa(r.cmd.Process.Pid) 
-  utils.Find_or_create_dir ( r.results_dir )
+  env_dir := r.result_path + "/env/" + strconv.Itoa(r.cmd.Process.Pid) 
+  r.mem_usage_file_name = r.resource_usage_dir + "mem"
+  utils.Find_or_create_dir ( env_dir )
+  r.resource_usage_dir = r.result_path + "/resources/" + strconv.Itoa(r.cmd.Process.Pid)
+  utils.Find_or_create_dir ( r.resource_usage_dir )
+  r.mem_usage_file_name = r.resource_usage_dir + "/mem"
 
   // Write the environment variables to the results directory.
   // This helps the user to reproduce this test, if desired.
-  env_file_name := r.results_dir + "/environment_variables"
+  env_file_name := env_dir + "/environment_variables"
   env_file, err := os.Create ( env_file_name )
-  check ( err )
+  utils.Check ( err )
   defer env_file.Close ( )
   env_string := "export LD_LIBRARY_PATH=" + LD_LIBRARY_PATH + "\n"
   env_file.WriteString ( env_string )
@@ -393,9 +388,9 @@ func ( r * Router ) Run ( ) error {
 
   // Write the command line to the results directory.
   // This helps the user to reproduce this test, if desired.
-  command_file_name := r.results_dir + "/command_line"
+  command_file_name := env_dir + "/command_line"
   command_file, err := os.Create ( command_file_name )
-  check ( err )
+  utils.Check ( err )
   defer command_file.Close ( )
   command_string := r.executable_path + " " + args
   command_file.WriteString ( command_string + "\n" )
@@ -452,6 +447,20 @@ func ( r * Router ) Halt ( ) error {
   }
 
   return nil
+}
+
+
+
+
+
+func ( r * Router ) Record_resource_usage ( ) {
+  rss := utils.Memory_usage ( r.cmd.Process.Pid )
+
+  mem_usage_file, err := os.OpenFile ( r.mem_usage_file_name, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0600 )
+  utils.Check ( err )
+  defer mem_usage_file.Close ( )
+
+  mem_usage_file.WriteString ( strconv.Itoa ( rss ) + "\n" )
 }
 
 

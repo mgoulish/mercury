@@ -24,10 +24,20 @@ package utils
 import ( "fmt"
          "os"
          "net"
-)
+         "strconv" )
 
 
 var fp = fmt.Fprintf
+
+
+
+
+
+func Check ( err error ) {
+  if err != nil {
+    panic ( err )
+  }
+}
 
 
 
@@ -54,6 +64,7 @@ func Available_port () ( port string, err error ) {
 
 
 
+
 func Find_or_create_dir ( path string ) {
   _, err := os.Stat ( path )
   if os.IsNotExist ( err ) {
@@ -64,6 +75,8 @@ func Find_or_create_dir ( path string ) {
     }
   }
 }
+
+
 
 
 
@@ -85,6 +98,9 @@ func End_test_and_exit ( result_path string, test_error string ) {
 }
 
 
+
+
+
 func Make_paths ( mercury_root, test_id, test_name string ) ( router_path, result_path, config_path, log_path string ) {
   dispatch_install_root := os.Getenv ( "DISPATCH_INSTALL_ROOT" )
   router_path            = dispatch_install_root + "/sbin/qdrouterd"
@@ -99,10 +115,18 @@ func Make_paths ( mercury_root, test_id, test_name string ) ( router_path, resul
 
 
 
-func Memory_usage ( pid int ) ( usage int ) {
-  
-  proc_file_name := "/proc/" + string(pid) + "/statm"
-  fp ( os.Stderr, "My file name is |%s|\n", proc_file_name );
+func Memory_usage ( pid int ) ( rss int ) {
+  proc_file_name := "/proc/" + strconv.Itoa(pid) + "/statm"
+  proc_file, err := os.Open ( proc_file_name )
+  Check ( err )
+  defer proc_file.Close ( )
 
-  return 0
+  var vm_size int
+  fmt.Fscanf ( proc_file, "%d%d", & vm_size, & rss )
+  return rss
 }
+
+
+
+
+

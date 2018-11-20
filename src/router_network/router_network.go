@@ -326,6 +326,16 @@ func ( rn * Router_Network ) Halt ( ) error {
 
 
 
+func ( rn * Router_Network ) Record_resource_usage ( ) {
+  for _, router := range rn.routers {
+    router.Record_resource_usage ( )
+  }
+}
+
+
+
+
+
 func ( rn * Router_Network ) get_router_by_name ( target_name string ) * router.Router {
   for _, router := range rn.routers {
     if router.Name() == target_name {
