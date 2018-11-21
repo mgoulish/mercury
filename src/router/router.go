@@ -51,6 +51,8 @@ var fp = fmt.Fprintf
 
 
 
+
+
 type router_state int
 
 const (
@@ -59,6 +61,8 @@ const (
   running                 
   halted
 )
+
+
 
 
 
@@ -72,26 +76,28 @@ const (
   program.
 */
 type Router struct {
-  name                    string
-  router_type             string
-  worker_threads          int
-  result_path             string
-  executable_path         string
-  config_path             string
-  log_path                string
-  config_file_path        string
-  dispatch_install_root   string
-  proton_install_root     string
-  client_port             string
-  router_port             string
-  edge_port               string
-  verbose                 bool
+  name                           string
+  router_type                    string
+  worker_threads                 int
+  result_path                    string
+  executable_path                string
+  config_path                    string
+  log_path                       string
+  config_file_path               string
+  dispatch_install_root          string
+  proton_install_root            string
+  client_port                    string
+  router_port                    string
+  edge_port                      string
+  verbose                        bool
 
-  state                   router_state            
-  cmd                   * exec.Cmd
-  connect_to_ports        [] string
-  resource_usage_dir      string
-  mem_usage_file_name     string
+  state                          router_state            
+  cmd                          * exec.Cmd
+  connect_to_ports               [] string
+  resource_usage_dir             string
+  mem_usage_file_name            string
+  resource_measurement_frequency int
+  resource_ticker              * time.Ticker
 }
 
 
@@ -110,34 +116,36 @@ type Router struct {
   other interior routers, and a separate listener for
   edge routers.
 */
-func New_Router ( name                  string, 
-                  router_type           string,
-                  worker_threads        int,
-                  result_path           string,
-                  executable_path       string,
-                  config_path           string,
-                  log_path              string,
-                  dispatch_install_root string,
-                  proton_install_root   string,
-                  client_port           string,
-                  router_port           string,
-                  edge_port             string,
-                  verbose               bool ) * Router {
+func New_Router ( name                        string, 
+                  router_type                 string,
+                  worker_threads              int,
+                  result_path                 string,
+                  executable_path             string,
+                  config_path                 string,
+                  log_path                    string,
+                  dispatch_install_root       string,
+                  proton_install_root         string,
+                  client_port                 string,
+                  router_port                 string,
+                  edge_port                   string,
+                  verbose                     bool,
+                  usage_measurement_frequency int ) * Router {
   var r * Router
 
-  r = & Router { name                  : name, 
-                 router_type           : router_type,
-                 worker_threads        : worker_threads,
-                 result_path           : result_path,
-                 executable_path       : executable_path,
-                 config_path           : config_path,
-                 log_path              : log_path,
-                 dispatch_install_root : dispatch_install_root,
-                 proton_install_root   : proton_install_root,
-                 client_port           : client_port,
-                 router_port           : router_port,
-                 edge_port             : edge_port,
-                 verbose               : verbose }
+  r = & Router { name                           : name, 
+                 router_type                    : router_type,
+                 worker_threads                 : worker_threads,
+                 result_path                    : result_path,
+                 executable_path                : executable_path,
+                 config_path                    : config_path,
+                 log_path                       : log_path,
+                 dispatch_install_root          : dispatch_install_root,
+                 proton_install_root            : proton_install_root,
+                 client_port                    : client_port,
+                 router_port                    : router_port,
+                 edge_port                      : edge_port,
+                 verbose                        : verbose,
+                 resource_measurement_frequency : usage_measurement_frequency }
   return r
 }
 
@@ -395,7 +403,23 @@ func ( r * Router ) Run ( ) error {
   command_string := r.executable_path + " " + args
   command_file.WriteString ( command_string + "\n" )
 
+  // Start the resource usage ticker.
+  ticker_time := time.Second * time.Duration ( r.resource_measurement_frequency )
+  r.resource_ticker = time.NewTicker ( ticker_time )
+  go r.resource_measurement_ticker ( )
+
   return nil
+}
+
+
+
+
+
+func ( r * Router ) resource_measurement_ticker ( ) {
+  for range r.resource_ticker.C {
+    fp ( os.Stderr, "router %s: Do a Resource Measurement!\n", r.name )
+    r.record_resource_usage ( )
+  }
 }
 
 
@@ -453,7 +477,7 @@ func ( r * Router ) Halt ( ) error {
 
 
 
-func ( r * Router ) Record_resource_usage ( ) {
+func ( r * Router ) record_resource_usage ( ) {
   rss := utils.Memory_usage ( r.cmd.Process.Pid )
 
   mem_usage_file, err := os.OpenFile ( r.mem_usage_file_name, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0600 )

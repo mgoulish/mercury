@@ -65,16 +65,18 @@ var fp = fmt.Fprintf
   conatins the vector of routers.
 */
 type Router_Network struct {
-  Name             string
-  worker_threads   int
-  result_path      string
-  executable_path  string
-  config_path      string
-  log_path         string
-  dispatch_root    string
-  proton_root      string
-  qdstat_path      string
-  verbose          bool
+  Name                        string
+
+  worker_threads                 int
+  result_path                    string
+  executable_path                string
+  config_path                    string
+  log_path                       string
+  dispatch_root                  string
+  proton_root                    string
+  qdstat_path                    string
+  verbose                        bool
+  resource_measurement_frequency int
 
   routers          [] * router.Router
 }
@@ -105,26 +107,28 @@ type Router_Network struct {
                            lib64
                            share
 */
-func New_Router_Network ( name            string,
-                          worker_threads  int,
-                          result_path     string,
-                          executable_path string,
-                          config_path     string,
-                          log_path        string,
-                          dispatch_root   string,
-                          proton_root     string,
-                          verbose         bool ) * Router_Network {
+func New_Router_Network ( name                           string,
+                          worker_threads                 int,
+                          result_path                    string,
+                          executable_path                string,
+                          config_path                    string,
+                          log_path                       string,
+                          dispatch_root                  string,
+                          proton_root                    string,
+                          verbose                        bool,
+                          resource_measurement_frequency int ) * Router_Network {
   var rn * Router_Network
-  rn = & Router_Network { Name            : name,
-                          worker_threads  : worker_threads,
-                          result_path     : result_path,
-                          executable_path : executable_path,
-                          config_path     : config_path,
-                          log_path        : log_path,
-                          dispatch_root   : dispatch_root,
-                          proton_root     : proton_root,
-                          qdstat_path     : dispatch_root + "/bin/qdstat",
-                          verbose         : verbose }
+  rn = & Router_Network { Name                           : name,
+                          worker_threads                 : worker_threads,
+                          result_path                    : result_path,
+                          executable_path                : executable_path,
+                          config_path                    : config_path,
+                          log_path                       : log_path,
+                          dispatch_root                  : dispatch_root,
+                          proton_root                    : proton_root,
+                          qdstat_path                    : dispatch_root + "/bin/qdstat",
+                          verbose                        : verbose,
+                          resource_measurement_frequency : resource_measurement_frequency}
 
   return rn
 }
@@ -150,7 +154,8 @@ func ( rn * Router_Network ) add_router ( name string, router_type string ) {
                                 client_port,
                                 router_port,
                                 edge_port,
-                                rn.verbose )
+                                rn.verbose,
+                                rn.resource_measurement_frequency )
   rn.routers = append ( rn.routers, router )
 }
 
@@ -320,16 +325,6 @@ func ( rn * Router_Network ) Halt ( ) error {
   }
 
   return first_err
-}
-
-
-
-
-
-func ( rn * Router_Network ) Record_resource_usage ( ) {
-  for _, router := range rn.routers {
-    router.Record_resource_usage ( )
-  }
 }
 
 

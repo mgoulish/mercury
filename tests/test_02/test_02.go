@@ -79,6 +79,8 @@ main ( ) {
 
   n_worker_threads := 4
 
+  resource_measurement_frequency := 30
+
   network := rn.New_Router_Network ( * test_name_p + "_router_network",
                                      n_worker_threads,
                                      result_path,
@@ -87,7 +89,8 @@ main ( ) {
                                      log_path,
                                      dispatch_install_root,
                                      proton_install_root,
-                                     * verbose_p )
+                                     * verbose_p,
+                                     resource_measurement_frequency )
 
   fp ( os.Stdout, "  Making interior routers.\n" )
   network.Add_Router ( "A" )
@@ -132,9 +135,8 @@ main ( ) {
     }
   }
 
-  network.Record_resource_usage ( )
-  network.Record_resource_usage ( )
-  network.Record_resource_usage ( )
+  fp ( os.Stderr, "main is sleeping for 90 seconds.\n" )
+  time.Sleep ( 100 * time.Second )
 
   fp ( os.Stdout, "  Halting.\n" )
   err := network.Halt ( )
