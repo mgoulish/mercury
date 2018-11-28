@@ -96,6 +96,7 @@ type Router struct {
   connect_to_ports               [] string
   resource_usage_dir             string
   mem_usage_file_name            string
+  cpu_usage_file_name            string
   resource_measurement_frequency int
   resource_ticker              * time.Ticker
 }
@@ -377,11 +378,11 @@ func ( r * Router ) Run ( ) error {
   r.cmd.Start ( )
   r.state = running
   env_dir := r.result_path + "/env/" + strconv.Itoa(r.cmd.Process.Pid) 
-  r.mem_usage_file_name = r.resource_usage_dir + "mem"
   utils.Find_or_create_dir ( env_dir )
   r.resource_usage_dir = r.result_path + "/resources/" + strconv.Itoa(r.cmd.Process.Pid)
   utils.Find_or_create_dir ( r.resource_usage_dir )
   r.mem_usage_file_name = r.resource_usage_dir + "/mem"
+  r.cpu_usage_file_name = r.resource_usage_dir + "/cpu"
 
   // Write the environment variables to the results directory.
   // This helps the user to reproduce this test, if desired.
@@ -417,7 +418,6 @@ func ( r * Router ) Run ( ) error {
 
 func ( r * Router ) resource_measurement_ticker ( ) {
   for range r.resource_ticker.C {
-    fp ( os.Stderr, "router %s: Do a Resource Measurement!\n", r.name )
     r.record_resource_usage ( )
   }
 }
@@ -478,13 +478,19 @@ func ( r * Router ) Halt ( ) error {
 
 
 func ( r * Router ) record_resource_usage ( ) {
+  // memory ----------------------------
   rss := utils.Memory_usage ( r.cmd.Process.Pid )
-
   mem_usage_file, err := os.OpenFile ( r.mem_usage_file_name, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0600 )
   utils.Check ( err )
   defer mem_usage_file.Close ( )
-
   mem_usage_file.WriteString ( strconv.Itoa ( rss ) + "\n" )
+
+  // cpu ----------------------------
+  cpu_usage_file, err := os.OpenFile ( r.cpu_usage_file_name, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0600 )
+  utils.Check ( err )
+  defer cpu_usage_file.Close ( )
+  cpu_usage := utils.Cpu_usage ( r.cmd.Process.Pid )
+  cpu_usage_file.WriteString ( strconv.Itoa ( cpu_usage ) + "\n" )
 }
 
 

@@ -23,7 +23,9 @@ package utils
 
 import ( "fmt"
          "os"
+         "os/exec"
          "net"
+         "strings"
          "strconv" )
 
 
@@ -125,6 +127,34 @@ func Memory_usage ( pid int ) ( rss int ) {
   fmt.Fscanf ( proc_file, "%d%d", & vm_size, & rss )
   return rss
 }
+
+
+
+
+
+func Cpu_usage ( target_pid int ) ( cpu_usage int ) {
+
+  // Let top iterate twice for greater accuracy.
+  command   := "top" 
+  args      := " -b -n 2 -p " + strconv.Itoa ( target_pid )
+  args_list := strings.Fields ( args )
+
+  out, err := exec.Command ( command, args_list... ).Output()
+  Check ( err )
+
+  lines := strings.Split ( string(out), "\n" )
+
+  last_line := lines [ len(lines) - 2 ]
+  fields := strings.Fields ( last_line )
+  cpu_field := fields [ 8 ]
+  temp, err := strconv.ParseFloat ( cpu_field, 32 )
+  Check ( err )
+  cpu_usage = int ( 100 * temp )
+
+  return cpu_usage
+}
+
+
 
 
 

@@ -102,6 +102,8 @@ main ( ) {
     fp ( os.Stdout, "%s %s : creating router %s.\n", * test_name_p, * test_id_p, router_name )
   }
 
+  usage_measurement_frequency := 10
+
   router := router.New_Router ( router_name,
                                 router_type,
                                 n_worker_threads, 
@@ -114,7 +116,8 @@ main ( ) {
                                 client_port,
                                 router_port,
                                 edge_port,
-                                * verbose_p )
+                                * verbose_p,
+                                usage_measurement_frequency )
   err := router.Init ( )
   if err != nil {
     utils.End_test_and_exit ( result_path, "error on init: " + err.Error() )
@@ -126,7 +129,7 @@ main ( ) {
     utils.End_test_and_exit ( result_path, "error on startup: " + err.Error() )
   }
 
-  time.Sleep ( 10 * time.Second )
+  time.Sleep ( 180 * time.Second )
 
   err = router.Halt ( )
   if err != nil {
