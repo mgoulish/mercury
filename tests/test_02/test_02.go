@@ -64,7 +64,9 @@ main ( ) {
   verbose_p   := flag.Bool   ( "verbose", false,     "if true, print out debugging aids."        )
   flag.Parse ( )
 
-  fp ( os.Stdout, "\n\ntest %s starting.\n", * test_name_p )
+  if * verbose_p {
+    fp ( os.Stdout, "\n\ntest %s starting.\n", * test_name_p )
+  }
   n_edges := 5
 
   router_path, 
@@ -92,7 +94,9 @@ main ( ) {
                                      * verbose_p,
                                      resource_measurement_frequency )
 
-  fp ( os.Stdout, "  Making interior routers.\n" )
+  if * verbose_p {
+    fp ( os.Stdout, "  Making interior routers.\n" )
+  }
   network.Add_Router ( "A" )
   network.Add_Router ( "B" )
   network.Add_Router ( "C" )
@@ -102,13 +106,17 @@ main ( ) {
 
   network.Init ( )
   network.Run ( )
-  fp ( os.Stdout, "  Interior router network is running.\n" )
+  if * verbose_p {
+    fp ( os.Stdout, "  Interior router network is running.\n" )
+  }
 
   time.Sleep ( 3 * time.Second )
 
   // Make edges -----------------------------------
+  if * verbose_p {
+    fp ( os.Stdout, "  Making edge routers.\n" )
+  }
   //start_time := time.Now ( )
-  fp ( os.Stdout, "  Making edge routers.\n" )
   for edge_count := 1; edge_count <= n_edges; edge_count ++ {
     time.Sleep ( 500 * time.Millisecond )
     edge_name := fmt.Sprintf ( "e%d", edge_count )
@@ -116,7 +124,9 @@ main ( ) {
     network.Connect ( edge_name, "A" )
     network.Init ( )
     network.Run ( )
-    fp ( os.Stdout, "    %s\n", edge_name )
+    if * verbose_p {
+      fp ( os.Stdout, "    %s\n", edge_name )
+    }
   }
   //stop_time := time.Now ( )
   //elapsed   := stop_time.Sub ( start_time )
@@ -124,10 +134,14 @@ main ( ) {
   time.Sleep ( 3 * time.Second )
 
   // Check all the edges -----------------------------------
-  fp ( os.Stdout, "  Checking edges.\n" )
+  if * verbose_p {
+    fp ( os.Stdout, "  Checking edges.\n" )
+  }
   for edge_count := 1; edge_count <= n_edges; edge_count ++ {
     edge_name := fmt.Sprintf ( "e%d", edge_count )
-    fp ( os.Stdout, "    %s\n", edge_name )
+    if * verbose_p {
+      fp ( os.Stdout, "    %s\n", edge_name )
+    }
     err := network.Check_Links ( edge_name )
 
     if err != nil {
@@ -135,23 +149,33 @@ main ( ) {
     }
   }
 
-  fp ( os.Stderr, "main is sleeping for 90 seconds.\n" )
-  time.Sleep ( 100 * time.Second )
+  if * verbose_p {
+    fp ( os.Stderr, "main is sleeping for 30 seconds.\n" )
+  }
+  time.Sleep ( 30 * time.Second )
 
-  fp ( os.Stdout, "  Halting.\n" )
+  if * verbose_p {
+    fp ( os.Stdout, "  Halting.\n" )
+  }
+
   err := network.Halt ( )
+
   if err != nil {
-    fp ( os.Stdout, "  Error.\n" )
-    fp ( os.Stdout, "  Results are in |%s|\n", result_path )
-    fp ( os.Stdout, "test %s complete.\n", * test_name_p )
+    if * verbose_p {
+      fp ( os.Stdout, "  Error.\n" )
+      fp ( os.Stdout, "  Results are in |%s|\n", result_path )
+      fp ( os.Stdout, "test %s complete.\n", * test_name_p )
+    }
     utils.End_test_and_exit ( result_path, "error on halt: " + err.Error() )
   } 
 
-  fp ( os.Stdout, "  Success.\n" );
-  fp ( os.Stdout, "  Results are in |%s|\n", result_path )
-  fp ( os.Stdout, "test %s complete.\n\n\n", * test_name_p )
-  utils.End_test_and_exit ( result_path, "" )
+  if * verbose_p {
+    fp ( os.Stdout, "  Success.\n" );
+    fp ( os.Stdout, "  Results are in |%s|\n", result_path )
+    fp ( os.Stdout, "test %s complete.\n\n\n", * test_name_p )
+  }
 
+  utils.End_test_and_exit ( result_path, "" )
 }
 
 
