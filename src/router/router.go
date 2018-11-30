@@ -180,7 +180,7 @@ func ( r * Router ) Name ( ) string  {
 /*
   Get the router's type, i.e. interior or edge.
 */
-func ( r * Router ) Router_Type ( ) string  {
+func ( r * Router ) Type ( ) string  {
   return r.router_type
 }
 
@@ -352,7 +352,7 @@ func ( r * Router ) write_config_file ( ) error {
   This fn sets up the router's environment variables, 
   and runs the router as a separate process.
 */
-func ( r * Router ) Run ( ) error {
+func ( r * Router ) Run ( do_resource_measurement bool ) error {
 
   if r.state == running {
     return nil
@@ -379,10 +379,13 @@ func ( r * Router ) Run ( ) error {
   r.state = running
   env_dir := r.result_path + "/env/" + strconv.Itoa(r.cmd.Process.Pid) 
   utils.Find_or_create_dir ( env_dir )
-  r.resource_usage_dir = r.result_path + "/resources/" + strconv.Itoa(r.cmd.Process.Pid)
-  utils.Find_or_create_dir ( r.resource_usage_dir )
-  r.mem_usage_file_name = r.resource_usage_dir + "/mem"
-  r.cpu_usage_file_name = r.resource_usage_dir + "/cpu"
+
+  if do_resource_measurement {
+    r.resource_usage_dir = r.result_path + "/resources/" + strconv.Itoa(r.cmd.Process.Pid)
+    utils.Find_or_create_dir ( r.resource_usage_dir )
+    r.mem_usage_file_name = r.resource_usage_dir + "/mem"
+    r.cpu_usage_file_name = r.resource_usage_dir + "/cpu"
+  }
 
   // Write the environment variables to the results directory.
   // This helps the user to reproduce this test, if desired.
@@ -405,9 +408,11 @@ func ( r * Router ) Run ( ) error {
   command_file.WriteString ( command_string + "\n" )
 
   // Start the resource usage ticker.
-  ticker_time := time.Second * time.Duration ( r.resource_measurement_frequency )
-  r.resource_ticker = time.NewTicker ( ticker_time )
-  go r.resource_measurement_ticker ( )
+  if do_resource_measurement {
+    ticker_time := time.Second * time.Duration ( r.resource_measurement_frequency )
+    r.resource_ticker = time.NewTicker ( ticker_time )
+    go r.resource_measurement_ticker ( )
+  }
 
   return nil
 }

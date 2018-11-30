@@ -52,6 +52,7 @@ import ( "fmt"
          "strings"
          "errors"
          "utils"
+         "strconv"
        )
 
 
@@ -200,11 +201,11 @@ func ( rn * Router_Network ) Connect ( router_1_name string, router_2_name strin
   router_1 := rn.get_router_by_name ( router_1_name )
   router_2 := rn.get_router_by_name ( router_2_name )
 
-  if router_2.Router_Type() == "edge" {
+  if router_2.Type() == "edge" {
     return
   }
 
-  if router_1.Router_Type() == "edge" {
+  if router_1.Type() == "edge" {
     router_1.Connect_To ( router_2.Edge_Port() )
   } else {
     router_1.Connect_To ( router_2.Router_Port() )
@@ -236,7 +237,7 @@ func ( rn * Router_Network ) Init ( ) {
 */
 func ( rn * Router_Network ) Run ( ) {
   for _, router := range rn.routers {
-    router.Run ( )
+    router.Run ( router.Type() == "interior" )
   }
 }
 
@@ -325,6 +326,31 @@ func ( rn * Router_Network ) Halt ( ) error {
   }
 
   return first_err
+}
+
+
+
+
+
+func ( rn * Router_Network ) Halt_edge_n ( target_edge int ) error {
+  
+  if rn.verbose {
+    fp ( os.Stderr, "Router_Network.Halt_edge_n : halting edge %d\n", target_edge )
+  }
+
+  edge_count := 0
+  for _, router := range rn.routers {
+    if "edge" == router.Type() {
+      edge_count ++
+      if edge_count == target_edge {
+        err := router.Halt ( )
+        fp ( os.Stderr, "name of halted router is |%s|\n", router.Name() )
+        return err
+      }
+    }
+  }
+
+  return errors.New ( "Router_Network.Halt_edge_n error : Could not find edge router " + strconv.Itoa ( target_edge ) )
 }
 
 

@@ -120,7 +120,10 @@ func Make_paths ( mercury_root, test_id, test_name string ) ( router_path, resul
 func Memory_usage ( pid int ) ( rss int ) {
   proc_file_name := "/proc/" + strconv.Itoa(pid) + "/statm"
   proc_file, err := os.Open ( proc_file_name )
-  Check ( err )
+  if err != nil {
+    fp ( os.Stderr, "util.Memory_usage error: can't open |%s|\n", proc_file_name )
+    return -1
+  }
   defer proc_file.Close ( )
 
   var vm_size int
