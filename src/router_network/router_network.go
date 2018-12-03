@@ -52,7 +52,8 @@ import ( "fmt"
          "strings"
          "errors"
          "utils"
-         "strconv"
+         "sync"
+         "time"
        )
 
 
@@ -78,8 +79,11 @@ type Router_Network struct {
   qdstat_path                    string
   verbose                        bool
   resource_measurement_frequency int
+  test_start_time                time.Time
 
-  routers          [] * router.Router
+  routers                        [] * router.Router
+
+  router_count                   int
 }
 
 
@@ -117,7 +121,8 @@ func New_Router_Network ( name                           string,
                           dispatch_root                  string,
                           proton_root                    string,
                           verbose                        bool,
-                          resource_measurement_frequency int ) * Router_Network {
+                          resource_measurement_frequency int,
+                          test_start_time                time.Time ) * Router_Network {
   var rn * Router_Network
   rn = & Router_Network { Name                           : name,
                           worker_threads                 : worker_threads,
@@ -129,7 +134,8 @@ func New_Router_Network ( name                           string,
                           proton_root                    : proton_root,
                           qdstat_path                    : dispatch_root + "/bin/qdstat",
                           verbose                        : verbose,
-                          resource_measurement_frequency : resource_measurement_frequency}
+                          resource_measurement_frequency : resource_measurement_frequency,
+                          test_start_time                : test_start_time }
 
   return rn
 }
@@ -143,21 +149,22 @@ func ( rn * Router_Network ) add_router ( name string, router_type string ) {
   router_port, _ := utils.Available_port ( )
   edge_port, _   := utils.Available_port ( )
 
-  router := router.New_Router ( name,
-                                router_type,
-                                rn.worker_threads,
-                                rn.result_path,
-                                rn.executable_path,
-                                rn.config_path,
-                                rn.log_path,
-                                rn.dispatch_root,
-                                rn.proton_root,
-                                client_port,
-                                router_port,
-                                edge_port,
-                                rn.verbose,
-                                rn.resource_measurement_frequency )
-  rn.routers = append ( rn.routers, router )
+  r := router.New_Router ( name,
+                           router_type,
+                           rn.worker_threads,
+                           rn.result_path,
+                           rn.executable_path,
+                           rn.config_path,
+                           rn.log_path,
+                           rn.dispatch_root,
+                           rn.proton_root,
+                           client_port,
+                           router_port,
+                           edge_port,
+                           rn.verbose,
+                           rn.resource_measurement_frequency )
+  rn.router_count ++
+  rn.routers = append ( rn.routers, r )
 }
 
 
@@ -236,8 +243,10 @@ func ( rn * Router_Network ) Init ( ) {
   Start all routers in the network that are not already started.
 */
 func ( rn * Router_Network ) Run ( ) {
-  for _, router := range rn.routers {
-    router.Run ( router.Type() == "interior" )
+  for _, r := range rn.routers {
+    if r.State() == "initialized" {
+      r.Run ( r.Type() == "interior" )
+    }
   }
 }
 
@@ -310,47 +319,63 @@ func ( rn * Router_Network ) Check_Links ( router_name string ) error {
 
 
 
-
-/*
-  Halt all routers in the network.
-  An error will be returned if any of the routers have 
-  already halted.
-*/
-func ( rn * Router_Network ) Halt ( ) error {
-  var first_err error
-  for _, router := range rn.routers {
-    err := router.Halt ( )
-    if err != nil && first_err == nil {
-      first_err = err
-    }
+func halt_router ( wg * sync.WaitGroup, r * router.Router ) {
+  defer wg.Done()
+  err := r.Halt ( )
+  if err != nil {
+    fp ( os.Stderr, "Router %s halting error: %s\n", r.Name(), err.Error() )
   }
-
-  return first_err
 }
 
 
 
 
 
-func ( rn * Router_Network ) Halt_edge_n ( target_edge int ) error {
-  
-  if rn.verbose {
-    fp ( os.Stderr, "Router_Network.Halt_edge_n : halting edge %d\n", target_edge )
+/*
+  It takes a while to halt each router, so use a workgroup of
+  goroutines to do them all in parallel.
+*/
+func ( rn * Router_Network ) Halt ( ) {
+  var wg sync.WaitGroup
+  for _, r := range rn.routers {
+    if r.Is_not_halted() {
+      wg.Add(1)
+      go halt_router ( &wg, r )
+    }
   }
 
-  edge_count := 0
-  for _, router := range rn.routers {
-    if "edge" == router.Type() {
-      edge_count ++
-      if edge_count == target_edge {
-        err := router.Halt ( )
-        fp ( os.Stderr, "name of halted router is |%s|\n", router.Name() )
+  wg.Wait()
+}
+
+
+
+
+func ( rn * Router_Network ) Display_routers ( ) {
+  for index, r := range rn.routers {
+    fp ( os.Stderr, "    router %d: %s %d %s\n", index, r.Name(), r.Pid(), r.State() )
+  }
+}
+
+
+
+func ( rn * Router_Network ) Halt_first_edge ( ) error {
+  
+  for _, r := range rn.routers {
+    if "edge" == r.Type() {
+      if r.State() == "running" {
+        if rn.verbose {
+          fp ( os.Stderr, "Router_Network.Halt : halting router |%s| .\n", r.Name() )
+        }
+        err := r.Halt ( )
+        if err != nil {
+          fp ( os.Stderr, "Router_Network.Halt_first_edge : error halting router %s : %s\n", r.Name(), err.Error() )
+        }
         return err
       }
     }
   }
 
-  return errors.New ( "Router_Network.Halt_edge_n error : Could not find edge router " + strconv.Itoa ( target_edge ) )
+  return errors.New ( "Router_Network.Halt_first_edge error : Could not find an edge router to halt." )
 }
 
 

@@ -153,7 +153,6 @@ func New_Router ( name                        string,
 
 
 
-
 /*
   Tell the router a port number (represented as a string)
   that it should attach to.
@@ -354,7 +353,7 @@ func ( r * Router ) write_config_file ( ) error {
 */
 func ( r * Router ) Run ( do_resource_measurement bool ) error {
 
-  if r.state == running {
+  if r.state > initialized {
     return nil
   }
 
@@ -421,8 +420,43 @@ func ( r * Router ) Run ( do_resource_measurement bool ) error {
 
 
 
+func ( r * Router ) Is_not_halted ( ) ( bool ) {
+  return "halted" != r.State()
+}
+
+
+
+
+
+func ( r * Router ) State ( ) ( string ) {
+
+  switch r.state {
+
+    case none: 
+      return "none"
+
+    case initialized:
+      return "initialized"
+
+    case running:
+      return "running"
+
+    case halted:
+      return "halted"
+  }
+
+  return "error"
+}
+
+
+
+
+
 func ( r * Router ) resource_measurement_ticker ( ) {
   for range r.resource_ticker.C {
+    if r.verbose {
+      fp ( os.Stderr, "router %s : recording resource usage.\n", r.name )
+    }
     r.record_resource_usage ( )
   }
 }
@@ -441,6 +475,17 @@ func ( r * Router ) resource_measurement_ticker ( ) {
 */
 func ( r * Router ) Halt ( ) error {
 
+  if r.state == halted {
+    if r.verbose {
+      fp ( os.Stderr, "Attempt to re-halt router %s.\n", r.name )
+    }
+    return nil
+  }
+
+  if r.resource_ticker != nil {
+    r.resource_ticker.Stop()
+  }
+
   // Set up a channel that will return a 
   // message immediately if the process has
   // already terminated. Then set up a half-second 
@@ -454,28 +499,40 @@ func ( r * Router ) Halt ( ) error {
   } ( )
 
   select {
-
-    case <-time.After ( 500 * time.Millisecond ) :
+    /*
+      This is the expected case.
+      Our timer times out while the above Wait() is still waiting.
+      This means that the process is still running normally when we kill it.
+    */
+    case <-time.After ( 250 * time.Millisecond ) :
+      r.state = halted
       if err := r.cmd.Process.Kill(); err != nil {
         return errors.New ( "failed to kill process: " + err.Error() )
       }
-
-      // We killed the process: no error occurred.
-      // fp ( os.Stderr, "Router %s halted normally.\n", r.name )
-      r.state = halted
       return nil
 
     case err := <-done:
+      fp ( os.Stderr, "router: %s %d state is now %d.\n", r.name, r.Pid(), r.state )
       if err != nil {
         return errors.New ( "process terminated early with error: " + err.Error() )
       }
+
       // Even though there was no error reported -- the process 
       // mevertheless stopped early, which is an error in the 
       // context of this test.
       return errors.New ( "process self-terminated." )
   }
 
+  fp ( os.Stderr, "router.Halt -- fall through.\n" )
   return nil
+}
+
+
+
+
+
+func ( r * Router ) Pid ( ) ( int )  {
+  return int ( r.cmd.Process.Pid )
 }
 
 

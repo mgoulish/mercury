@@ -32,7 +32,6 @@ import ( "fmt"
          rn "router_network"
          "time"
          "flag"
-         "math/rand"
        )
 
 
@@ -55,6 +54,8 @@ func getenv ( key string ) string {
 
 func
 main ( ) {
+
+  test_start_time := time.Now()
 
   // Get environment variables ----------------------------------
   mercury_root          := getenv ( "MERCURY_ROOT" )
@@ -97,7 +98,8 @@ main ( ) {
                                      dispatch_install_root,
                                      proton_install_root,
                                      * verbose_p,
-                                     resource_measurement_frequency )
+                                     resource_measurement_frequency,
+                                     test_start_time )
 
   if * verbose_p {
     fp ( os.Stdout, "  Making interior routers.\n" )
@@ -132,20 +134,10 @@ main ( ) {
     In each iteration, kill one edge router and add a 
     new one, with small polite pauses after each evennt.
   */
-  for iteration := 1; iteration < 500; iteration ++ {
-    /*
-      To decide which edge to kill, I select a random
-      number from 0 to 99. If number N is selected, this 
-      doe *not* mean that the router whose name is eN will
-      be halted. the network.Halt function will just choose
-      the Nth edge-router on the list.
-    */
-    edge_to_kill := rand.Intn ( n_edges ) 
-    if * verbose_p {
-      fp ( os.Stderr, "  Killing edge-router %d.\n", edge_to_kill )
-    }
+  for iteration := 1; iteration < 100; iteration ++ {
 
-    network.Halt_edge_n ( edge_to_kill )
+    network.Halt_first_edge ( )
+
     time.Sleep ( 3 * time.Second )
 
     /*
@@ -162,31 +154,24 @@ main ( ) {
   }
 
 
-
-  time.Sleep ( 3 * time.Second )
-
   if * verbose_p {
-    fp ( os.Stderr, "main is sleeping for 30 seconds.\n" )
+    fp ( os.Stderr, "main is sleeping for 15 seconds.\n" )
   }
-  time.Sleep ( 30 * time.Second )
+  time.Sleep ( 15 * time.Second )
 
   if * verbose_p {
     fp ( os.Stdout, "  Halting.\n" )
   }
+  network.Halt ( )
 
-  err := network.Halt ( )
+  test_stop_time := time.Now()
 
-  if err != nil {
-    if * verbose_p {
-      fp ( os.Stdout, "  Error.\n" )
-      fp ( os.Stdout, "  Results are in |%s|\n", result_path )
-      fp ( os.Stdout, "test %s complete.\n", * test_name_p )
-    }
-    utils.End_test_and_exit ( result_path, "error on halt: " + err.Error() )
-  } 
+  test_duration := test_stop_time.Sub ( test_start_time )
+  if * verbose_p {
+    fp ( os.Stderr, "total test time: %.3f\n", test_duration.Seconds() )
+  }
 
   if * verbose_p {
-    fp ( os.Stdout, "  Success.\n" );
     fp ( os.Stdout, "  Results are in |%s|\n", result_path )
     fp ( os.Stdout, "test %s complete.\n\n\n", * test_name_p )
   }
@@ -203,6 +188,9 @@ func make_edges ( start_edge_number, n_edges int, network * rn.Router_Network, v
   for edge_count := start_edge_number; edge_count < last_edge_number; edge_count ++ {
     time.Sleep ( 100 * time.Millisecond )
     edge_name := fmt.Sprintf ( "e%d", edge_count )
+    if verbose {
+      fp ( os.Stderr, " make_edges making new router with name |%s|\n", edge_name )
+    }
     network.Add_Edge   ( edge_name )
     network.Connect ( edge_name, "A" )
     network.Init ( )
