@@ -47,7 +47,10 @@ import ( "errors"
        )
 
 
-var fp = fmt.Fprintf
+var fp          = fmt.Fprintf
+var upl         = utils.Print_log
+var module_name = "router"
+
 
 
 
@@ -336,7 +339,7 @@ func ( r * Router ) write_config_file ( ) error {
   }
 
   if r.verbose {
-    fp ( os.Stdout, "router : config file written to |%s|\n", r.config_file_path )
+    upl ( "config file written to |%s|", module_name, r.config_file_path )
   }
 
   return nil
@@ -454,9 +457,6 @@ func ( r * Router ) State ( ) ( string ) {
 
 func ( r * Router ) resource_measurement_ticker ( ) {
   for range r.resource_ticker.C {
-    if r.verbose {
-      fp ( os.Stderr, "router %s : recording resource usage.\n", r.name )
-    }
     r.record_resource_usage ( )
   }
 }
@@ -477,7 +477,7 @@ func ( r * Router ) Halt ( ) error {
 
   if r.state == halted {
     if r.verbose {
-      fp ( os.Stderr, "Attempt to re-halt router %s.\n", r.name )
+      upl ( "Attempt to re-halt router %s", module_name, r.name )
     }
     return nil
   }
@@ -512,7 +512,6 @@ func ( r * Router ) Halt ( ) error {
       return nil
 
     case err := <-done:
-      fp ( os.Stderr, "router: %s %d state is now %d.\n", r.name, r.Pid(), r.state )
       if err != nil {
         return errors.New ( "process terminated early with error: " + err.Error() )
       }
@@ -523,7 +522,6 @@ func ( r * Router ) Halt ( ) error {
       return errors.New ( "process self-terminated." )
   }
 
-  fp ( os.Stderr, "router.Halt -- fall through.\n" )
   return nil
 }
 
@@ -545,14 +543,14 @@ func ( r * Router ) record_resource_usage ( ) {
   mem_usage_file, err := os.OpenFile ( r.mem_usage_file_name, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0600 )
   utils.Check ( err )
   defer mem_usage_file.Close ( )
-  mem_usage_file.WriteString ( strconv.Itoa ( rss ) + "\n" )
+  mem_usage_file.WriteString ( utils.Timestamp() + " " + strconv.Itoa ( rss ) + "\n" )
 
   // cpu ----------------------------
   cpu_usage_file, err := os.OpenFile ( r.cpu_usage_file_name, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0600 )
   utils.Check ( err )
   defer cpu_usage_file.Close ( )
   cpu_usage := utils.Cpu_usage ( r.cmd.Process.Pid )
-  cpu_usage_file.WriteString ( strconv.Itoa ( cpu_usage ) + "\n" )
+  cpu_usage_file.WriteString ( utils.Timestamp() + " " + strconv.Itoa ( cpu_usage ) + "\n" )
 }
 
 

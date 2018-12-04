@@ -26,7 +26,8 @@ import ( "fmt"
          "os/exec"
          "net"
          "strings"
-         "strconv" )
+         "strconv"
+         "time" )
 
 
 var fp = fmt.Fprintf
@@ -155,6 +156,22 @@ func Cpu_usage ( target_pid int ) ( cpu_usage int ) {
   cpu_usage = int ( 100 * temp )
 
   return cpu_usage
+}
+
+
+
+
+
+func Timestamp ( ) ( string ) {
+  return time.Now().Format ( "2006-01-02 15:04:05.000000" )
+}
+
+
+
+
+func Print_log ( format string, args ...interface{} ) {
+  ts := Timestamp()
+  fp ( os.Stdout, ts + " : %s : " + format + "\n", args... )
 }
 
 

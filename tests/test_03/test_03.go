@@ -36,7 +36,10 @@ import ( "fmt"
 
 
 
-var fp = fmt.Fprintf
+var upl = utils.Print_log
+var fp  = fmt.Fprintf
+
+
 
 
 
@@ -48,6 +51,7 @@ func getenv ( key string ) string {
   }
   return val
 }
+
 
 
 
@@ -69,7 +73,8 @@ main ( ) {
   flag.Parse ( )
 
   if * verbose_p {
-    fp ( os.Stdout, "\n\ntest %s starting.\n", * test_name_p )
+    //fp ( os.Stdout, "\n\ntest %s starting.\n", * test_name_p )
+    upl ( "starting", * test_name_p )    
   }
   n_edges := 100
 
@@ -98,11 +103,10 @@ main ( ) {
                                      dispatch_install_root,
                                      proton_install_root,
                                      * verbose_p,
-                                     resource_measurement_frequency,
-                                     test_start_time )
+                                     resource_measurement_frequency )
 
   if * verbose_p {
-    fp ( os.Stdout, "  Making interior routers.\n" )
+    upl ( "Making interior routers", * test_name_p )
   }
   network.Add_Router ( "A" )
   network.Add_Router ( "B" )
@@ -114,7 +118,7 @@ main ( ) {
   network.Init ( )
   network.Run ( )
   if * verbose_p {
-    fp ( os.Stdout, "  Interior router network is running.\n" )
+    upl ( "Interior router network is running", * test_name_p )
   }
 
   time.Sleep ( 3 * time.Second )
@@ -123,10 +127,10 @@ main ( ) {
 
 
   if * verbose_p {
-    fp ( os.Stdout, "  Making edge routers.\n" )
+    upl ( "Making edge routers", * test_name_p )
   }
   total_edges_so_far := 0
-  make_edges ( total_edges_so_far, n_edges, network, * verbose_p )
+  make_edges ( total_edges_so_far, n_edges, network, * verbose_p, * test_name_p )
   total_edges_so_far += n_edges
 
 
@@ -134,7 +138,7 @@ main ( ) {
     In each iteration, kill one edge router and add a 
     new one, with small polite pauses after each evennt.
   */
-  for iteration := 1; iteration < 100; iteration ++ {
+  for iteration := 1; iteration < 25; iteration ++ {
 
     network.Halt_first_edge ( )
 
@@ -147,7 +151,7 @@ main ( ) {
       should always have n_edges alive after each pass through 
       this loop.
     */
-    make_edges ( total_edges_so_far, 1, network, * verbose_p )
+    make_edges ( total_edges_so_far, 1, network, * verbose_p, * test_name_p )
     time.Sleep ( 3 * time.Second )
 
     total_edges_so_far ++
@@ -155,12 +159,12 @@ main ( ) {
 
 
   if * verbose_p {
-    fp ( os.Stderr, "main is sleeping for 15 seconds.\n" )
+    upl ( "main is sleeping for 15 seconds", * test_name_p )
   }
   time.Sleep ( 15 * time.Second )
 
   if * verbose_p {
-    fp ( os.Stdout, "  Halting.\n" )
+    upl ( "halting", * test_name_p )
   }
   network.Halt ( )
 
@@ -168,12 +172,12 @@ main ( ) {
 
   test_duration := test_stop_time.Sub ( test_start_time )
   if * verbose_p {
-    fp ( os.Stderr, "total test time: %.3f\n", test_duration.Seconds() )
+    upl ( "total test time: %.3f", * test_name_p, test_duration.Seconds() )
   }
 
   if * verbose_p {
-    fp ( os.Stdout, "  Results are in |%s|\n", result_path )
-    fp ( os.Stdout, "test %s complete.\n\n\n", * test_name_p )
+    upl ( "Results are in |%s|", * test_name_p, result_path )
+    upl ( "test complete", * test_name_p )
   }
 
   utils.End_test_and_exit ( result_path, "" )
@@ -183,20 +187,22 @@ main ( ) {
 
 
 
-func make_edges ( start_edge_number, n_edges int, network * rn.Router_Network, verbose bool ) {
+func make_edges ( start_edge_number, n_edges int, network * rn.Router_Network, verbose bool, test_name string ) {
   last_edge_number := start_edge_number + n_edges
   for edge_count := start_edge_number; edge_count < last_edge_number; edge_count ++ {
     time.Sleep ( 100 * time.Millisecond )
     edge_name := fmt.Sprintf ( "e%d", edge_count )
     if verbose {
-      fp ( os.Stderr, " make_edges making new router with name |%s|\n", edge_name )
+      upl ( "make_edges making new router with name |%s|", test_name, edge_name )
     }
     network.Add_Edge   ( edge_name )
     network.Connect ( edge_name, "A" )
     network.Init ( )
     network.Run ( )
-    if verbose {
-      fp ( os.Stdout, "    %s\n", edge_name )
-    }
   }
 }
+
+
+
+
+

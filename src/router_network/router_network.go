@@ -53,12 +53,12 @@ import ( "fmt"
          "errors"
          "utils"
          "sync"
-         "time"
        )
 
 
-var fp = fmt.Fprintf
-
+var fp          = fmt.Fprintf
+var upl         = utils.Print_log
+var module_name = "router_network"
 
 
 
@@ -79,10 +79,8 @@ type Router_Network struct {
   qdstat_path                    string
   verbose                        bool
   resource_measurement_frequency int
-  test_start_time                time.Time
 
   routers                        [] * router.Router
-
   router_count                   int
 }
 
@@ -121,8 +119,7 @@ func New_Router_Network ( name                           string,
                           dispatch_root                  string,
                           proton_root                    string,
                           verbose                        bool,
-                          resource_measurement_frequency int,
-                          test_start_time                time.Time ) * Router_Network {
+                          resource_measurement_frequency int ) * Router_Network {
   var rn * Router_Network
   rn = & Router_Network { Name                           : name,
                           worker_threads                 : worker_threads,
@@ -134,8 +131,7 @@ func New_Router_Network ( name                           string,
                           proton_root                    : proton_root,
                           qdstat_path                    : dispatch_root + "/bin/qdstat",
                           verbose                        : verbose,
-                          resource_measurement_frequency : resource_measurement_frequency,
-                          test_start_time                : test_start_time }
+                          resource_measurement_frequency : resource_measurement_frequency }
 
   return rn
 }
@@ -323,7 +319,7 @@ func halt_router ( wg * sync.WaitGroup, r * router.Router ) {
   defer wg.Done()
   err := r.Halt ( )
   if err != nil {
-    fp ( os.Stderr, "Router %s halting error: %s\n", r.Name(), err.Error() )
+    upl ( "Router %s halting error: %s", module_name, r.Name(), err.Error() )
   }
 }
 
@@ -352,7 +348,7 @@ func ( rn * Router_Network ) Halt ( ) {
 
 func ( rn * Router_Network ) Display_routers ( ) {
   for index, r := range rn.routers {
-    fp ( os.Stderr, "    router %d: %s %d %s\n", index, r.Name(), r.Pid(), r.State() )
+    upl ( "router %d: %s %d %s", module_name, index, r.Name(), r.Pid(), r.State() )
   }
 }
 
@@ -364,11 +360,11 @@ func ( rn * Router_Network ) Halt_first_edge ( ) error {
     if "edge" == r.Type() {
       if r.State() == "running" {
         if rn.verbose {
-          fp ( os.Stderr, "Router_Network.Halt : halting router |%s| .\n", r.Name() )
+          upl ( "Halt : halting router |%s|", module_name, r.Name() )
         }
         err := r.Halt ( )
         if err != nil {
-          fp ( os.Stderr, "Router_Network.Halt_first_edge : error halting router %s : %s\n", r.Name(), err.Error() )
+          upl ( "Halt_first_edge : error halting router %s : %s", module_name, r.Name(), err.Error() )
         }
         return err
       }
