@@ -142,7 +142,7 @@ main ( ) {
     if * verbose_p {
       fp ( os.Stdout, "    %s\n", edge_name )
     }
-    err := network.Check_Links ( edge_name )
+    err := network.Check_links ( edge_name )
 
     if err != nil {
       fp ( os.Stdout, "  Error on router |%s| : |%s|\n", edge_name, err.Error() )

@@ -250,13 +250,48 @@ func ( rn * Router_Network ) Run ( ) {
 
 
 
+func ( rn * Router_Network ) Check_memory ( router_name string ) error {
+  // set up env ----------------------------------------------
+  INSTALL_ROOT          := "/home/mick/mercury/system_code/install"
+
+  PROTON_INSTALL_DIR    := INSTALL_ROOT + "/proton"
+  DISPATCH_INSTALL_DIR  := INSTALL_ROOT + "/dispatch"
+
+  DISPATCH_LIBRARY_PATH := DISPATCH_INSTALL_DIR + "/lib64"
+  PROTON_LIBRARY_PATH   := PROTON_INSTALL_DIR   + "/lib64"
+  LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
+
+  DISPATCH_PYTHONPATH   := DISPATCH_INSTALL_DIR + "/lib/qpid-dispatch/python"
+  DISPATCH_PYTHONPATH2  := DISPATCH_INSTALL_DIR + "/lib/python2.7/site-packages"
+  PROTON_PYTHON_PATH    := PROTON_INSTALL_DIR   + "/lib64/proton/bindings/python"
+  PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_PYTHON_PATH
+
+  os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
+  os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
+  // done set up env -----------------------------------------
+
+  router := rn.get_router_by_name ( router_name )
+  args := "-m -b 0.0.0.0:" + router.Client_Port ( )
+  args_list := strings.Fields ( args )
+  cmd := exec.Command ( rn.qdstat_path,  args_list... )
+  out, _ := cmd.Output()
+
+  fp ( os.Stderr, " here's the output: |%s|\n", out )
+
+  return nil
+}
+
+
+
+
+
 /*
   Call the qdstat tool on the named router, and confirm that all 
   of its endpoint links are up and running. 
   This is meant to let you check on an interior router to confirm 
   that all its attached edge routers are still connected.
 */
-func ( rn * Router_Network ) Check_Links ( router_name string ) error {
+func ( rn * Router_Network ) Check_links ( router_name string ) error {
   // set up env ----------------------------------------------
   INSTALL_ROOT          := "/home/mick/mercury/system_code/install"
 

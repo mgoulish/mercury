@@ -138,10 +138,9 @@ main ( ) {
     In each iteration, kill one edge router and add a 
     new one, with small polite pauses after each evennt.
   */
-  for iteration := 1; iteration < 25; iteration ++ {
+  for iteration := 1; iteration < 2000; iteration ++ {
 
     network.Halt_first_edge ( )
-
     time.Sleep ( 3 * time.Second )
 
     /*

@@ -349,6 +349,54 @@ func ( r * Router ) write_config_file ( ) error {
 
 
 
+func ( r * Router ) check_memory ( ) {
+  // /home/mick/latest/install/dispatch
+  // fp ( os.Stderr, "r.dispatch_install_root == |%s|\n", r.dispatch_install_root )
+
+  // fp ( os.Stderr, "r.proton_install_root == |%s|\n", r.proton_install_root )
+
+  // set up env ----------------------------------------------
+  // 
+  // 
+  // export LD_LIBRARY_PATH=/home/mick/latest/install/dispatch/lib:/home/mick/latest/install/proton/lib64
+// export PYTHONPATH=/home/mick/latest/install/dispatch/lib/qpid-dispatch/python:/home/mick/latest/install/dispatch/lib/python2.7/site-packages:/home/mick/latest/install/proton/lib64:/home/mick/latest/install/proton/lib64/proton/bindings/python
+
+  qdstat_path := r.dispatch_install_root + "/bin/qdstat"
+
+  DISPATCH_LIBRARY_PATH := r.dispatch_install_root + "/lib"
+  PROTON_LIBRARY_PATH   := r.proton_install_root   + "/lib64"
+  LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
+
+  DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
+  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
+
+  PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH + "/proton/bindings/python"
+
+  PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_LIBRARY_PATH +":"+ PROTON_PYTHONPATH
+
+  // Set up the environment for the router process.
+  os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
+  os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
+  // done set up env -----------------------------------------
+
+  args := "-m -b 0.0.0.0:" + r.Client_Port ( )
+  args_list := strings.Fields ( args )
+
+  fp ( os.Stderr, "\n\n\ncheck_mem: LD_LIBRARY_PATH |%s|\n", LD_LIBRARY_PATH )
+  fp ( os.Stderr, "check_mem: PYTHONPATH |%s|\n", LD_LIBRARY_PATH )
+  fp ( os.Stderr, "check_mem: command: |%s %s|\n\n\n", qdstat_path, args )
+
+  cmd := exec.Command ( qdstat_path,  args_list... )
+  out, _ := cmd.Output()
+
+  fp ( os.Stderr, "router %s ---------------------------------------------------------\n", r.name )
+  fp ( os.Stderr, "check mem: here's the output: |%s|\n", out )
+}
+
+
+
+
+
 /*
   Call this only after calling Init() on the router.
   This fn sets up the router's environment variables, 
@@ -458,6 +506,7 @@ func ( r * Router ) State ( ) ( string ) {
 func ( r * Router ) resource_measurement_ticker ( ) {
   for range r.resource_ticker.C {
     r.record_resource_usage ( )
+    r.check_memory ( )
   }
 }
 
