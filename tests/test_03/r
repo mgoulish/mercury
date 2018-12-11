@@ -17,21 +17,30 @@
 #  specific language governing permissions and limitations
 #  under the License.
 
-# NOTE: the following environment variables are serving suggestions. 
-# Alter as desired, and use them in your ~/.bashrc, or directly
-# in this file.
 
+# NOTE: if you are going to run this more than once in a day,
+#       you should probably remove or remove the results 
+#       directory from the previous run first.
+#       It will be ${MERCURY_ROOT}/results/test_03/TIMESTAMP
+
+
+
+# NOTE: the following environment variables are serving suggestions. 
+#       Alter as desired, and use them in your ~/.bashrc, or directly
+#       in this file.
 export MERCURY_ROOT=${HOME}/mercury
 export DISPATCH_INSTALL_ROOT=${HOME}/latest/install/dispatch
 export PROTON_INSTALL_ROOT=${HOME}/latest/install/proton
 
+
+
 export GOPATH=${MERCURY_ROOT}
 
-#go run ./test_03.go -name test_03 -id `date +%Y_%m_%d` 
+go run ./test_03.go -name test_03 -id `date +%Y_%m_%d` 
 
 # If it doesn't work, turn on verbosity so you can see all
 # the environment variables and commands : 
-go run ./test_03.go -name test_03 -id `date +%Y_%m_%d` -verbose
+#go run ./test_03.go -name test_03 -id `date +%Y_%m_%d` -verbose
   
 
 

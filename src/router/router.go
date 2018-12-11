@@ -44,6 +44,7 @@ import ( "errors"
          "strings"
          "time"
          "utils"
+         qdo "qdstat_output"
        )
 
 
@@ -102,6 +103,9 @@ type Router struct {
   cpu_usage_file_name            string
   resource_measurement_frequency int
   resource_ticker              * time.Ticker
+
+  qdstat_outputs                 [] * qdo.Qdstat_output
+  qdstat_output_filename         string
 }
 
 
@@ -150,6 +154,9 @@ func New_Router ( name                        string,
                  edge_port                      : edge_port,
                  verbose                        : verbose,
                  resource_measurement_frequency : usage_measurement_frequency }
+
+  r.qdstat_output_filename = r.result_path + "/qdstat_output_" + r.name
+
   return r
 }
 
@@ -350,16 +357,6 @@ func ( r * Router ) write_config_file ( ) error {
 
 
 func ( r * Router ) check_memory ( ) {
-  // /home/mick/latest/install/dispatch
-  // fp ( os.Stderr, "r.dispatch_install_root == |%s|\n", r.dispatch_install_root )
-
-  // fp ( os.Stderr, "r.proton_install_root == |%s|\n", r.proton_install_root )
-
-  // set up env ----------------------------------------------
-  // 
-  // 
-  // export LD_LIBRARY_PATH=/home/mick/latest/install/dispatch/lib:/home/mick/latest/install/proton/lib64
-// export PYTHONPATH=/home/mick/latest/install/dispatch/lib/qpid-dispatch/python:/home/mick/latest/install/dispatch/lib/python2.7/site-packages:/home/mick/latest/install/proton/lib64:/home/mick/latest/install/proton/lib64/proton/bindings/python
 
   qdstat_path := r.dispatch_install_root + "/bin/qdstat"
 
@@ -382,15 +379,14 @@ func ( r * Router ) check_memory ( ) {
   args := "-m -b 0.0.0.0:" + r.Client_Port ( )
   args_list := strings.Fields ( args )
 
-  fp ( os.Stderr, "\n\n\ncheck_mem: LD_LIBRARY_PATH |%s|\n", LD_LIBRARY_PATH )
-  fp ( os.Stderr, "check_mem: PYTHONPATH |%s|\n", LD_LIBRARY_PATH )
-  fp ( os.Stderr, "check_mem: command: |%s %s|\n\n\n", qdstat_path, args )
-
   cmd := exec.Command ( qdstat_path,  args_list... )
   out, _ := cmd.Output()
 
-  fp ( os.Stderr, "router %s ---------------------------------------------------------\n", r.name )
-  fp ( os.Stderr, "check mem: here's the output: |%s|\n", out )
+  r.qdstat_output_filename = r.result_path + "/qdstat_output_" + r.name
+  f, _ := os.OpenFile ( r.qdstat_output_filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660);
+  defer f.Close()
+  fmt.Fprintf ( f, "output %d -----------------------\n%s\n\n", len(r.qdstat_outputs), out )
+  r.qdstat_outputs = append ( r.qdstat_outputs, qdo.New_qdstat_output ( string(out) ) )
 }
 
 
@@ -408,6 +404,10 @@ func ( r * Router ) Run ( do_resource_measurement bool ) error {
     return nil
   }
 
+  if r.verbose {
+    fp ( os.Stderr, "router.Run router %s\n", r.name )
+  }
+
   DISPATCH_LIBRARY_PATH := r.dispatch_install_root + "/lib64"
   PROTON_LIBRARY_PATH   := r.proton_install_root   + "/lib64"
   LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
@@ -420,11 +420,17 @@ func ( r * Router ) Run ( do_resource_measurement bool ) error {
   os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
   os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
   include := " -I " + r.dispatch_install_root + "/lib/qpid-dispatch/python"
-  args := " --config " + r.config_file_path + include
+
+
+  router_args     := " --config " + r.config_file_path + include
+  args            := router_args
+  executable_path := r.executable_path
+
   args_list := strings.Fields ( args )
 
   // Start the router process and gets its pid for the result directory name.
-  r.cmd = exec.Command ( r.executable_path,  args_list... )
+
+  r.cmd = exec.Command ( executable_path,  args_list... )
   r.cmd.Start ( )
   r.state = running
   env_dir := r.result_path + "/env/" + strconv.Itoa(r.cmd.Process.Pid) 
@@ -557,6 +563,14 @@ func ( r * Router ) Halt ( ) error {
       r.state = halted
       if err := r.cmd.Process.Kill(); err != nil {
         return errors.New ( "failed to kill process: " + err.Error() )
+      }
+      if len(r.qdstat_outputs) > 0 {
+        last_index := len(r.qdstat_outputs) - 1  
+        diffed_output := r.qdstat_outputs[last_index].Diff ( r.qdstat_outputs[0] )
+        f, _ := os.OpenFile ( r.qdstat_output_filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660);
+        defer f.Close()
+        fp ( f, "\n\n\nDIFFED QDSTAT OUTPUT for router %s --------------------- \n", r.name )
+        diffed_output.Print_nonzero ( f )
       }
       return nil
 
