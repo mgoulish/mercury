@@ -209,9 +209,9 @@ func ( rn * Router_Network ) Connect ( router_1_name string, router_2_name strin
   }
 
   if router_1.Type() == "edge" {
-    router_1.Connect_To ( router_2.Edge_Port() )
+    router_1.Connect_to ( router_2.Edge_port() )
   } else {
-    router_1.Connect_To ( router_2.Router_Port() )
+    router_1.Connect_to ( router_2.Router_port() )
   }
 }
 
@@ -250,6 +250,15 @@ func ( rn * Router_Network ) Run ( ) {
 
 
 
+func ( rn * Router_Network ) Client_port ( target_router_name string ) ( client_port string ) {
+  r := rn.get_router_by_name ( target_router_name )
+  return r.Client_port ( )
+}
+
+
+
+
+
 func ( rn * Router_Network ) Check_memory ( router_name string ) error {
   // set up env ----------------------------------------------
   INSTALL_ROOT          := "/home/mick/mercury/system_code/install"
@@ -271,7 +280,7 @@ func ( rn * Router_Network ) Check_memory ( router_name string ) error {
   // done set up env -----------------------------------------
 
   router := rn.get_router_by_name ( router_name )
-  args := "-m -b 0.0.0.0:" + router.Client_Port ( )
+  args := "-m -b 0.0.0.0:" + router.Client_port ( )
   args_list := strings.Fields ( args )
   cmd := exec.Command ( rn.qdstat_path,  args_list... )
   out, _ := cmd.Output()
@@ -312,7 +321,7 @@ func ( rn * Router_Network ) Check_links ( router_name string ) error {
   // done set up env -----------------------------------------
 
   router := rn.get_router_by_name ( router_name )
-  args := "-l -b 0.0.0.0:" + router.Client_Port ( )
+  args := "-l -b 0.0.0.0:" + router.Client_port ( )
   args_list := strings.Fields ( args )
   cmd := exec.Command ( rn.qdstat_path,  args_list... )
   out, _ := cmd.Output()

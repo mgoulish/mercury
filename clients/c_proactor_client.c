@@ -485,11 +485,12 @@ main ( int argc, char ** argv )
     exit ( 1 );
   }
   context.outgoing_message_body = (char *) malloc ( context.max_message_length );
+  fprintf ( stdout, " context.max_message_length == %d\n", context.max_message_length );
 
   // CHANGE THIS
   if ( ! (buffer.start = (char *) malloc ( MAX_BUF )) )
   {
-    fprintf ( stderr, "Can't get buffer memory.\n" );
+    fprintf ( stdout, "Can't get buffer memory.\n" );
     exit ( 1 );
   }
   buffer.size = MAX_BUF;
@@ -509,7 +510,6 @@ main ( int argc, char ** argv )
   int batch_done = 0;
   while ( ! batch_done ) 
   {
-    fprintf ( stderr, "pn_proactor_wait...\n" );
     pn_event_batch_t *events = pn_proactor_wait ( proactor );
     pn_event_t * event;
     for ( event = pn_event_batch_next(events); event; event = pn_event_batch_next(events)) 

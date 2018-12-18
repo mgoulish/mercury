@@ -28,10 +28,11 @@ package main
   
 import ( "fmt"
          "os"
-         "utils"
-         rn "router_network"
          "time"
          "flag"
+         "utils"
+         rn "router_network"
+         "client"
        )
 
 
@@ -89,9 +90,12 @@ main ( ) {
   utils.Find_or_create_dir ( log_path )
 
 
-  // Make the network ----------------------------------------
+  /*-------------------------------------------
+     Make the network 
+      A --- B --- C 
+  -------------------------------------------*/
   n_worker_threads := 4
-  resource_measurement_frequency := 30
+  resource_measurement_frequency := 60
 
   network := rn.New_Router_Network ( * test_name_p + "_router_network",
                                      n_worker_threads,
@@ -119,6 +123,27 @@ main ( ) {
   if * verbose_p {
     upl ( "Interior router network is running", * test_name_p )
   }
+
+  // Some pause is necessary here, or router A will 
+  // reject the client connection on first attempt.
+  fp ( os.Stderr, "test_04: sleeping 10 seconds.\n" );
+  time.Sleep ( 15 * time.Second )
+
+  /*----------------------------------------------
+    Start the receiver.
+  ----------------------------------------------*/
+  client_path := mercury_root + "/clients/c_proactor_client"
+  receiver := client.New_client ( "receiver_1", 
+                                  "receive", 
+                                  "receiver_1", 
+                                  network.Client_port ( "A" ), 
+                                  client_path,
+                                  dispatch_install_root,
+                                  proton_install_root )
+
+  // After this call returns, the receiver is running detached.
+  receiver.Run ( )
+
 
   fp ( os.Stderr, "Sleeping long time...\n" )
   time.Sleep ( 3000 * time.Second )

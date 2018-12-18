@@ -167,7 +167,7 @@ func New_Router ( name                        string,
   Tell the router a port number (represented as a string)
   that it should attach to.
 */
-func ( r * Router ) Connect_To ( port string ) {
+func ( r * Router ) Connect_to ( port string ) {
   r.connect_to_ports = append ( r.connect_to_ports, port )
 }
 
@@ -200,7 +200,7 @@ func ( r * Router ) Type ( ) string  {
 /*
   Get the router's client port number (as a string).
 */
-func ( r * Router ) Client_Port ( ) string {
+func ( r * Router ) Client_port ( ) string {
   return r.client_port
 }
 
@@ -212,7 +212,7 @@ func ( r * Router ) Client_Port ( ) string {
   Get the router's router port number (as a string).
   Or nil if this is an edge router.
 */
-func ( r * Router ) Router_Port ( ) string {
+func ( r * Router ) Router_port ( ) string {
   return r.router_port
 }
 
@@ -224,7 +224,7 @@ func ( r * Router ) Router_Port ( ) string {
   Get the router's edge port number (as a string).
   Or nil if this is an edge router.
 */
-func ( r * Router ) Edge_Port ( ) string {
+func ( r * Router ) Edge_port ( ) string {
   return r.edge_port
 }
 
@@ -376,12 +376,16 @@ func ( r * Router ) check_memory ( ) {
   os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
   // done set up env -----------------------------------------
 
-  args := "-m -b 0.0.0.0:" + r.Client_Port ( )
+  args := "-m -b 0.0.0.0:" + r.Client_port ( )
   args_list := strings.Fields ( args )
 
   cmd := exec.Command ( qdstat_path,  args_list... )
   out, _ := cmd.Output()
 
+  // At this point the router has run and stopped,
+  // and all qdstat outputs that happened during the 
+  // run are stored in an internal router variable:
+  // "r.qdstat_outputs".
   r.qdstat_output_filename = r.result_path + "/qdstat_output_" + r.name
   f, _ := os.OpenFile ( r.qdstat_output_filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660);
   defer f.Close()
@@ -428,8 +432,8 @@ func ( r * Router ) Run ( do_resource_measurement bool ) error {
 
   args_list := strings.Fields ( args )
 
-  // Start the router process and gets its pid for the result directory name.
-
+  // Start the router process and get its pid for the result directory name.
+  // After the Start() call, the router process is running detached.
   r.cmd = exec.Command ( executable_path,  args_list... )
   r.cmd.Start ( )
   r.state = running
