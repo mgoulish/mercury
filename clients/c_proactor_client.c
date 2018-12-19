@@ -35,20 +35,23 @@
 typedef 
 struct context_s 
 {
-  pn_link_t * links [ MAX_LINKS ];
-  int         link_count;
-  char        name [ MAX_NAME ];
-  int         sending;
-  char        id [ MAX_NAME ];
-  char        host [ MAX_NAME ];
-  int         max_message_length,
-              message_length;
-  char      * outgoing_message_body;
-  char      * port;
-  char      * log_file_name;
-  FILE      * log_file;
-  int         sent;
-  int         received;
+  pn_link_t    * links [ MAX_LINKS ];
+  int            link_count;
+  char           name [ MAX_NAME ];
+  int            sending;
+  char           id [ MAX_NAME ];
+  char           host [ MAX_NAME ];
+  size_t         max_message_length,
+                 message_length;
+  char         * outgoing_message_body;
+  char         * port;
+  char         * log_file_name;
+  FILE         * log_file;
+  int            sent;
+  int            received;
+  pn_message_t * message;
+  int            total_bytes_sent,
+                 total_bytes_received;
 }
 context_t,
 * context_p;
@@ -67,7 +70,6 @@ size_t credit_window = 100;
 pn_proactor_t *proactor = 0;
 pn_listener_t *listener = 0;
 pn_connection_t *connection = 0;
-pn_message_t *message = 0;
 pn_rwbytes_t buffer;        /* Encoded message buffer */
 
 size_t accepted = 0;
@@ -133,13 +135,6 @@ make_random_message ( context_p context )
   context->message_length = rand_int ( context->max_message_length );
   for ( int i = 0; i < context->message_length; ++ i )
     context->outgoing_message_body [ i ] = uint8_t ( rand_int ( 256 ) );
-
-  fprintf ( stderr, "random message!: " );
-  for ( int i = 0; i < context->message_length ; i ++ )
-  {
-    fprintf ( stderr, "%d ", context->outgoing_message_body [ i ] );
-  }
-  fprintf ( stderr, "\n" );
 }
 
 
@@ -184,23 +179,32 @@ encode_message ( pn_message_t * m, pn_rwbytes_t * buffer )
  * Use buf to hold the message data, expand with realloc() if needed.
  */
 void 
-decode_message ( pn_message_t  * msg, 
+decode_message ( context_p context, 
                  pn_delivery_t * delivery, 
                  pn_rwbytes_t  * buffer 
                ) 
 {
-  pn_link_t * link = pn_delivery_link    ( delivery );
-  ssize_t     size = pn_delivery_pending ( delivery );
+  pn_message_t * msg  = context->message;
+  pn_link_t    * link = pn_delivery_link    ( delivery );
+  ssize_t        size = pn_delivery_pending ( delivery );
 
   pn_link_recv ( link, buffer->start, size);
   pn_message_clear ( msg );
   if ( pn_message_decode ( msg, buffer->start, size ) ) 
   {
-    fprintf ( stderr, 
-              "error from pn_message_decode: |%s|\n", 
-              pn_error_text ( pn_message_error ( msg ) ) 
-            );
+    log ( context, 
+          "error from pn_message_decode: |%s|\n",
+          pn_error_text ( pn_message_error ( msg ) )
+        );
     exit ( 2 );
+  }
+  else
+  {
+    pn_string_t *s = pn_string ( NULL );
+    pn_inspect ( pn_message_body(msg), s );
+    // log ( context, "%s\n", pn_string_get(s));
+    context->total_bytes_received += strlen ( pn_string_get(s) );
+    pn_free ( s );
   }
 }
 
@@ -218,21 +222,20 @@ send_message ( context_p context, pn_link_t * link )
   snprintf(id_str, id_len + 1, "%zu", context->sent);
   id_atom.type = PN_STRING;
   id_atom.u.as_bytes = pn_bytes(id_len + 1, id_str);
-  pn_message_set_id(message, id_atom);
+  pn_message_set_id ( context->message, id_atom );
 
-  // TEST
   make_random_message ( context );
-  // END TEST
+  // log ( context, "message: |%s|\n", context->outgoing_message_body );
 
-  pn_data_t *body = pn_message_body(message);
-  pn_data_clear(body);
-  pn_data_put_map(body);
-  pn_data_enter(body);
-  pn_data_put_string(body, pn_bytes ( 12, "Hello, World" ) );
-  pn_data_put_long ( body, stime);
-  pn_data_exit(body);
+  // pn_data_put_string ( pn_message_body(context->outgoing_message_body), pn_bytes(context->message_length, context->outgoing_message_body) );
+  pn_data_t *body = pn_message_body ( context->message );
+  pn_data_clear ( body );
+  pn_data_enter ( body );
+  pn_bytes_t bytes = { context->message_length, context->outgoing_message_body };
+  pn_data_put_string ( body, bytes );
+  pn_data_exit ( body );
 
-  size_t size = encode_message ( message, & buffer);
+  size_t size = encode_message ( context->message, & buffer);
 
   // CHANGE THIS
   /* Use id as unique delivery tag. */
@@ -240,6 +243,7 @@ send_message ( context_p context, pn_link_t * link )
   pn_link_send ( link, buffer.start, size );
   pn_link_advance ( link );
   context->sent ++;
+  context->total_bytes_sent += context->message_length;
 }
 
 
@@ -318,7 +322,6 @@ process_event ( context_p context, pn_event_t * event )
 
     case PN_LINK_FLOW : 
       event_link = pn_event_link ( event );
-      fprintf ( stderr, "PN_LINK_FLOW on link |%s|\n", pn_link_name ( event_link ));
       if ( pn_link_is_sender ( event_link ) )
       {
         while ( pn_link_credit ( event_link ) > 0 && context->sent < messages )
@@ -334,7 +337,6 @@ process_event ( context_p context, pn_event_t * event )
       {
         pn_delivery_settle ( event_delivery );
         ++ accepted;
-        fprintf ( stdout, "sender: %d accepted.\n", accepted );
 
         if (accepted >= messages) 
         {
@@ -355,7 +357,7 @@ process_event ( context_p context, pn_event_t * event )
         if ( pn_delivery_partial ( event_delivery ) ) 
           break;
 
-        decode_message ( message, event_delivery, & buffer );
+        decode_message ( context, event_delivery, & buffer );
         pn_delivery_update ( event_delivery, PN_ACCEPTED );
         pn_delivery_settle ( event_delivery );
         context->received ++;
@@ -414,7 +416,6 @@ init_context ( context_p context, int argc, char ** argv )
 {
   #define NEXT_ARG      argv[i+1]
 
-
   context->sending            = 0;
   context->link_count         = 0;
   context->max_message_length = 100;
@@ -426,6 +427,10 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->log_file_name = 0;
   context->log_file      = 0;
+  context->message       = 0;
+
+  context->total_bytes_sent     = 0;
+  context->total_bytes_received = 0;
 
 
   for ( int i = 1; i < argc; ++ i )
@@ -542,11 +547,8 @@ main ( int argc, char ** argv )
   }
   buffer.size = MAX_BUF;
 
-  message = pn_message();
-  // CHANGE THIS
-  char * body = (char *) malloc ( body_size );
-  memset ( body, 'x', body_size );
-  pn_data_put_string ( pn_message_body(message), pn_bytes(body_size, body) );
+  context.message = pn_message();
+
 
   char addr[PN_MAX_ADDR];
   pn_proactor_addr ( addr, sizeof(addr), context.host, context.port );
@@ -572,11 +574,19 @@ main ( int argc, char ** argv )
 
   if ( context.sending ) 
   {
-    log ( & context, "sent %d\n", context.sent  );
+    log ( & context, 
+          "info sent %d messages %d bytes\n", 
+          context.sent, 
+          context.total_bytes_sent 
+        );
   }
   else
   {
-    log ( & context, "received %d\n", context.received  );
+    log ( & context, 
+          "info received %d messages %d bytes\n", 
+          context.received,
+          context.total_bytes_received
+        );
   }
   return 0;
 }

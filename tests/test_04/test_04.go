@@ -118,6 +118,10 @@ main ( ) {
   network.Connect ( "A",  "B" )
   network.Connect ( "B",  "C" )
 
+  edge_name := "edge_01"
+  network.Add_Edge ( edge_name )
+  network.Connect  ( edge_name, "A" )
+
   network.Init ( )
   network.Run ( )
   if * verbose_p {
@@ -140,7 +144,7 @@ main ( ) {
   receiver := client.New_client ( "receiver_1", 
                                   "receive", 
                                   "receiver_1", 
-                                  network.Client_port ( "A" ), 
+                                  network.Client_port ( edge_name ), 
                                   client_path,
                                   log_path,
                                   dispatch_install_root,
