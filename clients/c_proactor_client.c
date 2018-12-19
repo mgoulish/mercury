@@ -9,16 +9,21 @@
 #include <proton/types.h>
 #include <proton/version.h>
 
+#include <inttypes.h>
 #include <memory.h>
+#include <pthread.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
-#include <time.h>
-#include <inttypes.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
+
+
 
 
 
@@ -40,6 +45,10 @@ struct context_s
               message_length;
   char      * outgoing_message_body;
   char      * port;
+  char      * log_file_name;
+  FILE      * log_file;
+  int         sent;
+  int         received;
 }
 context_t,
 * context_p;
@@ -61,8 +70,6 @@ pn_connection_t *connection = 0;
 pn_message_t *message = 0;
 pn_rwbytes_t buffer;        /* Encoded message buffer */
 
-size_t sent = 0;
-size_t received = 0;
 size_t accepted = 0;
 
 
@@ -85,6 +92,35 @@ nanoseconds ( )
   struct timespec t;
   clock_gettime ( CLOCK_REALTIME, & t );
   return t.tv_sec * 1000 * 1000 * 1000 + t.tv_nsec;
+}
+
+
+
+
+
+double
+get_timestamp ( void )
+{
+  struct timeval t;
+  gettimeofday ( & t, 0 );
+  return t.tv_sec + ((double) t.tv_usec) / 1000000.0;
+}
+
+
+
+
+
+void
+log ( context_p context, char const * format, ... )
+{
+  if ( ! context->log_file )
+    return;
+
+  fprintf ( context->log_file, "%.6f : ", get_timestamp() );
+  va_list ap;
+  va_start ( ap, format );
+  vfprintf ( context->log_file, format, ap );
+  va_end ( ap );
 }
 
 
@@ -175,12 +211,11 @@ decode_message ( pn_message_t  * msg,
 void 
 send_message ( context_p context, pn_link_t * link ) 
 {
-  ++sent;
   int64_t stime = nanoseconds ( );
   pn_atom_t id_atom;
-  int id_len = snprintf(NULL, 0, "%zu", sent);
+  int id_len = snprintf(NULL, 0, "%zu", context->sent);
   char id_str[id_len + 1];
-  snprintf(id_str, id_len + 1, "%zu", sent);
+  snprintf(id_str, id_len + 1, "%zu", context->sent);
   id_atom.type = PN_STRING;
   id_atom.u.as_bytes = pn_bytes(id_len + 1, id_str);
   pn_message_set_id(message, id_atom);
@@ -201,9 +236,10 @@ send_message ( context_p context, pn_link_t * link )
 
   // CHANGE THIS
   /* Use id as unique delivery tag. */
-  pn_delivery ( link, pn_dtag((const char *)&sent, sizeof(sent)) );
+  pn_delivery ( link, pn_dtag((const char *)&context->sent, sizeof(context->sent)) );
   pn_link_send ( link, buffer.start, size );
   pn_link_advance ( link );
+  context->sent ++;
 }
 
 
@@ -285,7 +321,7 @@ process_event ( context_p context, pn_event_t * event )
       fprintf ( stderr, "PN_LINK_FLOW on link |%s|\n", pn_link_name ( event_link ));
       if ( pn_link_is_sender ( event_link ) )
       {
-        while ( pn_link_credit ( event_link ) > 0 && sent < messages )
+        while ( pn_link_credit ( event_link ) > 0 && context->sent < messages )
           send_message ( context, event_link );
       }
     break;
@@ -322,11 +358,11 @@ process_event ( context_p context, pn_event_t * event )
         decode_message ( message, event_delivery, & buffer );
         pn_delivery_update ( event_delivery, PN_ACCEPTED );
         pn_delivery_settle ( event_delivery );
-        ++ received;
+        context->received ++;
 
-        if (received >= messages) 
+        if ( context->received >= messages) 
         {
-          fprintf ( stderr, "receiver: got %d messages. Stopping.\n", received );
+          fprintf ( stderr, "receiver: got %d messages. Stopping.\n", context->received );
           if ( connection )
             pn_connection_close(connection);
           if ( listener )
@@ -382,9 +418,14 @@ init_context ( context_p context, int argc, char ** argv )
   context->sending            = 0;
   context->link_count         = 0;
   context->max_message_length = 100;
+  context->sent               = 0;
+  context->received           = 0;
 
   strcpy ( context->name, "default_name" );
   strcpy ( context->host, "0.0.0.0" );
+
+  context->log_file_name = 0;
+  context->log_file      = 0;
 
 
   for ( int i = 1; i < argc; ++ i )
@@ -455,6 +496,13 @@ init_context ( context_p context, int argc, char ** argv )
       context->port = strdup ( NEXT_ARG );
       i ++;
     }
+    // log ----------------------------------------------
+    else
+    if ( ! strcmp ( "--log", argv[i] ) )
+    {
+      context->log_file_name = strdup ( NEXT_ARG );
+      i ++;
+    }
     // unknown ----------------------------------------------
     else
     {
@@ -462,11 +510,6 @@ init_context ( context_p context, int argc, char ** argv )
       exit ( 1 );
     }
   }
-
-  fprintf ( stdout, "context.sending            %d\n", context->sending );
-  fprintf ( stdout, "context.name               %s\n", context->name );
-  fprintf ( stdout, "context.id                 %s\n", context->id );
-  fprintf ( stdout, "context.max_message_length %d\n", context->max_message_length );
 }
 
 
@@ -479,13 +522,17 @@ main ( int argc, char ** argv )
   context_t context;
   init_context ( & context, argc, argv );
 
+  if ( context.log_file_name ) 
+  {
+    context.log_file = fopen ( context.log_file_name, "w" );
+  }
+
   if ( context.max_message_length <= 0 )
   {
     fprintf ( stderr, "no max message length.\n" );
     exit ( 1 );
   }
   context.outgoing_message_body = (char *) malloc ( context.max_message_length );
-  fprintf ( stdout, " context.max_message_length == %d\n", context.max_message_length );
 
   // CHANGE THIS
   if ( ! (buffer.start = (char *) malloc ( MAX_BUF )) )
@@ -523,6 +570,14 @@ main ( int argc, char ** argv )
     pn_proactor_done(proactor, events);
   }
 
+  if ( context.sending ) 
+  {
+    log ( & context, "sent %d\n", context.sent  );
+  }
+  else
+  {
+    log ( & context, "received %d\n", context.received  );
+  }
   return 0;
 }
 

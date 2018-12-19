@@ -127,10 +127,14 @@ main ( ) {
   // Some pause is necessary here, or router A will 
   // reject the client connection on first attempt.
   fp ( os.Stderr, "test_04: sleeping 10 seconds.\n" );
-  time.Sleep ( 15 * time.Second )
+  time.Sleep ( 10 * time.Second )
+
 
   /*----------------------------------------------
     Start the receiver.
+    NOTE!  
+    NEXT -- put these in the network!
+    not directly here.
   ----------------------------------------------*/
   client_path := mercury_root + "/clients/c_proactor_client"
   receiver := client.New_client ( "receiver_1", 
@@ -138,6 +142,7 @@ main ( ) {
                                   "receiver_1", 
                                   network.Client_port ( "A" ), 
                                   client_path,
+                                  log_path,
                                   dispatch_install_root,
                                   proton_install_root )
 
@@ -145,9 +150,37 @@ main ( ) {
   receiver.Run ( )
 
 
-  fp ( os.Stderr, "Sleeping long time...\n" )
-  time.Sleep ( 3000 * time.Second )
 
+  /*----------------------------------------------
+    Start the sender.
+  ----------------------------------------------*/
+  sender := client.New_client ( "sender_1", 
+                                "send", 
+                                "sender_1", 
+                                network.Client_port ( "C" ), 
+                                client_path,
+                                log_path,
+                                dispatch_install_root,
+                                proton_install_root )
+
+  // After this call returns, the sender is running detached.
+  sender.Run ( )
+
+
+  fp ( os.Stderr, "Sleeping short time...\n" )
+  time.Sleep ( 15 * time.Second )
+
+  fp ( os.Stderr, "halting the clients....\n");
+
+  err := sender.Halt()
+  if err != nil {
+    fp ( os.Stderr, "sender halt error: |%s|\n", err.Error() )
+  }
+
+  err = receiver.Halt()
+  if err != nil {
+    fp ( os.Stderr, "receiver halt error: |%s|\n", err.Error() )
+  }
 
   network.Halt ( )
 
