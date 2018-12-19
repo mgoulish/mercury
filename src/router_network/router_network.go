@@ -45,14 +45,16 @@
 */
 package router_network
 
-import ( "fmt"
-         "router"
+import ( "errors"
+         "fmt"
          "os"
          "os/exec"
          "strings"
-         "errors"
-         "utils"
          "sync"
+         "time"
+         "utils"
+         "router"
+         "client"
        )
 
 
@@ -74,6 +76,7 @@ type Router_Network struct {
   executable_path                string
   config_path                    string
   log_path                       string
+  client_path                    string
   dispatch_root                  string
   proton_root                    string
   qdstat_path                    string
@@ -81,7 +84,7 @@ type Router_Network struct {
   resource_measurement_frequency int
 
   routers                        [] * router.Router
-  router_count                   int
+  clients                        [] * client.Client
 }
 
 
@@ -91,7 +94,7 @@ type Router_Network struct {
 /*
   Create a new router network.
   Tell it how many worker threads each router should have,
-  and provide lots of paths:
+  and provide lots of paths.
 
     1. executable_path : router executable
     2. config_path     : where to put all the router config files
@@ -116,6 +119,7 @@ func New_Router_Network ( name                           string,
                           executable_path                string,
                           config_path                    string,
                           log_path                       string,
+                          client_path                    string,
                           dispatch_root                  string,
                           proton_root                    string,
                           verbose                        bool,
@@ -127,6 +131,7 @@ func New_Router_Network ( name                           string,
                           executable_path                : executable_path,
                           config_path                    : config_path,
                           log_path                       : log_path,
+                          client_path                    : client_path,
                           dispatch_root                  : dispatch_root,
                           proton_root                    : proton_root,
                           qdstat_path                    : dispatch_root + "/bin/qdstat",
@@ -159,7 +164,6 @@ func ( rn * Router_Network ) add_router ( name string, router_type string ) {
                            edge_port,
                            rn.verbose,
                            rn.resource_measurement_frequency )
-  rn.router_count ++
   rn.routers = append ( rn.routers, r )
 }
 
@@ -174,7 +178,7 @@ func ( rn * Router_Network ) add_router ( name string, router_type string ) {
   Routers that have already been initialized and started will not 
   be affected.
 */
-func ( rn * Router_Network ) Add_Router ( name string ) {
+func ( rn * Router_Network ) Add_router ( name string ) {
   rn.add_router ( name, "interior" )
 }
 
@@ -186,8 +190,34 @@ func ( rn * Router_Network ) Add_Router ( name string ) {
   Similar to Add_Router(), but adds an edge instead of an interior
   router.
 */
-func ( rn * Router_Network ) Add_Edge ( name string ) {
+func ( rn * Router_Network ) Add_edge ( name string ) {
   rn.add_router ( name, "edge" )
+}
+
+
+
+
+func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages int, router_name string ) {
+
+  var operation string
+  if sender {
+    operation = "send"
+  } else {
+    operation = "receive"
+  }
+
+  r := rn.get_router_by_name ( router_name )
+
+  client := client.New_client ( name,
+                                operation,
+                                name,
+                                r.Client_port ( ),
+                                rn.client_path,
+                                rn.log_path,
+                                rn.dispatch_root,
+                                rn.proton_root,
+                                n_messages )
+  rn.clients = append ( rn.clients, client )
 }
 
 
@@ -200,7 +230,7 @@ func ( rn * Router_Network ) Add_Edge ( name string ) {
   connect to the appropriate port of the second router.
   You cannot connect to an edge router.
 */
-func ( rn * Router_Network ) Connect ( router_1_name string, router_2_name string ) {
+func ( rn * Router_Network ) Connect_router ( router_1_name string, router_2_name string ) {
   router_1 := rn.get_router_by_name ( router_1_name )
   router_2 := rn.get_router_by_name ( router_2_name )
 
@@ -243,6 +273,12 @@ func ( rn * Router_Network ) Run ( ) {
     if r.State() == "initialized" {
       r.Run ( r.Type() == "interior" )
     }
+  }
+
+  time.Sleep ( 10 * time.Second )
+
+  for _, c := range rn.clients {
+    c.Run ( )
   }
 }
 
@@ -377,6 +413,11 @@ func halt_router ( wg * sync.WaitGroup, r * router.Router ) {
 */
 func ( rn * Router_Network ) Halt ( ) {
   var wg sync.WaitGroup
+
+  for _, c := range rn.clients {
+    c.Halt ( )
+  }
+
   for _, r := range rn.routers {
     if r.Is_not_halted() {
       wg.Add(1)

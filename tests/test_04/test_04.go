@@ -32,7 +32,6 @@ import ( "fmt"
          "flag"
          "utils"
          rn "router_network"
-         "client"
        )
 
 
@@ -89,6 +88,7 @@ main ( ) {
   utils.Find_or_create_dir ( config_path )
   utils.Find_or_create_dir ( log_path )
 
+  client_path := mercury_root + "/clients/c_proactor_client"
 
   /*-------------------------------------------
      Make the network 
@@ -103,6 +103,7 @@ main ( ) {
                                      router_path,
                                      config_path,
                                      log_path,
+                                     client_path,
                                      dispatch_install_root,
                                      proton_install_root,
                                      * verbose_p,
@@ -111,106 +112,26 @@ main ( ) {
   if * verbose_p {
     upl ( "Making interior routers", * test_name_p )
   }
-  network.Add_Router ( "A" )
-  network.Add_Router ( "B" )
-  network.Add_Router ( "C" )
+  network.Add_router ( "A" )
+  network.Add_router ( "B" )
+  network.Add_router ( "C" )
 
-  network.Connect ( "A",  "B" )
-  network.Connect ( "B",  "C" )
+  network.Connect_router ( "A",  "B" )
+  network.Connect_router ( "B",  "C" )
 
   edge_name := "edge_01"
-  network.Add_Edge ( edge_name )
-  network.Connect  ( edge_name, "A" )
+  network.Add_edge ( edge_name )
+  network.Connect_router ( edge_name, "A" )
+
+  network.Add_client ( "receiver_1", false, 2000, "C" )
+  network.Add_client ( "sender_1",   true,  1000, "edge_01" )
+  network.Add_client ( "sender_2",   true,  1000, "edge_01" )
 
   network.Init ( )
   network.Run ( )
-  if * verbose_p {
-    upl ( "Interior router network is running", * test_name_p )
-  }
 
-  // Some pause is necessary here, or router A will 
-  // reject the client connection on first attempt.
-  fp ( os.Stderr, "test_04: sleeping 10 seconds.\n" );
-  time.Sleep ( 10 * time.Second )
-
-
-  /*----------------------------------------------
-    Start the receiver.
-    NOTE!  
-    NEXT -- put these in the network!
-    not directly here.
-  ----------------------------------------------*/
-  client_path := mercury_root + "/clients/c_proactor_client"
-  receiver := client.New_client ( "receiver_1", 
-                                  "receive", 
-                                  "receiver_1", 
-                                  network.Client_port ( edge_name ), 
-                                  client_path,
-                                  log_path,
-                                  dispatch_install_root,
-                                  proton_install_root,
-                                  2000 )
-
-  // After this call returns, the receiver is running detached.
-  receiver.Run ( )
-
-
-
-  /*----------------------------------------------
-    Start sender 1.
-  ----------------------------------------------*/
-  name := "sender_1"
-  sender_1 := client.New_client ( name,
-                                  "send", 
-                                  name,
-                                  network.Client_port ( "C" ), 
-                                  client_path,
-                                  log_path,
-                                  dispatch_install_root,
-                                  proton_install_root,
-                                  1000 )
-
-  // After this call returns, the sender is running detached.
-  sender_1.Run ( )
-
-
-  /*----------------------------------------------
-    Start sender 2.
-  ----------------------------------------------*/
-  name = "sender_2"
-  sender_2 := client.New_client ( name,
-                                  "send", 
-                                  name,
-                                  network.Client_port ( "C" ), 
-                                  client_path,
-                                  log_path,
-                                  dispatch_install_root,
-                                  proton_install_root,
-                                  1000 )
-
-  // After this call returns, the sender is running detached.
-  sender_2.Run ( )
-
-
-  fp ( os.Stderr, "Sleeping short time...\n" )
-  time.Sleep ( 15 * time.Second )
-
-  fp ( os.Stderr, "halting the clients....\n");
-
-  err := sender_1.Halt()
-  if err != nil {
-    fp ( os.Stderr, "sender_1 halt error: |%s|\n", err.Error() )
-  }
-
-  err = sender_2.Halt()
-  if err != nil {
-    fp ( os.Stderr, "sender_2 halt error: |%s|\n", err.Error() )
-  }
-
-  err = receiver.Halt()
-  if err != nil {
-    fp ( os.Stderr, "receiver halt error: |%s|\n", err.Error() )
-  }
+  fp ( os.Stderr, "test_04 : sleeping short time...\n" )
+  time.Sleep ( 5 * time.Second )
 
   network.Halt ( )
 
@@ -219,33 +140,11 @@ main ( ) {
   test_duration := test_stop_time.Sub ( test_start_time )
   if * verbose_p {
     upl ( "total test time: %.3f", * test_name_p, test_duration.Seconds() )
-  }
-
-  if * verbose_p {
     upl ( "Results are in |%s|", * test_name_p, result_path )
     upl ( "test complete", * test_name_p )
   }
 
   utils.End_test_and_exit ( result_path, "" )
-}
-
-
-
-
-
-func make_edges ( start_edge_number, n_edges int, network * rn.Router_Network, verbose bool, test_name string ) {
-  last_edge_number := start_edge_number + n_edges
-  for edge_count := start_edge_number; edge_count < last_edge_number; edge_count ++ {
-    time.Sleep ( 100 * time.Millisecond )
-    edge_name := fmt.Sprintf ( "e%d", edge_count )
-    if verbose {
-      upl ( "make_edges making new router with name |%s|", test_name, edge_name )
-    }
-    network.Add_Edge   ( edge_name )
-    network.Connect ( edge_name, "A" )
-    network.Init ( )
-    network.Run ( )
-  }
 }
 
 
