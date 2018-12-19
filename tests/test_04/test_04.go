@@ -148,7 +148,8 @@ main ( ) {
                                   client_path,
                                   log_path,
                                   dispatch_install_root,
-                                  proton_install_root )
+                                  proton_install_root,
+                                  2000 )
 
   // After this call returns, the receiver is running detached.
   receiver.Run ( )
@@ -156,19 +157,39 @@ main ( ) {
 
 
   /*----------------------------------------------
-    Start the sender.
+    Start sender 1.
   ----------------------------------------------*/
-  sender := client.New_client ( "sender_1", 
-                                "send", 
-                                "sender_1", 
-                                network.Client_port ( "C" ), 
-                                client_path,
-                                log_path,
-                                dispatch_install_root,
-                                proton_install_root )
+  name := "sender_1"
+  sender_1 := client.New_client ( name,
+                                  "send", 
+                                  name,
+                                  network.Client_port ( "C" ), 
+                                  client_path,
+                                  log_path,
+                                  dispatch_install_root,
+                                  proton_install_root,
+                                  1000 )
 
   // After this call returns, the sender is running detached.
-  sender.Run ( )
+  sender_1.Run ( )
+
+
+  /*----------------------------------------------
+    Start sender 2.
+  ----------------------------------------------*/
+  name = "sender_2"
+  sender_2 := client.New_client ( name,
+                                  "send", 
+                                  name,
+                                  network.Client_port ( "C" ), 
+                                  client_path,
+                                  log_path,
+                                  dispatch_install_root,
+                                  proton_install_root,
+                                  1000 )
+
+  // After this call returns, the sender is running detached.
+  sender_2.Run ( )
 
 
   fp ( os.Stderr, "Sleeping short time...\n" )
@@ -176,9 +197,14 @@ main ( ) {
 
   fp ( os.Stderr, "halting the clients....\n");
 
-  err := sender.Halt()
+  err := sender_1.Halt()
   if err != nil {
-    fp ( os.Stderr, "sender halt error: |%s|\n", err.Error() )
+    fp ( os.Stderr, "sender_1 halt error: |%s|\n", err.Error() )
+  }
+
+  err = sender_2.Halt()
+  if err != nil {
+    fp ( os.Stderr, "sender_2 halt error: |%s|\n", err.Error() )
   }
 
   err = receiver.Halt()

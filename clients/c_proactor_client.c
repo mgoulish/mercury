@@ -52,6 +52,7 @@ struct context_s
   pn_message_t * message;
   int            total_bytes_sent,
                  total_bytes_received;
+  int            messages;
 }
 context_t,
 * context_p;
@@ -63,7 +64,6 @@ context_t,
 
 int operation = 0;
 char const * path = "speedy/my_path";
-int messages  = 1000;
 int body_size = 100;
 size_t credit_window = 100;
 
@@ -324,7 +324,7 @@ process_event ( context_p context, pn_event_t * event )
       event_link = pn_event_link ( event );
       if ( pn_link_is_sender ( event_link ) )
       {
-        while ( pn_link_credit ( event_link ) > 0 && context->sent < messages )
+        while ( pn_link_credit ( event_link ) > 0 && context->sent < context->messages )
           send_message ( context, event_link );
       }
     break;
@@ -338,7 +338,7 @@ process_event ( context_p context, pn_event_t * event )
         pn_delivery_settle ( event_delivery );
         ++ accepted;
 
-        if (accepted >= messages) 
+        if (accepted >= context->messages) 
         {
           if ( connection )
             pn_connection_close(connection);
@@ -362,7 +362,7 @@ process_event ( context_p context, pn_event_t * event )
         pn_delivery_settle ( event_delivery );
         context->received ++;
 
-        if ( context->received >= messages) 
+        if ( context->received >= context->messages) 
         {
           fprintf ( stderr, "receiver: got %d messages. Stopping.\n", context->received );
           if ( connection )
@@ -431,6 +431,8 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->total_bytes_sent     = 0;
   context->total_bytes_received = 0;
+
+  context->messages = 1000;
 
 
   for ( int i = 1; i < argc; ++ i )
@@ -506,6 +508,13 @@ init_context ( context_p context, int argc, char ** argv )
     if ( ! strcmp ( "--log", argv[i] ) )
     {
       context->log_file_name = strdup ( NEXT_ARG );
+      i ++;
+    }
+    // messages ----------------------------------------------
+    else
+    if ( ! strcmp ( "--messages", argv[i] ) )
+    {
+      context->messages = atoi ( NEXT_ARG );
       i ++;
     }
     // unknown ----------------------------------------------
