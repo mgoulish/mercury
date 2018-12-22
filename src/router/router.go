@@ -402,10 +402,17 @@ func ( r * Router ) check_memory ( ) {
   This fn sets up the router's environment variables, 
   and runs the router as a separate process.
 */
-func ( r * Router ) Run ( do_resource_measurement bool ) error {
+func ( r * Router ) Run ( ) error {
 
   if r.state > initialized {
     return nil
+  }
+
+  var do_resource_measurement bool
+  if r.resource_measurement_frequency > 0 {
+    do_resource_measurement = true
+  } else {
+    do_resource_measurement = false
   }
 
   if r.verbose {

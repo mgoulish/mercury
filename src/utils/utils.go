@@ -163,7 +163,11 @@ func Cpu_usage ( target_pid int ) ( cpu_usage int ) {
 
 
 func Timestamp ( ) ( string ) {
-  return time.Now().Format ( "2006-01-02 15:04:05.000000" )
+  now := time.Now()
+  ts1 := now.Format ( "2006-01-02 15:04:05.000000" )
+  nsec := now.UnixNano()
+  fsec := float64(nsec) / 1000000000.0
+  return ts1 + fmt.Sprintf ( " %.6f", fsec )
 }
 
 

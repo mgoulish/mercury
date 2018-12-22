@@ -95,7 +95,7 @@ main ( ) {
       A --- B --- C 
   -------------------------------------------*/
   n_worker_threads := 4
-  resource_measurement_frequency := 60
+  resource_measurement_frequency := 0   // turn it off
 
   network := rn.New_Router_Network ( * test_name_p + "_router_network",
                                      n_worker_threads,
@@ -115,24 +115,62 @@ main ( ) {
   network.Add_router ( "A" )
   network.Add_router ( "B" )
   network.Add_router ( "C" )
+  network.Add_router ( "D" )
 
   network.Connect_router ( "A",  "B" )
   network.Connect_router ( "B",  "C" )
+  network.Connect_router ( "C",  "D" )
 
-  edge_name := "edge_01"
-  network.Add_edge ( edge_name )
-  network.Connect_router ( edge_name, "A" )
+  use_edge := false
 
-  network.Add_client ( "receiver_1", false, 2000, "C" )
-  network.Add_client ( "sender_1",   true,  1000, "edge_01" )
-  network.Add_client ( "sender_2",   true,  1000, "edge_01" )
+
+  var edge_name          string
+  var sender_router_name string
+
+  if use_edge {
+    edge_name = "edge_01"
+    network.Add_edge ( edge_name )
+    network.Connect_router ( edge_name, "A" )
+    sender_router_name = edge_name
+  } else {
+    sender_router_name = "A"
+  }
+
+
+
+  n_senders           := 1000
+  messages_per_sender := 100
+  max_message_length  := 100000
+
+  network.Add_client ( "receiver_1", false, n_senders * messages_per_sender, max_message_length, "D" )
+
+  network.Add_n_senders ( n_senders, messages_per_sender, max_message_length, sender_router_name )
 
   network.Init ( )
   network.Run ( )
 
-  fp ( os.Stderr, "test_04 : sleeping short time...\n" )
-  time.Sleep ( 5 * time.Second )
 
+  /*
+  nap_time := 200
+  upl ( "sleeping %d seconds.", * test_name_p, nap_time )
+  time.Sleep ( time.Duration(nap_time) * time.Second )
+
+  upl ( "sleeping 100 seconds.", * test_name_p )
+  time.Sleep ( 100 * time.Second )
+
+  n_sleeps := 50
+  nap_size := 2
+  for i := 0; i < n_sleeps; i ++ {
+    time.Sleep ( time.Duration(nap_size) * time.Second )
+    upl ( "%d : halting a sender.", * test_name_p, n_sleeps - i )
+    network.Halt_a_sender ( )
+  }
+  */
+
+  upl ( "sleeping 500 seconds.", * test_name_p )
+  time.Sleep ( 500 * time.Second )
+
+  upl ( "Shutting down network.", * test_name_p )
   network.Halt ( )
 
   test_stop_time := time.Now()

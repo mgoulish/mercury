@@ -50,9 +50,10 @@ struct context_s
   int            sent;
   int            received;
   pn_message_t * message;
-  int            total_bytes_sent,
+  uint64_t       total_bytes_sent,
                  total_bytes_received;
   int            messages;
+  int            next_received_report;
 }
 context_t,
 * context_p;
@@ -88,18 +89,6 @@ rand_int ( int one_past_max )
 
 
 
-int64_t
-nanoseconds ( ) 
-{
-  struct timespec t;
-  clock_gettime ( CLOCK_REALTIME, & t );
-  return t.tv_sec * 1000 * 1000 * 1000 + t.tv_nsec;
-}
-
-
-
-
-
 double
 get_timestamp ( void )
 {
@@ -123,6 +112,7 @@ log ( context_p context, char const * format, ... )
   va_start ( ap, format );
   vfprintf ( context->log_file, format, ap );
   va_end ( ap );
+  fflush ( context->log_file );
 }
 
 
@@ -215,7 +205,6 @@ decode_message ( context_p context,
 void 
 send_message ( context_p context, pn_link_t * link ) 
 {
-  int64_t stime = nanoseconds ( );
   pn_atom_t id_atom;
   int id_len = snprintf(NULL, 0, "%zu", context->sent);
   char id_str[id_len + 1];
@@ -244,6 +233,10 @@ send_message ( context_p context, pn_link_t * link )
   pn_link_advance ( link );
   context->sent ++;
   context->total_bytes_sent += context->message_length;
+  if ( ! (context->sent % 10) )
+  {
+    log ( context, "%d messages sent\n", context->sent );
+  }
 }
 
 
@@ -264,12 +257,14 @@ process_event ( context_p context, pn_event_t * event )
   switch ( pn_event_type( event ) ) 
   {
     case PN_LISTENER_ACCEPT:
+      //log ( context, "PN_LISTENER_ACCEPT\n" );
       connection = pn_connection ( );
       pn_listener_accept ( pn_event_listener ( event ), connection );
     break;
 
 
     case PN_CONNECTION_INIT:
+      //log ( context, "PN_CONNECTION_INIT:\n" );
       pn_connection_set_container ( pn_event_connection( event ), context->id );
 
       event_session = pn_session ( pn_event_connection( event ) );
@@ -296,6 +291,7 @@ process_event ( context_p context, pn_event_t * event )
 
 
     case PN_CONNECTION_BOUND: 
+      //log ( context, "PN_CONNECTION_BOUND\n" );
       event_transport = pn_event_transport ( event );
       pn_transport_require_auth ( event_transport, false );
       pn_sasl_allowed_mechs ( pn_sasl(event_transport), "ANONYMOUS" );
@@ -303,16 +299,19 @@ process_event ( context_p context, pn_event_t * event )
 
 
     case PN_CONNECTION_REMOTE_OPEN : 
+      //log ( context, "PN_CONNECTION_REMOTE_OPEN\n" );
       pn_connection_open ( pn_event_connection( event ) ); 
     break;
 
 
     case PN_SESSION_REMOTE_OPEN:
+      //log ( context, "PN_SESSION_REMOTE_OPEN\n" );
       pn_session_open ( pn_event_session( event ) );
     break;
 
 
     case PN_LINK_REMOTE_OPEN: 
+      //log ( context, "PN_LINK_REMOTE_OPEN:\n" );
       event_link = pn_event_link( event );
       pn_link_open ( event_link );
       if ( pn_link_is_receiver ( event_link ) )
@@ -321,6 +320,7 @@ process_event ( context_p context, pn_event_t * event )
 
 
     case PN_LINK_FLOW : 
+      //log ( context, "PN_LINK_FLOW\n" );
       event_link = pn_event_link ( event );
       if ( pn_link_is_sender ( event_link ) )
       {
@@ -331,6 +331,7 @@ process_event ( context_p context, pn_event_t * event )
 
 
     case PN_DELIVERY: 
+      //log ( context, "PN_DELIVERY\n" );
       event_delivery = pn_event_delivery( event );
       event_link = pn_delivery_link ( event_delivery );
       if ( pn_link_is_sender ( event_link ) ) 
@@ -362,6 +363,17 @@ process_event ( context_p context, pn_event_t * event )
         pn_delivery_settle ( event_delivery );
         context->received ++;
 
+        if ( context->received >= context->next_received_report )
+        {
+          log ( context,
+                "info received %d messages %ld bytes\n",
+                context->received,
+                context->total_bytes_received
+              );
+          context->next_received_report += 100;
+        }
+
+
         if ( context->received >= context->messages) 
         {
           fprintf ( stderr, "receiver: got %d messages. Stopping.\n", context->received );
@@ -384,20 +396,24 @@ process_event ( context_p context, pn_event_t * event )
 
 
     case PN_CONNECTION_REMOTE_CLOSE :
+      log ( context, "PN_CONNECTION_REMOTE_CLOSE\n" );
       pn_connection_close ( pn_event_connection( event ) );
     break;
 
     case PN_SESSION_REMOTE_CLOSE :
+      log ( context, "PN_SESSION_REMOTE_CLOSE\n" );
       pn_session_close ( pn_event_session( event ) );
     break;
 
 
     case PN_LINK_REMOTE_CLOSE :
+      log ( context, "PN_LINK_REMOTE_CLOSE\n" );
       pn_link_close ( pn_event_link( event ) );
     break;
 
 
     case PN_PROACTOR_INACTIVE:
+      log ( context, "PN_PROACTOR_INACTIVE\n" );
       return false;
 
     default:
@@ -433,6 +449,7 @@ init_context ( context_p context, int argc, char ** argv )
   context->total_bytes_received = 0;
 
   context->messages = 1000;
+  context->next_received_report = 100;
 
 
   for ( int i = 1; i < argc; ++ i )
@@ -541,6 +558,8 @@ main ( int argc, char ** argv )
     context.log_file = fopen ( context.log_file_name, "w" );
   }
 
+  log ( & context, "info max_message_length %d \n", context.max_message_length );
+
   if ( context.max_message_length <= 0 )
   {
     fprintf ( stderr, "no max message length.\n" );
@@ -584,7 +603,7 @@ main ( int argc, char ** argv )
   if ( context.sending ) 
   {
     log ( & context, 
-          "info sent %d messages %d bytes\n", 
+          "info sent %d messages %ld bytes\n", 
           context.sent, 
           context.total_bytes_sent 
         );
@@ -592,7 +611,7 @@ main ( int argc, char ** argv )
   else
   {
     log ( & context, 
-          "info received %d messages %d bytes\n", 
+          "info received %d messages %ld bytes\n", 
           context.received,
           context.total_bytes_received
         );

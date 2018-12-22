@@ -197,7 +197,7 @@ func ( rn * Router_Network ) Add_edge ( name string ) {
 
 
 
-func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages int, router_name string ) {
+func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages int, max_message_length int, router_name string ) {
 
   var operation string
   if sender {
@@ -216,8 +216,33 @@ func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages i
                                 rn.log_path,
                                 rn.dispatch_root,
                                 rn.proton_root,
-                                n_messages )
+                                n_messages,
+                                max_message_length )
   rn.clients = append ( rn.clients, client )
+}
+
+
+
+
+
+func ( rn * Router_Network ) Add_n_senders ( n int, n_messages int, max_message_length int, router_name string ) {
+  for i := 1; i <= n; i ++ {
+    name := fmt.Sprintf ( "sender_%03d", i )
+    rn.Add_client ( name, true, n_messages, max_message_length, router_name )
+  }
+}
+
+
+
+
+
+func ( rn * Router_Network ) Halt_a_sender ( ) {
+  for _, c := range rn.clients {
+    if c.Is_running() && c.Operation == "send" {
+      c.Halt ( )
+      return
+    }
+  }
 }
 
 
@@ -271,15 +296,17 @@ func ( rn * Router_Network ) Init ( ) {
 func ( rn * Router_Network ) Run ( ) {
   for _, r := range rn.routers {
     if r.State() == "initialized" {
-      r.Run ( r.Type() == "interior" )
+      r.Run ( )
     }
   }
 
   time.Sleep ( 10 * time.Second )
 
+  upl ( "starting clients.", module_name )
   for _, c := range rn.clients {
     c.Run ( )
   }
+  upl ( "Done starting clients.", module_name )
 }
 
 
@@ -407,6 +434,18 @@ func halt_router ( wg * sync.WaitGroup, r * router.Router ) {
 
 
 
+func halt_client ( wg * sync.WaitGroup, c * client.Client ) {
+  defer wg.Done()
+  err := c.Halt ( )
+  if err != nil && err.Error() != "process self-terminated." {
+    upl ( "Client %s halting error: %s", module_name, c.Name, err.Error() )
+  }
+}
+
+
+
+
+
 /*
   It takes a while to halt each router, so use a workgroup of
   goroutines to do them all in parallel.
@@ -415,13 +454,14 @@ func ( rn * Router_Network ) Halt ( ) {
   var wg sync.WaitGroup
 
   for _, c := range rn.clients {
-    c.Halt ( )
+    wg.Add ( 1 )
+    go halt_client ( & wg, c )
   }
 
   for _, r := range rn.routers {
     if r.Is_not_halted() {
-      wg.Add(1)
-      go halt_router ( &wg, r )
+      wg.Add ( 1 )
+      go halt_router ( & wg, r )
     }
   }
 
