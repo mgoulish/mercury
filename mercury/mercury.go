@@ -6,6 +6,7 @@ import (
   "os"
   "strings"
   "regexp"
+  rn "router_network"
 )
 
 
@@ -21,13 +22,22 @@ type Context struct {
   line_rx                      * regexp.Regexp
   functions                      map [ string ] action
 
+  dispatch_install_root          string
+  proton_install_root            string
+  mercury_root                   string
+
+  result_path                    string
   router_path                    string
-  mercury_path                   string
+  config_path                    string
+  log_path                       string
+  client_path                    string
 
   verbose                        bool
 
   n_worker_threads               int
   resource_measurement_frequency int
+
+  network                        * rn.Router_Network
 }
 
 
@@ -71,18 +81,20 @@ func verbose ( name string, context * Context, argv [] string ) {
 
 func set_paths ( name string, context * Context, argv [] string ) {
 
-  if argv[0] == "help" || len(argv) < 3 {
-    fp ( os.Stdout, "    %s router_path mercury_path\n", name  )
+  if argv[0] == "help" || len(argv) < 4 {
+    fp ( os.Stdout, "    %s dispatch_install_root proton_install_root mercury_root\n", name  )
     fp ( os.Stdout, "        Set the paths tht Mercury needs.\n\n",  )
     return
   }
 
-  context.router_path  = argv[1]
-  context.mercury_path = argv[2]
+  context.dispatch_install_root = argv[1]
+  context.proton_install_root   = argv[2]
+  context.mercury_root          = argv[3]
 
   if context.verbose {
-    fp ( os.Stderr, "  router  path set to |%s|\n", context.router_path  )
-    fp ( os.Stderr, "  mercury path set to |%s|\n", context.mercury_path )
+    fp ( os.Stderr, "%s command: dispatch install root set to |%s|\n", name, context.dispatch_install_root  )
+    fp ( os.Stderr, "%s command: proton   install root set to |%s|\n", name, context.proton_install_root  )
+    fp ( os.Stderr, "%s command: mercury path set to |%s|\n",          name, context.mercury_root )
   }
 }
 
@@ -174,10 +186,41 @@ func init_context ( context * Context ) {
 
 
 
+func create_network (context * Context ) {
+
+  context.result_path             = context.mercury_root + "/mercury/results"
+  context.config_path             = context.mercury_root + "/mercury/config"
+  context.log_path                = context.mercury_root + "/mercury/log"
+  context.client_path             = context.mercury_root + "/clients/c_proactor_client"
+
+  if context.verbose {
+    fp ( os.Stdout, "create_network: result_path == |%s|\n", context.result_path )
+    fp ( os.Stdout, "create_network: config_path == |%s|\n", context.config_path )
+    fp ( os.Stdout, "create_network: log_path    == |%s|\n", context.log_path )
+    fp ( os.Stdout, "create_network: client_path == |%s|\n", context.client_path )
+  }
+
+  context.network = rn.New_Router_Network ( "mercury_router_network",
+                                            context.n_worker_threads,
+                                            context.result_path,
+                                            context.router_path,
+                                            context.config_path,
+                                            context.log_path,
+                                            context.client_path,
+                                            context.dispatch_install_root,
+                                            context.proton_install_root,
+                                            context.verbose,
+                                            context.resource_measurement_frequency )
+}
+
+
+
+
+
 func main() {
   
   var context Context
-  init_context ( & context )
+  init_context   ( & context )
 
   functions := make ( map [string] action )
   functions [ "help"     ] = help
@@ -198,6 +241,8 @@ func main() {
   for i := 1; i < len(os.Args); i ++ {
     read_file ( "read_file", & context, [] string { "read_file", os.Args[i] } )
   }
+
+  create_network ( & context )
 
   /*--------------------------------------------
     Prompt for and read the next line of input.
