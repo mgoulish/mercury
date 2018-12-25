@@ -144,6 +144,23 @@ func New_Router_Network ( name                           string,
 
 
 
+func ( rn * Router_Network ) Print ( ) {
+  fp ( os.Stdout, "network                          |%s|\n", rn.Name )
+  fp ( os.Stdout, "  worker_threads                  %d\n",  rn.worker_threads )
+  fp ( os.Stdout, "  result_path                    |%s|\n", rn.result_path )
+  fp ( os.Stdout, "  executable_path                |%s|\n", rn.executable_path )
+  fp ( os.Stdout, "  config_path                    |%s|\n", rn.config_path )
+  fp ( os.Stdout, "  log_path                       |%s|\n", rn.log_path )
+  fp ( os.Stdout, "  client_path                    |%s|\n", rn.client_path )
+  fp ( os.Stdout, "  dispatch_root                  |%s|\n", rn.dispatch_root )
+  fp ( os.Stdout, "  proton_root                    |%s|\n", rn.proton_root )
+  fp ( os.Stdout, "  verbose                         %t\n",  rn.verbose )
+  fp ( os.Stdout, "  resource_measurement_frequency  %d\n",  rn.resource_measurement_frequency )
+}
+
+
+
+
 
 func ( rn * Router_Network ) add_router ( name string, router_type string ) {
   client_port, _ := utils.Available_port ( )
@@ -300,13 +317,15 @@ func ( rn * Router_Network ) Run ( ) {
     }
   }
 
-  time.Sleep ( 10 * time.Second )
+  if len(rn.clients) > 0 {
+    time.Sleep ( 10 * time.Second )
 
-  upl ( "starting clients.", module_name )
-  for _, c := range rn.clients {
-    c.Run ( )
+    upl ( "starting clients.", module_name )
+    for _, c := range rn.clients {
+      c.Run ( )
+    }
+    upl ( "Done starting clients.", module_name )
   }
-  upl ( "Done starting clients.", module_name )
 }
 
 

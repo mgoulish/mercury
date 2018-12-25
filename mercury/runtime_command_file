@@ -1,2 +1,6 @@
 verbose 
-paths      /home/mick/latest/qpid-dispatch-1.5.0      /home/mick/latest/qpid-proton-0.26.0               /home/mick/mercury
+paths      /home/mick/latest/install/dispatch /home/mick/latest/install/proton                  /home/mick/mercury
+network
+add_router a b
+connect a b
+run
