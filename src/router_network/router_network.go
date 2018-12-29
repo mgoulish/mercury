@@ -214,6 +214,35 @@ func ( rn * Router_Network ) Add_edge ( name string ) {
 
 
 
+func ( rn * Router_Network ) Add_receiver ( name string, n_messages int, max_message_length int, router_name string ) {
+
+  r := rn.get_router_by_name ( router_name )
+
+  client := client.New_client ( name,
+                                "receive",
+                                name,
+                                r.Client_port ( ),
+                                rn.client_path,
+                                rn.log_path,
+                                rn.dispatch_root,
+                                rn.proton_root,
+                                n_messages,
+                                max_message_length )
+  rn.clients = append ( rn.clients, client )
+}
+
+
+
+
+
+func ( rn * Router_Network ) Add_sender ( name string, n_messages int, max_message_length int, router_name string ) {
+  rn.Add_client ( name, true, n_messages, max_message_length, router_name )
+}
+
+
+
+
+
 func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages int, max_message_length int, router_name string ) {
 
   var operation string

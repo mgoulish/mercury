@@ -6,6 +6,8 @@ import (
   "os"
   "strings"
   "regexp"
+  "strconv"
+  "time"
 
   "utils"
   rn "router_network"
@@ -178,6 +180,53 @@ func add_router ( command_name string, context * Context, argv [] string ) {
 
 
 
+func add_receiver ( command_name string, context * Context, argv [] string ) {
+  if argv[0] == "help" || len(argv) < 2 {
+    fp ( os.Stdout, "    %s router_name\n", command_name )
+    fp ( os.Stdout, "        Add a single receiver to the named router.\n" )
+    return
+  }
+
+  n_messages         := 100
+  max_message_length := 100
+  context.network.Add_receiver ( "receiver", n_messages, max_message_length, argv[1] )
+}
+
+
+
+
+
+func add_sender ( command_name string, context * Context, argv [] string ) {
+  if argv[0] == "help" || len(argv) < 2 {
+    fp ( os.Stdout, "    %s router_name\n", command_name )
+    fp ( os.Stdout, "        Add a single sender to the named router.\n" )
+    return
+  }
+
+  n_messages         := 100
+  max_message_length := 100
+  context.network.Add_sender ( "sender", n_messages, max_message_length, argv[1] )
+}
+
+
+
+
+
+func sleep ( command_name string, context * Context, argv [] string ) {
+  if argv[0] == "help" || len(argv) < 2 {
+    fp ( os.Stdout, "    %s router_name\n", command_name )
+    fp ( os.Stdout, "        Snooze for N seconds.\n" )
+    return
+  }
+
+  sec, _ := strconv.Atoi(argv[1])
+  time.Sleep ( time.Duration(sec) * time.Second )
+}
+
+
+
+
+
 func connect ( command_name string, context * Context, argv [] string ) {
 
   if argv[0] == "help" || len(argv) != 3 {
@@ -243,6 +292,7 @@ func run ( command_name string, context * Context, argv [] string ) {
 
 
 func process_line ( context * Context, line string ) {
+
   /*----------------------------------------
     Clean up the line
   -----------------------------------------*/
@@ -263,6 +313,9 @@ func process_line ( context * Context, line string ) {
   }
 
   if ! found_it {
+    fp ( os.Stdout, "--------------------------------------\n" )
+    fp ( os.Stdout, " Unknown command: |%s|\n", words[0] )
+    fp ( os.Stdout, "--------------------------------------\n\n\n" )
     help ( "help", context, []string{"help"} )
   }
 }
@@ -325,20 +378,23 @@ func main() {
   init_context   ( & context )
 
   functions := make ( map [string] command )
-  functions [ "help"       ] = help
-  functions [ "?"          ] = help
-  functions [ "quit"       ] = quit
-  functions [ "q"          ] = quit
-  functions [ "paths"      ] = set_paths
-  functions [ "read_file"  ] = read_file
-  functions [ "rf"         ] = read_file
-  functions [ "verbose"    ] = verbose
-  functions [ "add_router" ] = add_router
-  functions [ "ar"         ] = add_router
-  functions [ "connect"    ] = connect
-  functions [ "c"          ] = connect
-  functions [ "run"        ] = run
-  functions [ "network"    ] = network
+  functions [ "help"        ] = help
+  functions [ "?"           ] = help
+  functions [ "quit"        ] = quit
+  functions [ "q"           ] = quit
+  functions [ "paths"       ] = set_paths
+  functions [ "read_file"   ] = read_file
+  functions [ "rf"          ] = read_file
+  functions [ "verbose"     ] = verbose
+  functions [ "add_router"  ] = add_router
+  functions [ "ar"          ] = add_router
+  functions [ "connect"     ] = connect
+  functions [ "c"           ] = connect
+  functions [ "run"         ] = run
+  functions [ "network"     ] = network
+  functions [ "add_receiver"] = add_receiver
+  functions [ "add_sender"  ] = add_sender
+  functions [ "sleep"       ] = sleep
 
   context.functions = functions
   context.line_rx   = regexp.MustCompile(`\s+`)
