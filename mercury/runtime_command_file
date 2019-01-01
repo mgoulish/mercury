@@ -1,9 +1,1 @@
-verbose 
-paths      /home/mick/latest/install/dispatch /home/mick/latest/install/proton                  /home/mick/mercury
-network
-sleep 10
-add_router a b
-connect a b
-add_receiver b
-add_sender   a
-run
+router count 2

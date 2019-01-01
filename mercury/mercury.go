@@ -6,8 +6,6 @@ import (
   "os"
   "strings"
   "regexp"
-  "strconv"
-  "time"
 
   "utils"
   rn "router_network"
@@ -18,18 +16,53 @@ import (
 var fp = fmt.Fprintf
 
 
-type command func ( string, * Context, []string ) 
 
+// This is a description of an argument for a
+// command. This is not what gets passed to the
+// live instance of the running command.
+type arg_descriptor struct {
+  name, data_type, explanation, default_value string
+  set bool
+}
+
+
+// This is the actual argument value that gets passed 
+// to the running command. (Except in a map.)
+type argval struct {
+  value    string
+  // Was it set explicitly, or is this just the default?
+  explicit bool 
+}
+
+
+// This is the map of live values that gets passed
+// to a running command function.
+type argmap map [ string ] argval
+
+
+
+// The function that actually gets called to
+// execute an instance of a command.
+type command_fn func ( * Context, argmap )
+
+
+// The structure that describes a command 
+// and its arguments.
+type command struct {
+  name                 string
+  abbreviations   []   string
+  arg_descriptors [] * arg_descriptor
+  fn                   command_fn
+}
 
 
 type Context struct {
   line_rx                      * regexp.Regexp
-  functions                      map [ string ] command
+  commands                  [] * command
 
   dispatch_install_root          string
   proton_install_root            string
   mercury_root                   string
-
   result_path                    string
   router_path                    string
   config_path                    string
@@ -41,7 +74,7 @@ type Context struct {
   n_worker_threads               int
   resource_measurement_frequency int
 
-  network                        * rn.Router_Network
+  network                      * rn.Router_Network
   network_running                bool
 }
 
@@ -49,100 +82,47 @@ type Context struct {
 
 
 
+
 /*=====================================================================
-  Command Functions
+  Helper Functions
 ======================================================================*/
 
 
-func quit ( command_name string, context * Context, argv [] string ) {
-
-  if argv[0] == "help" {
-    fp ( os.Stdout, "    %s\n", command_name  )
-    fp ( os.Stdout, "        Gracefully shut down.\n\n"  )
-    return
-  }
-
-  if context.network_running {
-    context.network.Halt ( )
-  }
-
-  os.Exit ( 0 )
+// To create a command, call this function to get it started
+// with just the name and the executable function, and then 
+// repeatedly call command.add_args() to add all the arguments.
+func new_command ( name string, fn command_fn ) ( * command ) {
+  var c * command
+  c = & command { name : name,
+                  fn   : fn }
+  return c
 }
 
 
 
 
 
-func verbose ( command_name string, context * Context, argv [] string ) {
-
-  if argv[0] == "help" {
-    fp ( os.Stdout, "    %s\n", command_name  )
-    fp ( os.Stdout, "        Explain everything that's happening.\n\n"  )
-    return
-  }
-
-  context.verbose = true
+func ( cmd * command ) add_arg ( name, data_type, explanation, default_value string ) {
+  a := & arg_descriptor { name          : name,
+                          data_type     : data_type,
+                          explanation   : explanation,
+                          default_value : default_value }
+  cmd.arg_descriptors = append ( cmd.arg_descriptors, a )
 }
 
 
 
 
 
-func set_paths ( command_name string, context * Context, argv [] string ) {
+func read_file ( context * Context, file_name string ) {
 
-  if argv[0] == "help" || len(argv) < 4 {
-    fp ( os.Stdout, "    %s dispatch_install_root proton_install_root mercury_root\n", command_name  )
-    fp ( os.Stdout, "        Set the paths that Mercury needs.\n\n",  )
-    return
-  }
-
-  context.dispatch_install_root = argv[1]
-  context.proton_install_root   = argv[2]
-  context.mercury_root          = argv[3]
-
-  context.router_path = context.dispatch_install_root + "/sbin/qdrouterd"
-
-  if context.verbose {
-    fp ( os.Stdout, "  %s command: dispatch install root set to |%s|\n", command_name, context.dispatch_install_root  )
-    fp ( os.Stdout, "  %s command: proton   install root set to |%s|\n", command_name, context.proton_install_root  )
-    fp ( os.Stdout, "  %s command: mercury path set to |%s|\n",          command_name, context.mercury_root )
-    fp ( os.Stdout, "\n" )
-  }
-}
-
-
-
-
-
-func help ( command_name string, context * Context, argv [] string ) {
-  for key, fn := range context.functions {
-    if key != "help" && key != "?" {
-      fn ( key, context, []string{"help"} )
-    }
-  }
-}
-
-
-
-
-
-func read_file ( command_name string, context * Context, argv [] string ) {
-
-  if argv[0] == "help" || len(argv) < 2 {
-    fp ( os.Stdout, "    %s file_path\n", command_name )
-    fp ( os.Stdout, "        Open the given file and process its lines just as\n" )
-    fp ( os.Stdout, "        lines typed from the console would be processed.\n\n"  )
-    fp ( os.Stdout, "\n" )
-    return
-  }
-
-  file, err := os.Open ( argv[1] )
+  file, err := os.Open ( file_name )
   if err != nil {
     panic ( err )
   }
   defer file.Close()
 
-  scanner := bufio.NewScanner(file)
+  scanner := bufio.NewScanner ( file )
   for scanner.Scan() {
     process_line ( context, scanner.Text() )
   }
@@ -150,144 +130,9 @@ func read_file ( command_name string, context * Context, argv [] string ) {
   if err := scanner.Err(); err != nil {
     panic ( err )
   }
-
 }
 
 
-
-
-
-func add_router ( command_name string, context * Context, argv [] string ) {
-
-  if argv[0] == "help" || len(argv) < 2 {
-    fp ( os.Stdout, "    %s router_name\n", command_name )
-    fp ( os.Stdout, "        Add routers of the given names to the network.\n" )
-    fp ( os.Stdout, "        ( You can have multiple names in one command. )\n\n"  )
-    return
-  }
-
-  for i := 1; i < len(argv); i ++ {
-    if argv[i] != "" {
-      context.network.Add_router ( argv[i] )
-      if context.verbose {
-        fp ( os.Stdout, "  added router |%s|\n", argv[i] )
-      }
-    }
-  }
-}
-
-
-
-
-
-func add_receiver ( command_name string, context * Context, argv [] string ) {
-  if argv[0] == "help" || len(argv) < 2 {
-    fp ( os.Stdout, "    %s router_name\n", command_name )
-    fp ( os.Stdout, "        Add a single receiver to the named router.\n" )
-    return
-  }
-
-  n_messages         := 100
-  max_message_length := 100
-  context.network.Add_receiver ( "receiver", n_messages, max_message_length, argv[1] )
-}
-
-
-
-
-
-func add_sender ( command_name string, context * Context, argv [] string ) {
-  if argv[0] == "help" || len(argv) < 2 {
-    fp ( os.Stdout, "    %s router_name\n", command_name )
-    fp ( os.Stdout, "        Add a single sender to the named router.\n" )
-    return
-  }
-
-  n_messages         := 100
-  max_message_length := 100
-  context.network.Add_sender ( "sender", n_messages, max_message_length, argv[1] )
-}
-
-
-
-
-
-func sleep ( command_name string, context * Context, argv [] string ) {
-  if argv[0] == "help" || len(argv) < 2 {
-    fp ( os.Stdout, "    %s router_name\n", command_name )
-    fp ( os.Stdout, "        Snooze for N seconds.\n" )
-    return
-  }
-
-  sec, _ := strconv.Atoi(argv[1])
-  time.Sleep ( time.Duration(sec) * time.Second )
-}
-
-
-
-
-
-func connect ( command_name string, context * Context, argv [] string ) {
-
-  if argv[0] == "help" || len(argv) != 3 {
-    fp ( os.Stdout, "    %s router_1 router_2\n", command_name )
-    fp ( os.Stdout, "        Connect router_1 to router_2. I.e. router_1 will\n" )
-    fp ( os.Stdout, "        connect to router_2's listener.\n\n"  )
-    fp ( os.Stderr, " len argv was %d\n", len(argv) )
-    return
-  }
-
-  context.network.Connect_router ( argv[1], argv[2] )
-
-  if context.verbose {
-    fp ( os.Stdout, "  connected %s to %s\n\n", argv[1], argv[2] )
-  }
-}
-
-
-
-
-
-func network ( command_name string, context * Context, argv [] string ) {
-
-  if argv[0] == "help" {
-    fp ( os.Stdout, "    %s\n", command_name )
-    fp ( os.Stdout, "        Create the router network.\n" )
-    return
-  }
-
-  create_network ( context )
-
-  if context.verbose {
-    fp ( os.Stdout, "  network created.\n\n" )
-  }
-}
-
-
-
-
-
-func run ( command_name string, context * Context, argv [] string ) {
-
-  if argv[0] == "help" {
-    fp ( os.Stdout, "    %s\n", command_name )
-    fp ( os.Stdout, "        Run the router network.\n" )
-    return
-  }
-
-  context.network.Init ( )
-  context.network.Run ( )
-
-  if context.verbose {
-    fp ( os.Stdout, "  network is running.\n\n" )
-  }
-
-  context.network_running = true
-}
-
-
-
-//^^^^^^^^^^^^^^^  End Command Functions ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
 
@@ -301,23 +146,91 @@ func process_line ( context * Context, line string ) {
   words := strings.Split ( line, " " )
 
   /*----------------------------------------
-    The first word should be the name 
-    of a function. Call it.
+    The first word should be the name of 
+    a function. Call it.
   -----------------------------------------*/
-  found_it := false
-  for key, fn := range context.functions {
-    if key == words[0] {
-      found_it = true
-      fn ( key, context, words )
+  call_command ( context, words )
+}
+
+
+
+
+
+func print_usage ( context * Context, cmd * command ) {
+  fp ( os.Stderr, "Usage for command |%s|\n", cmd.name )
+}
+
+
+
+
+
+func get_command ( context * Context, target_name string ) ( * command ) {
+  for _, cmd := range context.commands {
+    if target_name == cmd.name {
+      return cmd
     }
   }
 
-  if ! found_it {
-    fp ( os.Stdout, "--------------------------------------\n" )
-    fp ( os.Stdout, " Unknown command: |%s|\n", words[0] )
-    fp ( os.Stdout, "--------------------------------------\n\n\n" )
-    help ( "help", context, []string{"help"} )
+  return nil
+}
+
+
+
+
+
+func make_default_args ( cmd * command ) ( argmap ) {
+  am := make ( argmap, len(cmd.arg_descriptors) )
+  for _, argd := range cmd.arg_descriptors {
+    av := argval { value : argd.default_value, explicit : false }
+    fp ( os.Stderr, "make_default_args argd.name == |%s|\n", argd.name )
+    am [ argd.name ] = av
   }
+  return am
+}
+
+
+
+
+func call_command ( context * Context, command_line [] string ) {
+
+  cmd := get_command ( context, command_line[0] )
+  if cmd == nil {
+    fp ( os.Stderr, "mercury error: unknown command: |%s|\n", command_line[0] )
+    return
+  }
+
+  // We found the command, now run it.
+  am := make_default_args ( cmd )
+
+  // Look at each arg on the command line.
+  for i := 1; i < len(command_line); i ++ {
+    arg_name := command_line [ i ]
+    arg := cmd.get_arg ( arg_name )
+    if arg == nil {
+      // There is no such arg for this command.
+      fp ( os.Stderr, "Bad arg: |%s|\n", arg_name )
+      print_usage ( context, cmd )
+      return
+    } 
+
+    // This is a valid arg for this command.
+    if arg.data_type == "flag" {
+      // Flags are special because they take no value.
+      av := argval { value : "true", explicit : true }
+      am [ arg_name ] = av
+    } else {
+      // This arg is a non-flag type and must take a value.
+      if i == len(command_line) - 1 {
+        fp ( os.Stderr, "mercury error: no value for argument |%s| in command |%s|\n", cmd.name, arg_name )
+        return
+      }
+      av := argval { value : command_line [ i + 1 ], explicit : true }
+      am [ arg_name ] = av
+      // Advance the loop variable over the value we just consumed.
+      i ++
+    }
+  }
+  cmd.fn ( context, am )
 }
 
 
@@ -372,38 +285,71 @@ func create_network (context * Context ) {
 
 
 
+
+
+
+// Is the given string one of my args?
+func ( cmd * command ) get_arg ( possible_arg_name string ) ( * arg_descriptor ) {
+  for _, arg := range cmd.arg_descriptors {
+    if arg.name == possible_arg_name {
+      return arg
+    }
+  }
+  return nil
+}
+
+
+
+
+
+/*=====================================================================
+  Command Functions
+======================================================================*/
+
+
+func router ( context * Context, argmap argmap ) {
+  fp ( os.Stderr, "router fn called!  with %d args\n", len(argmap) )
+}
+
+
+func quit ( context * Context, argmap argmap ) {
+  fp ( os.Stderr, "quit fn called!  with %d args\n", len(argmap) )
+
+  if context.network_running {
+    context.network.Halt ( )
+  }
+
+  os.Exit ( 0 )
+}
+
+
+
+
+
 func main() {
   
   var context Context
   init_context   ( & context )
 
-  functions := make ( map [string] command )
-  functions [ "help"        ] = help
-  functions [ "?"           ] = help
-  functions [ "quit"        ] = quit
-  functions [ "q"           ] = quit
-  functions [ "paths"       ] = set_paths
-  functions [ "read_file"   ] = read_file
-  functions [ "rf"          ] = read_file
-  functions [ "verbose"     ] = verbose
-  functions [ "add_router"  ] = add_router
-  functions [ "ar"          ] = add_router
-  functions [ "connect"     ] = connect
-  functions [ "c"           ] = connect
-  functions [ "run"         ] = run
-  functions [ "network"     ] = network
-  functions [ "add_receiver"] = add_receiver
-  functions [ "add_sender"  ] = add_sender
-  functions [ "sleep"       ] = sleep
-
-  context.functions = functions
   context.line_rx   = regexp.MustCompile(`\s+`)
+
+  /*-------------------------------------------
+    Make commands.
+  -------------------------------------------*/
+  c := new_command ( "router", router )
+  c.add_arg ( "count", "int",    "how many routers to create", "1" )
+  context.commands = append ( context.commands, c )
+
+  c = new_command ( "quit", quit )
+  context.commands = append ( context.commands, c )
+
+  
 
   /*--------------------------------------------
     Process files named on command line.
   --------------------------------------------*/
   for i := 1; i < len(os.Args); i ++ {
-    read_file ( "read_file", & context, [] string { "read_file", os.Args[i] } )
+    read_file ( & context, os.Args[i] )
   }
 
   /*--------------------------------------------
