@@ -143,6 +143,13 @@ func New_Router_Network ( name                           string,
 
 
 
+func ( rn * Router_Network ) N_routers ( ) ( int ) {
+  return len ( rn.routers )
+}
+
+
+
+
 
 func ( rn * Router_Network ) Print ( ) {
   fp ( os.Stdout, "network                          |%s|\n", rn.Name )

@@ -314,7 +314,6 @@ func init_context ( context * Context ) {
 
 
 func create_network (context * Context ) {
-
   context.result_path   = context.mercury_root + "/mercury/results"
   context.config_path   = context.mercury_root + "/mercury/config"
   context.log_path      = context.mercury_root + "/mercury/log"
@@ -389,8 +388,33 @@ func create_action ( context * Context, command_line [] string ) {
 ======================================================================*/
 
 
-func router ( context * Context, am argmap ) {
-  fp ( os.Stderr, "router fn called!  with %d args\n", len(am) )
+func add_routers ( context * Context, am argmap ) {
+
+  routers_so_far := context.network.N_routers()
+
+  if routers_so_far >= 26 {
+    fp ( os.Stdout, 
+         "%c error: You can't have any more routers. You have %d already.\n", 
+         mercury, 
+         routers_so_far )
+    return
+  }
+
+  count, _ := strconv.Atoi ( am["count"].value )
+
+  if count + routers_so_far >= 26 {
+    count = 26 - routers_so_far
+  }
+
+  for i:= 0; i < count; i ++ {
+    router_name := fmt.Sprintf ( "%c", 'A' + byte(i) + byte(routers_so_far) )
+
+    context.network.Add_router ( router_name )
+
+    if context.verbose {
+      fp ( os.Stderr, "%c info: made router %s. Network now has %d routers.\n", mercury, router_name, context.network.N_routers() )
+    }
+  }
 }
 
 
@@ -456,6 +480,35 @@ func set_paths ( context * Context, am argmap ) {
   }
 }
 
+/*
+func help ( context * Context, am argmap ) {
+  for _, cmd := range context.commands  {
+    
+  }
+}
+*/
+
+func network ( context * Context, am argmap ) {
+  create_network ( context )
+}
+
+
+
+func sleep ( context * Context, am argmap ) {
+
+  how_long, _ := strconv.Atoi ( am["duration"].value )
+
+  if context.verbose {
+    fp ( os.Stdout, "%c: Sleeping for %d seconds.\n", mercury, how_long )
+  }
+
+  time.Sleep ( time.Second * time.Duration ( how_long ) )
+}
+
+
+
+
+
 
 
 
@@ -463,14 +516,15 @@ func set_paths ( context * Context, am argmap ) {
 func main() {
   
   var context Context
-  init_context   ( & context )
+  init_context ( & context )
+
 
   context.line_rx   = regexp.MustCompile(`\s+`)
 
   /*-------------------------------------------
     Make commands.
   -------------------------------------------*/
-  c := new_command ( "router", router )
+  c := new_command ( "add_routers", add_routers )
   c.add_arg ( "count", "int",    "how many routers to create", "1" )
   context.commands = append ( context.commands, c )
 
@@ -495,7 +549,15 @@ func main() {
   c.add_arg ( "mercury",  "string", "The path to the mercury directory.",          "none" )
   context.commands = append ( context.commands, c )
 
-  
+  c = new_command ( "network", network )
+  context.commands = append ( context.commands, c )
+
+  c = new_command ( "sleep", sleep )
+  c.add_arg ( "duration", "string", "How long to sleep.", "10" )
+  context.commands = append ( context.commands, c )
+
+
+
 
   /*--------------------------------------------
     Process files named on command line.
