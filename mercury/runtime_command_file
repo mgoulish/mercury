@@ -1,2 +1,3 @@
-router count 2
+verbose on
 action cycle_time 12 echo message hi_there
+set_paths dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton mercury /home/mick/mercury

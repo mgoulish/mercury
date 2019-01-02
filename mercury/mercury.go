@@ -430,6 +430,36 @@ func start_actions ( context * Context, am argmap ) {
 
 
 
+func verbose ( context * Context, am argmap ) {
+  if a := am["on"]; a.value == "true" {
+    context.verbose = true
+    fp ( os.Stdout, "%c: verbose on.\n", mercury )
+    return
+  }
+
+  if a := am["off"]; a.value == "true" {
+    context.verbose = false
+  }
+}
+
+
+
+
+
+func set_paths ( context * Context, am argmap ) {
+  context.dispatch_install_root = am["dispatch"].value
+  context.proton_install_root   = am["proton"  ].value
+  context.mercury_root          = am["mercury" ].value
+
+  if context.verbose {
+    fp ( os.Stderr, " set_paths: dispatch |%s|  proton |%s|    mercury |%s|\n", context.dispatch_install_root, context.proton_install_root, context.mercury_root )
+  }
+}
+
+
+
+
+
 func main() {
   
   var context Context
@@ -452,6 +482,17 @@ func main() {
   context.commands = append ( context.commands, c )
 
   c = new_command ( "start_actions", start_actions )
+  context.commands = append ( context.commands, c )
+
+  c = new_command ( "verbose", verbose )
+  c.add_arg ( "on",  "flag", "Turn verbosity on. That is, invite, nay *command* Mercury to explain every little thing. i.e. every detail of its operation.", "" )
+  c.add_arg ( "off", "flag", "Turn verbosity off.", "" )
+  context.commands = append ( context.commands, c )
+
+  c = new_command ( "set_paths", set_paths )
+  c.add_arg ( "dispatch", "string", "The path to the dispatch install directory.", "none" )
+  c.add_arg ( "proton",   "string", "The path to the proton install directory.",   "none" )
+  c.add_arg ( "mercury",  "string", "The path to the mercury directory.",          "none" )
   context.commands = append ( context.commands, c )
 
   
