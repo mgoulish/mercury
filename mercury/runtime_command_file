@@ -1,1 +1,2 @@
 router count 2
+action cycle_time 12 echo message hi_there

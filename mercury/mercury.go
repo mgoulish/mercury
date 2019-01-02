@@ -6,6 +6,8 @@ import (
   "os"
   "strings"
   "regexp"
+  "strconv"
+  "time"
 
   "utils"
   rn "router_network"
@@ -14,6 +16,7 @@ import (
 
 
 var fp = fmt.Fprintf
+var mercury = '\u263F'
 
 
 
@@ -56,26 +59,39 @@ type command struct {
 }
 
 
+// Actions to be executed in the future, and
+// maybe repeatedly. All we need is the wait time
+// before execution (which is also the cycle time
+// for repeated action), and the command line for
+// the command to be called.
+type action struct {
+  delay           int 
+  repeat          bool
+  command_line [] string
+}
+
+
 type Context struct {
-  line_rx                      * regexp.Regexp
-  commands                  [] * command
+  line_rx                  * regexp.Regexp
+  commands              [] * command
 
-  dispatch_install_root          string
-  proton_install_root            string
-  mercury_root                   string
-  result_path                    string
-  router_path                    string
-  config_path                    string
-  log_path                       string
-  client_path                    string
+  dispatch_install_root      string
+  proton_install_root        string
+  mercury_root               string
+  result_path                string
+  router_path                string
+  config_path                string
+  log_path                   string
+  client_path                string
 
-  verbose                        bool
+  verbose                    bool
 
-  n_worker_threads               int
-  resource_measurement_frequency int
+  n_worker_threads           int
 
-  network                      * rn.Router_Network
-  network_running                bool
+  network                  * rn.Router_Network
+  network_running            bool
+  function_argmap            argmap
+  actions               [] * action
 }
 
 
@@ -96,6 +112,18 @@ func new_command ( name string, fn command_fn ) ( * command ) {
   c = & command { name : name,
                   fn   : fn }
   return c
+}
+
+
+
+
+
+func new_action ( cycle_time int, repeat bool, command_line [] string ) ( * action ) {
+  var a * action
+  a = & action { delay        : cycle_time,
+                 repeat       : repeat,
+                 command_line : command_line }
+  return a
 }
 
 
@@ -182,7 +210,6 @@ func make_default_args ( cmd * command ) ( argmap ) {
   am := make ( argmap, len(cmd.arg_descriptors) )
   for _, argd := range cmd.arg_descriptors {
     av := argval { value : argd.default_value, explicit : false }
-    fp ( os.Stderr, "make_default_args argd.name == |%s|\n", argd.name )
     am [ argd.name ] = av
   }
   return am
@@ -191,26 +218,28 @@ func make_default_args ( cmd * command ) ( argmap ) {
 
 
 
-func call_command ( context * Context, command_line [] string ) {
 
-  cmd := get_command ( context, command_line[0] )
-  if cmd == nil {
-    fp ( os.Stderr, "mercury error: unknown command: |%s|\n", command_line[0] )
-    return
-  }
+/*=======================================================
+  Make the arg-map that will be handed to the running
+  instance of the given functions. All Args will get
+  default values at first, but those values will then
+  be over-written by whatever values the user supplied 
+  on the command line.
+=======================================================*/
+func make_arg_map ( context * Context, cmd * command, command_line [] string ) ( argmap )  {
 
-  // We found the command, now run it.
   am := make_default_args ( cmd )
 
   // Look at each arg on the command line.
   for i := 1; i < len(command_line); i ++ {
     arg_name := command_line [ i ]
     arg := cmd.get_arg ( arg_name )
+
     if arg == nil {
       // There is no such arg for this command.
       fp ( os.Stderr, "Bad arg: |%s|\n", arg_name )
       print_usage ( context, cmd )
-      return
+      return nil
     } 
 
     // This is a valid arg for this command.
@@ -222,7 +251,7 @@ func call_command ( context * Context, command_line [] string ) {
       // This arg is a non-flag type and must take a value.
       if i == len(command_line) - 1 {
         fp ( os.Stderr, "mercury error: no value for argument |%s| in command |%s|\n", cmd.name, arg_name )
-        return
+        return nil
       }
       av := argval { value : command_line [ i + 1 ], explicit : true }
       am [ arg_name ] = av
@@ -230,7 +259,44 @@ func call_command ( context * Context, command_line [] string ) {
       i ++
     }
   }
+
+  return am
+}
+
+
+
+
+
+func call_command ( context * Context, command_line [] string ) {
+
+  if command_line[0] == "action" {
+    create_action ( context, command_line )
+    return
+  } 
+
+  cmd := get_command ( context, command_line[0] )
+  if cmd == nil {
+    fp ( os.Stderr, "mercury error: unknown command: |%s|\n", command_line[0] )
+    return
+  }
+
+  am := make_arg_map ( context, cmd, command_line )
+
   cmd.fn ( context, am )
+}
+
+
+
+
+
+func call_command_repeatedly ( context * Context, command_line [] string, cycle_time int, repeat bool ) {
+  for {
+    time.Sleep ( time.Duration(cycle_time) * time.Second )
+    call_command ( context, command_line )
+    if ! repeat {
+      break
+    }
+  }
 }
 
 
@@ -241,7 +307,6 @@ func init_context ( context * Context ) {
   context.verbose                        = false
   context.network_running                = false
   context.n_worker_threads               = 4
-  context.resource_measurement_frequency = 0
 }
 
 
@@ -250,10 +315,10 @@ func init_context ( context * Context ) {
 
 func create_network (context * Context ) {
 
-  context.result_path             = context.mercury_root + "/mercury/results"
-  context.config_path             = context.mercury_root + "/mercury/config"
-  context.log_path                = context.mercury_root + "/mercury/log"
-  context.client_path             = context.mercury_root + "/clients/c_proactor_client"
+  context.result_path   = context.mercury_root + "/mercury/results"
+  context.config_path   = context.mercury_root + "/mercury/config"
+  context.log_path      = context.mercury_root + "/mercury/log"
+  context.client_path   = context.mercury_root + "/clients/c_proactor_client"
 
   utils.Find_or_create_dir ( context.result_path )
   utils.Find_or_create_dir ( context.config_path )
@@ -278,7 +343,7 @@ func create_network (context * Context ) {
                                             context.dispatch_install_root,
                                             context.proton_install_root,
                                             context.verbose,
-                                            context.resource_measurement_frequency )
+                                            0 )
 }
 
 
@@ -302,24 +367,63 @@ func ( cmd * command ) get_arg ( possible_arg_name string ) ( * arg_descriptor )
 
 
 
+func create_action ( context * Context, command_line [] string ) {
+  // The first arg and val must be for 'cycle_time'.
+  arg_name := "cycle_time"
+  if command_line[1] != arg_name {
+    fp ( os.Stderr, "%c error: action must have first arg == %s\n", mercury, arg_name )
+    return
+  }
+  cycle_time, _ := strconv.Atoi ( command_line[2] )
+
+  a := new_action ( cycle_time, true, command_line[3:] )
+  context.actions = append ( context.actions, a )
+}
+
+
+
+
+
 /*=====================================================================
   Command Functions
 ======================================================================*/
 
 
-func router ( context * Context, argmap argmap ) {
-  fp ( os.Stderr, "router fn called!  with %d args\n", len(argmap) )
+func router ( context * Context, am argmap ) {
+  fp ( os.Stderr, "router fn called!  with %d args\n", len(am) )
 }
 
 
-func quit ( context * Context, argmap argmap ) {
-  fp ( os.Stderr, "quit fn called!  with %d args\n", len(argmap) )
 
+
+
+func quit ( context * Context, am argmap ) {
   if context.network_running {
     context.network.Halt ( )
   }
-
   os.Exit ( 0 )
+}
+
+
+
+
+
+func echo ( context * Context, am argmap ) {
+  fp ( os.Stderr, "echo fn called!  with %d args\n", len(am) )
+  if len(am) > 0 {
+    fp ( os.Stderr, "%s\n", am["message"].value )
+  }
+}
+
+
+
+
+
+func start_actions ( context * Context, am argmap ) {
+  for _, a := range context.actions {
+    fp ( os.Stderr, " start_actions: delay is %d comline is |%V|\n", a.delay, a.command_line )
+    go call_command_repeatedly ( context, a.command_line, a.delay, a.repeat ) 
+  }
 }
 
 
@@ -343,6 +447,13 @@ func main() {
   c = new_command ( "quit", quit )
   context.commands = append ( context.commands, c )
 
+  c = new_command ( "echo", echo )
+  c.add_arg ( "message", "string", "The message for echo to echo.", "Hello, Mercury!" )
+  context.commands = append ( context.commands, c )
+
+  c = new_command ( "start_actions", start_actions )
+  context.commands = append ( context.commands, c )
+
   
 
   /*--------------------------------------------
@@ -353,11 +464,12 @@ func main() {
   }
 
   /*--------------------------------------------
-    Prompt for and read the next line of input.
+    Prompt for and read lines of input until
+    the user tells us to quit.
   --------------------------------------------*/
   reader := bufio.NewReader ( os.Stdin )
   for {
-    fp ( os.Stdout, "%c ", '\u263F' )
+    fp ( os.Stdout, "%c ", mercury )
     line, _ := reader.ReadString ( '\n' )
 
     process_line ( & context, line )
