@@ -367,7 +367,6 @@ process_event ( context_p context, pn_event_t * event )
           context->next_received_report += 100;
         }
 
-
         if ( context->received >= context->messages) 
         {
           fprintf ( stderr, "receiver: got %d messages. Stopping.\n", context->received );
@@ -556,6 +555,14 @@ main ( int argc, char ** argv )
   if ( context.log_file_name ) 
   {
     context.log_file = fopen ( context.log_file_name, "w" );
+    if ( context.sending )
+    {
+      log ( & context, "%d is a sender\n", getpid() );
+    }
+    else
+    {
+      log ( & context, "%d is a receiver\n", getpid() );
+    }
   }
 
   log ( & context, "max_message_length %d \n", context.max_send_length );

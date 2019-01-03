@@ -2,3 +2,7 @@ verbose on
 set_paths dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton mercury /home/mick/mercury
 network
 add_routers count 3
+connect from A to B
+connect from B to C
+sleep duration 6
+run

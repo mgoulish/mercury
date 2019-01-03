@@ -138,6 +138,7 @@ func New_Router_Network ( name                           string,
                           verbose                        : verbose,
                           resource_measurement_frequency : resource_measurement_frequency }
 
+  fp ( os.Stderr, "New_Router_Network: executable_path |%s|\n",  executable_path )
   return rn
 }
 

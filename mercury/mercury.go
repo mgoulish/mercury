@@ -313,7 +313,9 @@ func init_context ( context * Context ) {
 
 
 
-func create_network (context * Context ) {
+func create_network ( context * Context ) {
+
+  context.router_path   = context.dispatch_install_root + "/sbin/qdrouterd"
   context.result_path   = context.mercury_root + "/mercury/results"
   context.config_path   = context.mercury_root + "/mercury/config"
   context.log_path      = context.mercury_root + "/mercury/log"
@@ -495,7 +497,6 @@ func network ( context * Context, am argmap ) {
 
 
 func sleep ( context * Context, am argmap ) {
-
   how_long, _ := strconv.Atoi ( am["duration"].value )
 
   if context.verbose {
@@ -508,6 +509,30 @@ func sleep ( context * Context, am argmap ) {
 
 
 
+
+func connect ( context * Context, am argmap ) {
+  pitcher := am["from"].value
+  catcher := am["to"].value
+
+  context.network.Connect_router ( pitcher, catcher )
+
+  if context.verbose {
+    fp ( os.Stdout, "    %c info: connected %s to %s\n", mercury, pitcher, catcher )
+  }
+}
+
+
+
+
+
+func run ( context  * Context, am argmap ) {
+  context.network.Init ( )
+  context.network.Run  ( )
+
+  if context.verbose {
+    fp ( os.Stdout, "    %c info: network is running.\n", mercury )
+  }
+}
 
 
 
@@ -556,6 +581,13 @@ func main() {
   c.add_arg ( "duration", "string", "How long to sleep.", "10" )
   context.commands = append ( context.commands, c )
 
+  c = new_command ( "connect", connect )
+  c.add_arg ( "from", "string", "The router that will initiate the connection.", "" )
+  c.add_arg ( "to",   "string", "The router that will accept the connection.",   "" )
+  context.commands = append ( context.commands, c )
+
+  c = new_command ( "run", run )
+  context.commands = append ( context.commands, c )
 
 
 
