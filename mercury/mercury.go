@@ -6,6 +6,7 @@ import (
   "os"
   "strings"
   "regexp"
+  "sort"
   "strconv"
   "time"
 
@@ -116,6 +117,18 @@ func new_command ( name string, fn command_fn, help string ) ( * command ) {
   return c
 }
 
+
+
+
+
+// commands_by_name implements the sort interface
+// for [] command , sorting by ... wait for it ... names!
+type Commands_by_name [] * command
+
+// 'ca' is a command array
+func ( ca Commands_by_name ) Len  ( ) int           { return len ( ca ) }
+func ( ca Commands_by_name ) Swap ( i, j int )      { ca[i], ca[j] = ca[j], ca[i] }
+func ( ca Commands_by_name ) Less ( i, j int ) bool { return ca[i].name < ca[j].name }
 
 
 
@@ -387,6 +400,14 @@ func create_action ( context * Context, command_line [] string ) {
 
 
 
+func add_command ( context * Context, cmd * command ) {
+  context.commands = append ( context.commands, cmd )
+}
+
+
+
+
+
 /*=====================================================================
   Command Functions
 ======================================================================*/
@@ -546,6 +567,30 @@ func connect ( context * Context, am argmap ) {
 
 
 
+func add_receivers ( context * Context, am argmap ) {
+  router_name := am["router"].value
+
+  n_messages, _         := strconv.Atoi ( am["n_messages"].value )
+  max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
+  context.network.Add_receiver ( "receiver", n_messages, max_message_length, router_name )
+}
+
+
+
+
+
+func add_senders ( context * Context, am argmap ) {
+  router_name := am["router"].value
+
+  n_messages, _         := strconv.Atoi ( am["n_messages"].value )
+  max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
+  context.network.Add_sender ( "sender", n_messages, max_message_length, router_name )
+}
+
+
+
+
+
 func run ( context  * Context, am argmap ) {
   context.network.Init ( )
   context.network.Run  ( )
@@ -574,26 +619,26 @@ func main() {
                      add_routers, 
                      "Add one or more internal routers to the network, up to 26.\n  Names will be A, B, ... Z." )
   c.add_arg ( "count", "int",    "how many routers to create", "1" )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "quit", 
                     quit, 
                     "Shut down the network and halt Mercury." )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "echo", 
                     echo, 
                     "Echo the given string." )
   c.add_arg ( "message", "string", "The message for echo to echo.", "Hello, Mercury!" )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "start_actions", 
                     start_actions, 
                     "Start running all actions that have already been registered." )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "verbose", 
@@ -601,7 +646,7 @@ func main() {
                     "Tell Mercury to turn verbose mode on or off." )
   c.add_arg ( "on",  "flag", "Turn verbosity on. That is, invite, nay *command*\n  Mercury to explain every little thing. i.e. every detail of its operation.", "" )
   c.add_arg ( "off", "flag", "Turn verbosity off.", "" )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "set_paths", 
@@ -610,20 +655,20 @@ func main() {
   c.add_arg ( "dispatch", "string", "The path to the dispatch install directory.", "none" )
   c.add_arg ( "proton",   "string", "The path to the proton install directory.",   "none" )
   c.add_arg ( "mercury",  "string", "The path to the mercury directory.",          "none" )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "network", 
                     network, 
                     "Create the initial network. Do this after paths are defined,\n  and before you start adding routers and clients." )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "sleep", 
                     sleep, 
                     "Tell the main thread to sleep the given number of seconds.\n  Repeating actions will continue running." )
   c.add_arg ( "duration", "string", "How long to sleep.", "10" )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "connect", 
@@ -631,20 +676,43 @@ func main() {
                     "Connect the 'from' router to the 'to' router." )
   c.add_arg ( "from", "string", "The router that will initiate the connection.", "" )
   c.add_arg ( "to",   "string", "The router that will accept the connection.",   "" )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "run", 
                     run, 
                     "Start the network running. Before doing this, you should add\n  all the internal routers and connect them as desired." )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
 
   c = new_command ( "help", 
                     help, 
                     "Print all command and argument help." )
-  context.commands = append ( context.commands, c )
+  add_command ( & context, c )
 
+
+  c = new_command ( "add_receivers",
+                    add_receivers,
+                    "Add receivers to a given router." )
+  c.add_arg ( "router", "string", "The router that the receivers will attach to.", "" )
+  c.add_arg ( "n_messages", "string", "How many messages to receive before quitting.", "100" )
+  c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
+  add_command ( & context, c )
+
+
+  c = new_command ( "add_senders",
+                    add_senders,
+                    "Add senders to a given router." )
+  c.add_arg ( "router", "string", "The router that the senders will attach to.", "" )
+  c.add_arg ( "n_messages", "string", "How many messages to send.", "100" )
+  c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
+  add_command ( & context, c )
+
+
+
+
+  // Get the commands into alphabetical order.
+  sort.Sort ( Commands_by_name ( context.commands ) )
 
 
 

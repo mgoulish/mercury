@@ -4,5 +4,7 @@ network
 add_routers count 3
 connect from A to B
 connect from B to C
+add_receivers router C  n_messages 33    max_message_length 1000
+add_senders   router A  n_messages 33    max_message_length 1000
 sleep duration 6
 run

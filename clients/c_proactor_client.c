@@ -549,6 +549,7 @@ init_context ( context_p context, int argc, char ** argv )
 int 
 main ( int argc, char ** argv ) 
 {
+  srand ( getpid() );
   context_t context;
   init_context ( & context, argc, argv );
 
@@ -575,7 +576,7 @@ main ( int argc, char ** argv )
 
   // Make the max send length larger than the max receive length 
   // to account for the extra header bytes.
-  context.max_receive_length  = context.max_send_length + 200;
+  context.max_receive_length  = context.max_send_length * 2;
   context.outgoing_buffer_size = context.max_send_length * 3;
   context.outgoing_buffer = (char *) malloc ( context.outgoing_buffer_size );
 
