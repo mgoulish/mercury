@@ -54,6 +54,7 @@ type command_fn func ( * Context, argmap )
 type command struct {
   name                 string
   abbreviations   []   string
+  help                 string
   arg_descriptors [] * arg_descriptor
   fn                   command_fn
 }
@@ -107,10 +108,11 @@ type Context struct {
 // To create a command, call this function to get it started
 // with just the name and the executable function, and then 
 // repeatedly call command.add_args() to add all the arguments.
-func new_command ( name string, fn command_fn ) ( * command ) {
+func new_command ( name string, fn command_fn, help string ) ( * command ) {
   var c * command
   c = & command { name : name,
-                  fn   : fn }
+                  fn   : fn,
+                  help : help }
   return c
 }
 
@@ -354,7 +356,7 @@ func create_network ( context * Context ) {
 
 
 
-// Is the given string one of my args?
+// Is the given string one of this command's args?
 func ( cmd * command ) get_arg ( possible_arg_name string ) ( * arg_descriptor ) {
   for _, arg := range cmd.arg_descriptors {
     if arg.name == possible_arg_name {
@@ -482,17 +484,36 @@ func set_paths ( context * Context, am argmap ) {
   }
 }
 
-/*
+
+
+
+
 func help ( context * Context, am argmap ) {
   for _, cmd := range context.commands  {
-    
+    fp ( os.Stdout, "---------------------\n" )
+    fp ( os.Stdout, "%s\n",   cmd.name )
+    fp ( os.Stdout, "---------------------\n" )
+    fp ( os.Stdout, "  %s\n", cmd.help )
+    for _, ad := range cmd.arg_descriptors {
+      fp ( os.Stdout, "\n" )
+      fp ( os.Stdout, "  arg         : %s\n", ad.name )
+      fp ( os.Stdout, "  type        : %s\n", ad.data_type )
+      fp ( os.Stdout, "  explanation : %s\n", ad.explanation )
+      fp ( os.Stdout, "  default     : %s\n", ad.default_value )
+    }
+    fp ( os.Stdout, "\n\n" )
   }
 }
-*/
+
+
+
+
 
 func network ( context * Context, am argmap ) {
   create_network ( context )
 }
+
+
 
 
 
@@ -549,45 +570,81 @@ func main() {
   /*-------------------------------------------
     Make commands.
   -------------------------------------------*/
-  c := new_command ( "add_routers", add_routers )
+  c := new_command ( "add_routers", 
+                     add_routers, 
+                     "Add one or more internal routers to the network, up to 26.\n  Names will be A, B, ... Z." )
   c.add_arg ( "count", "int",    "how many routers to create", "1" )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "quit", quit )
+
+  c = new_command ( "quit", 
+                    quit, 
+                    "Shut down the network and halt Mercury." )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "echo", echo )
+
+  c = new_command ( "echo", 
+                    echo, 
+                    "Echo the given string." )
   c.add_arg ( "message", "string", "The message for echo to echo.", "Hello, Mercury!" )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "start_actions", start_actions )
+
+  c = new_command ( "start_actions", 
+                    start_actions, 
+                    "Start running all actions that have already been registered." )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "verbose", verbose )
-  c.add_arg ( "on",  "flag", "Turn verbosity on. That is, invite, nay *command* Mercury to explain every little thing. i.e. every detail of its operation.", "" )
+
+  c = new_command ( "verbose", 
+                    verbose, 
+                    "Tell Mercury to turn verbose mode on or off." )
+  c.add_arg ( "on",  "flag", "Turn verbosity on. That is, invite, nay *command*\n  Mercury to explain every little thing. i.e. every detail of its operation.", "" )
   c.add_arg ( "off", "flag", "Turn verbosity off.", "" )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "set_paths", set_paths )
+
+  c = new_command ( "set_paths", 
+                    set_paths, 
+                    "Define the paths that Mercury needs to run."  )
   c.add_arg ( "dispatch", "string", "The path to the dispatch install directory.", "none" )
   c.add_arg ( "proton",   "string", "The path to the proton install directory.",   "none" )
   c.add_arg ( "mercury",  "string", "The path to the mercury directory.",          "none" )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "network", network )
+
+  c = new_command ( "network", 
+                    network, 
+                    "Create the initial network. Do this after paths are defined,\n  and before you start adding routers and clients." )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "sleep", sleep )
+
+  c = new_command ( "sleep", 
+                    sleep, 
+                    "Tell the main thread to sleep the given number of seconds.\n  Repeating actions will continue running." )
   c.add_arg ( "duration", "string", "How long to sleep.", "10" )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "connect", connect )
+
+  c = new_command ( "connect", 
+                    connect, 
+                    "Connect the 'from' router to the 'to' router." )
   c.add_arg ( "from", "string", "The router that will initiate the connection.", "" )
   c.add_arg ( "to",   "string", "The router that will accept the connection.",   "" )
   context.commands = append ( context.commands, c )
 
-  c = new_command ( "run", run )
+
+  c = new_command ( "run", 
+                    run, 
+                    "Start the network running. Before doing this, you should add\n  all the internal routers and connect them as desired." )
   context.commands = append ( context.commands, c )
+
+
+  c = new_command ( "help", 
+                    help, 
+                    "Print all command and argument help." )
+  context.commands = append ( context.commands, c )
+
 
 
 
