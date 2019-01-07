@@ -186,6 +186,14 @@ func ( r * Router ) Name ( ) string  {
 
 
 
+func ( r * Router ) Is_interior () (bool) {
+  return r.router_type == "interior"
+}
+
+
+
+
+
 /*
   Get the router's type, i.e. interior or edge.
 */

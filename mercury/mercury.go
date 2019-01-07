@@ -9,6 +9,7 @@ import (
   "sort"
   "strconv"
   "time"
+  "math/rand"
 
   "utils"
   rn "router_network"
@@ -499,13 +500,14 @@ func verbose ( context * Context, am argmap ) {
 
 func add_edges ( context * Context, am argmap ) {
 
-  count_str := am["count"].value
-  router    := am["router"].value
-  if count_str == "" || router == "" {
+  count_str  := am["count"].value
+  router_arg := am["router"].value
+  if count_str == "" || router_arg == "" {
     print_usage ( context, get_command (context, "add_edges" ) )
     return
   }
 
+  var target_router string
   count, err := strconv.Atoi ( count_str )
   if err != nil {
     fp ( os.Stdout, "%c add_edges: error on count: |%s|\n", mercury, err.Error() )
@@ -514,9 +516,23 @@ func add_edges ( context * Context, am argmap ) {
 
   var edge_name string
   for i := 0; i < count; i ++ {
+
+    if router_arg == "RANDOM" {
+      interior_router_count := context.network.How_many_interior_routers()
+      random_index := rand.Intn ( interior_router_count )
+      target_router = context.network.Get_nth_interior_router_name ( random_index )
+    } else {
+      target_router = router_arg
+    }
+
     edge_name = fmt.Sprintf ( "edge_%04d", context.edge_count )
     context.network.Add_edge ( edge_name )
-    context.network.Connect_router ( edge_name, router )
+    context.network.Connect_router ( edge_name, target_router )
+    if context.verbose {
+      fp ( os.Stdout, 
+           "    %c info: add_edges: added |%s| to |%s|\n", 
+           mercury, edge_name, target_router )
+    }
     context.edge_count ++
   }
 }
@@ -603,7 +619,7 @@ func add_receivers ( context * Context, am argmap ) {
   n_messages, _         := strconv.Atoi ( am["n_messages"].value )
   max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
   address               := am["address"].value
-  fp ( os.Stderr, " recv: addr: |%s| explicit: %V\n", address, am["address"].explicit )
+  fp ( os.Stderr, " recv: addr: |%s| explicit: %t\n", address, am["address"].explicit )
 
   var receiver_name string
   var i int
@@ -628,7 +644,7 @@ func add_senders ( context * Context, am argmap ) {
   n_messages, _         := strconv.Atoi ( am["n_messages"].value )
   max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
   address               := am["address"].value
-  fp ( os.Stderr, " send: addr: |%s| explicit: %V\n", address, am["address"].explicit )
+  fp ( os.Stderr, " send: addr: |%s| explicit: %t\n", address, am["address"].explicit )
 
   var sender_name string
   var i int
@@ -670,6 +686,8 @@ func run ( context  * Context, am argmap ) {
 
 
 func main() {
+
+  rand.Seed ( int64 ( os.Getpid()) )
   
   var context Context
   init_context ( & context )

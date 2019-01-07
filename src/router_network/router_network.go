@@ -574,3 +574,37 @@ func ( rn * Router_Network ) get_router_by_name ( target_name string ) * router.
 
 
 
+func ( rn * Router_Network ) How_many_interior_routers ( ) ( int ) {
+  count := 0
+
+  for _, r := range rn.routers {
+    if r.Is_interior() {
+      count ++
+    }
+  }
+
+  return count
+}
+
+
+
+
+
+func ( rn * Router_Network ) Get_nth_interior_router_name ( index int ) ( string ) {
+  count := 0
+
+  for _, r := range rn.routers {
+    if r.Is_interior() {
+      if count == index {
+        return r.Name()
+      }
+      count ++
+    }
+  }
+  return ""
+}
+
+
+
+
+

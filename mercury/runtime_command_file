@@ -6,7 +6,7 @@ connect from A to B
 connect from B to C
 add_receivers count   1  router C  n_messages  100    max_message_length 50000  address foo
 add_senders   count  10  router A  n_messages   10    max_message_length 50000  address foo
-add_edges count 5 router A
+add_edges count 5 router RANDOM
 action cycle_time 15 report
 run
 start_actions
