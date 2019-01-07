@@ -138,7 +138,6 @@ func New_Router_Network ( name                           string,
                           verbose                        : verbose,
                           resource_measurement_frequency : resource_measurement_frequency }
 
-  fp ( os.Stderr, "New_Router_Network: executable_path |%s|\n",  executable_path )
   return rn
 }
 
@@ -222,7 +221,7 @@ func ( rn * Router_Network ) Add_edge ( name string ) {
 
 
 
-func ( rn * Router_Network ) Add_receiver ( name string, n_messages int, max_message_length int, router_name string ) {
+func ( rn * Router_Network ) Add_receiver ( name string, n_messages int, max_message_length int, router_name string, address string ) {
 
   r := rn.get_router_by_name ( router_name )
 
@@ -235,7 +234,8 @@ func ( rn * Router_Network ) Add_receiver ( name string, n_messages int, max_mes
                                 rn.dispatch_root,
                                 rn.proton_root,
                                 n_messages,
-                                max_message_length )
+                                max_message_length,
+                                address )
   rn.clients = append ( rn.clients, client )
 }
 
@@ -243,15 +243,15 @@ func ( rn * Router_Network ) Add_receiver ( name string, n_messages int, max_mes
 
 
 
-func ( rn * Router_Network ) Add_sender ( name string, n_messages int, max_message_length int, router_name string ) {
-  rn.Add_client ( name, true, n_messages, max_message_length, router_name )
+func ( rn * Router_Network ) Add_sender ( name string, n_messages int, max_message_length int, router_name string, address string ) {
+  rn.Add_client ( name, true, n_messages, max_message_length, router_name, address )
 }
 
 
 
 
 
-func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages int, max_message_length int, router_name string ) {
+func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages int, max_message_length int, router_name string, address string ) {
 
   var operation string
   if sender {
@@ -271,7 +271,8 @@ func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages i
                                 rn.dispatch_root,
                                 rn.proton_root,
                                 n_messages,
-                                max_message_length )
+                                max_message_length,
+                                address )
   rn.clients = append ( rn.clients, client )
 }
 
@@ -279,10 +280,10 @@ func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages i
 
 
 
-func ( rn * Router_Network ) Add_n_senders ( n int, n_messages int, max_message_length int, router_name string ) {
+func ( rn * Router_Network ) Add_n_senders ( n int, n_messages int, max_message_length int, router_name string, address string ) {
   for i := 1; i <= n; i ++ {
     name := fmt.Sprintf ( "sender_%03d", i )
-    rn.Add_client ( name, true, n_messages, max_message_length, router_name )
+    rn.Add_client ( name, true, n_messages, max_message_length, router_name, address )
   }
 }
 

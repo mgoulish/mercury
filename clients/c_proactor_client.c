@@ -45,7 +45,7 @@ struct context_s
                     message_length,
                     outgoing_buffer_size;
   char            * outgoing_buffer;
-  char              incoming_message [ 10000 ];
+  char              incoming_message [ 1000000 ];   // BUGALERT
   char            * port;
   char            * log_file_name;
   FILE            * log_file;
@@ -190,7 +190,7 @@ decode_message ( context_p context, pn_delivery_t * delivery )
   {
     pn_string_t *s = pn_string ( NULL );
     pn_inspect ( pn_message_body(msg), s );
-    log ( context, "%s\n", pn_string_get(s));
+    //log ( context, "%s\n", pn_string_get(s));
     context->total_bytes_received += strlen ( pn_string_get(s) );
     pn_free ( s );
   }
@@ -274,6 +274,7 @@ process_event ( context_p context, pn_event_t * event )
         sprintf ( link_name, "%d_send_%05d", getpid(), context->link_count );
         context->link_count ++;
         context->links[0] = pn_sender (  event_session, link_name );
+        log ( context, "sender setting path |%s|\n", context->path );
         pn_terminus_set_address ( pn_link_target(context->links[0]), context->path );
         pn_link_set_snd_settle_mode ( context->links[0], PN_SND_UNSETTLED );
         pn_link_set_rcv_settle_mode ( context->links[0], PN_RCV_FIRST );
@@ -283,6 +284,7 @@ process_event ( context_p context, pn_event_t * event )
         sprintf ( link_name, "%d_recv_%05d", getpid(), context->link_count );
         context->link_count ++;
         context->links[0] = pn_receiver( event_session, link_name );
+        log ( context, "receiver setting path |%s|\n", context->path );
         pn_terminus_set_address ( pn_link_source(context->links[0]), context->path );
       }
 
@@ -311,16 +313,22 @@ process_event ( context_p context, pn_event_t * event )
       event_link = pn_event_link( event );
       pn_link_open ( event_link );
       if ( pn_link_is_receiver ( event_link ) )
+      {
         pn_link_flow ( event_link, context->credit_window );
+        log ( context, "receiver sent flow of %d\n", context->credit_window );
+      }
     break;
 
 
     case PN_LINK_FLOW : 
+      log ( context, "flow. credit == %d\n", pn_link_credit ( event_link ) );
       event_link = pn_event_link ( event );
       if ( pn_link_is_sender ( event_link ) )
       {
         while ( pn_link_credit ( event_link ) > 0 && context->messages_sent < context->messages )
           send_message ( context, event_link );
+        
+        log ( context, "sender finished sending. Credit == %d, sent == %d\n", pn_link_credit ( event_link ), context->messages_sent );
       }
     break;
 
@@ -357,6 +365,12 @@ process_event ( context_p context, pn_event_t * event )
         pn_delivery_settle ( event_delivery );
         context->received ++;
 
+        log ( context,
+              "info received %d messages %ld bytes\n",
+              context->received,
+              context->total_bytes_received
+            );
+        /*
         if ( context->received >= context->next_received_report )
         {
           log ( context,
@@ -366,6 +380,7 @@ process_event ( context_p context, pn_event_t * event )
               );
           context->next_received_report += 100;
         }
+         */
 
         if ( context->received >= context->messages) 
         {
@@ -427,7 +442,7 @@ init_context ( context_p context, int argc, char ** argv )
 
   strcpy ( context->name, "default_name" );
   strcpy ( context->host, "0.0.0.0" );
-  strcpy ( context->path, "speedy/my_path" );
+  strcpy ( context->path, "my_path" );
 
   context->listener             = 0;
   context->connection           = 0;
@@ -446,14 +461,21 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->messages             = 1000;
   context->next_received_report = 100;
-  context->credit_window        = 100;
+  context->credit_window        = 1000;
   context->max_send_length      = 100;
 
 
 
   for ( int i = 1; i < argc; ++ i )
   {
+    // address ----------------------------------------------
+    if ( ! strcmp ( "--address", argv[i] ) )
+    {
+      strcpy ( context->path, argv[i+1] ) ;
+      i ++;
+    }
     // operation ----------------------------------------------
+    else
     if ( ! strcmp ( "--operation", argv[i] ) )
     {
       if ( ! strcmp ( "send", argv[i+1] ) )
@@ -576,8 +598,8 @@ main ( int argc, char ** argv )
 
   // Make the max send length larger than the max receive length 
   // to account for the extra header bytes.
-  context.max_receive_length  = context.max_send_length * 2;
-  context.outgoing_buffer_size = context.max_send_length * 3;
+  context.max_receive_length   = 1000000;
+  context.outgoing_buffer_size = 1000000;
   context.outgoing_buffer = (char *) malloc ( context.outgoing_buffer_size );
 
   context.message = pn_message();
