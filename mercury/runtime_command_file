@@ -1,6 +1,8 @@
 verbose on
 set_paths dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton mercury /home/mick/mercury
 network
+# This is a comment.
+#               # This is also a comment.
 add_routers count 3
 connect from A to B
 connect from B to C

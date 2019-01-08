@@ -75,7 +75,6 @@ type action struct {
 
 
 type Context struct {
-  line_rx                  * regexp.Regexp
   commands              [] * command
 
   dispatch_install_root      string
@@ -98,6 +97,11 @@ type Context struct {
   receiver_count             int
   sender_count               int
   edge_count                 int
+
+  mercury_log_name           string
+  mercury_log_file         * os.File
+  first_nonwhitespace_rgx  * regexp.Regexp
+  line_rgx                 * regexp.Regexp
 }
 
 
@@ -108,6 +112,15 @@ type Context struct {
 /*=====================================================================
   Helper Functions
 ======================================================================*/
+
+// first -- make it ignore comment lines
+/*
+func mlog 
+func Print_log ( format string, args ...interface{} ) {
+  ts := Timestamp()
+  fp ( os.Stdout, ts + " : %s : " + format + "\n", args... )
+}
+*/
 
 
 // To create a command, call this function to get it started
@@ -185,11 +198,27 @@ func read_file ( context * Context, file_name string ) {
 
 func process_line ( context * Context, line string ) {
 
+  first_nonwhitespace := context.first_nonwhitespace_rgx.FindString ( line )
+  if first_nonwhitespace == "" {
+    // If the line is just empty, don't even echo it to the log.
+    // The user just hit 'enter'.
+    return
+  }
+
+  // Except for emppty lines, echo everything else, 
+  // including comments, to the log.
+  fmt.Fprintf ( context.mercury_log_file, "%s\n", line )
+
+  if first_nonwhitespace == "#" {
+    // This is a comment.
+    return
+  }
+
   /*----------------------------------------
     Clean up the line
   -----------------------------------------*/
   line = strings.Replace ( line, "\n", "", -1 )
-  line = context.line_rx.ReplaceAllString ( line, " " )
+  line = context.line_rgx.ReplaceAllString ( line, " " )
   words := strings.Split ( line, " " )
 
   /*----------------------------------------
@@ -516,7 +545,6 @@ func add_edges ( context * Context, am argmap ) {
 
   var edge_name string
   for i := 0; i < count; i ++ {
-
     if router_arg == "RANDOM" {
       interior_router_count := context.network.How_many_interior_routers()
       random_index := rand.Intn ( interior_router_count )
@@ -686,14 +714,17 @@ func run ( context  * Context, am argmap ) {
 
 
 func main() {
-
   rand.Seed ( int64 ( os.Getpid()) )
   
   var context Context
   init_context ( & context )
 
+  context.mercury_log_name = "./mercury_" + time.Now().Format ( "2006_01_02_1504" ) + ".log"
+  context.mercury_log_file, _ = os.Create ( context.mercury_log_name )
+  defer context.mercury_log_file.Close()
 
-  context.line_rx   = regexp.MustCompile(`\s+`)
+  context.line_rgx                = regexp.MustCompile(`\s+`)
+  context.first_nonwhitespace_rgx = regexp.MustCompile(`\S`)
 
   /*-------------------------------------------
     Make commands.
