@@ -69,6 +69,7 @@ type command struct {
 // the command to be called.
 type action struct {
   delay           int 
+  random_max      int
   repeat          bool
   command_line [] string
 }
@@ -150,9 +151,13 @@ func ( ca Commands_by_name ) Less ( i, j int ) bool { return ca[i].name < ca[j].
 
 
 
-func new_action ( cycle_time int, repeat bool, command_line [] string ) ( * action ) {
+func new_action ( cycle_time      int, 
+                  random_max      int, 
+                  repeat          bool, 
+                  command_line [] string ) ( * action ) {
   var a * action
   a = & action { delay        : cycle_time,
+                 random_max   : random_max,
                  repeat       : repeat,
                  command_line : command_line }
   return a
@@ -210,21 +215,17 @@ func process_line ( context * Context, line string ) {
   fmt.Fprintf ( context.mercury_log_file, "%s\n", line )
 
   if first_nonwhitespace == "#" {
-    // This is a comment.
+    // This line is a comment.
     return
   }
 
-  /*----------------------------------------
-    Clean up the line
-  -----------------------------------------*/
+  // Clean up the line
   line = strings.Replace ( line, "\n", "", -1 )
   line = context.line_rgx.ReplaceAllString ( line, " " )
   words := strings.Split ( line, " " )
 
-  /*----------------------------------------
-    The first word should be the name of 
-    a function. Call it.
-  -----------------------------------------*/
+  // The first word should be the name 
+  // of a function. Call it.
   call_command ( context, words )
 }
 
@@ -337,9 +338,18 @@ func call_command ( context * Context, command_line [] string ) {
 
 
 
-func call_command_repeatedly ( context * Context, command_line [] string, cycle_time int, repeat bool ) {
+func call_command_repeatedly ( context        * Context, 
+                               command_line []  string, 
+                               cycle_time       int, 
+                               random_max       int, 
+                               repeat           bool ) {
   for {
-    time.Sleep ( time.Duration(cycle_time) * time.Second )
+    time_to_next_call := cycle_time
+    if time_to_next_call == -1 {
+      time_to_next_call = rand.Intn ( random_max )
+    }
+
+    time.Sleep ( time.Duration ( time_to_next_call ) * time.Second )
     call_command ( context, command_line )
     if ! repeat {
       break
@@ -423,9 +433,27 @@ func create_action ( context * Context, command_line [] string ) {
     fp ( os.Stderr, "%c error: action must have first arg == %s\n", mercury, arg_name )
     return
   }
-  cycle_time, _ := strconv.Atoi ( command_line[2] )
 
-  a := new_action ( cycle_time, true, command_line[3:] )
+  var cycle_time, random_max int
+  var err error
+  var remaining_command_line [] string
+
+  if command_line[2] == "RANDOM" {
+    cycle_time = -1
+    random_max, err = strconv.Atoi ( command_line[3] )
+    if err != nil {
+      fp ( os.Stderr, "    %c error: create_action: with RANDOM, arg 3 must be max_time int.\n" )
+      return
+    }
+    remaining_command_line = command_line[4:]
+  } else {
+    cycle_time, _          = strconv.Atoi ( command_line[2] )
+    remaining_command_line = command_line[3:]
+  }
+
+  repeat := true
+
+  a := new_action ( cycle_time, random_max, repeat, remaining_command_line )
   context.actions = append ( context.actions, a )
 }
 
@@ -503,7 +531,7 @@ func echo ( context * Context, am argmap ) {
 
 func start_actions ( context * Context, am argmap ) {
   for _, a := range context.actions {
-    go call_command_repeatedly ( context, a.command_line, a.delay, a.repeat ) 
+    go call_command_repeatedly ( context, a.command_line, a.delay, a.random_max, a.repeat ) 
   }
 }
 
