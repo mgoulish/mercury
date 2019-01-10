@@ -735,6 +735,31 @@ func run ( context  * Context, am argmap ) {
   if context.verbose {
     fp ( os.Stdout, "    %c info: network is running.\n", mercury )
   }
+  
+  context.network_running = true
+}
+
+
+
+
+
+func show ( context  * Context, am argmap ) {
+  context.network.Print ( )
+}
+
+
+
+
+
+func mem ( context  * Context, am argmap ) {
+  
+  name := am["router"].value
+
+  if name == "" {
+    context.network.Check_memory_all ( )
+  } else {
+    context.network.Check_memory ( name )
+  }
 }
 
 
@@ -865,7 +890,20 @@ func main() {
                     add_edges,
                     "Add edge-routers to the given interior router." )
   c.add_arg ( "count",  "string", "How many edge routers to add.", "1" )
-  c.add_arg ( "router", "string", "Which router to add them to.", "" )
+  c.add_arg ( "router", "string", "Which router to add them to. (or RANDOM)", "" )
+  add_command ( & context, c )
+
+
+  c = new_command ( "show",
+                    show,
+                    "Print details of the current network." )
+  add_command ( & context, c )
+
+
+  c = new_command ( "mem",
+                    mem,
+                    "Check memory usage on all routers." )
+  c.add_arg ( "router", "string", "Which router to print mem usage for.", "" )
   add_command ( & context, c )
 
 

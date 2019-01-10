@@ -70,6 +70,23 @@ const (
 
 
 
+func state_to_string ( state router_state ) ( string ) {
+  switch state {
+    case initialized :
+        return "initialized"
+    case running :
+        return "running"
+    case halted :
+      return "halted"
+    default :
+      return "none"
+  }
+}
+
+
+
+
+
 /*
   The Router struct represents a Dispatch Router,
   maintains state about it, remembers all the paths 
@@ -95,16 +112,18 @@ type Router struct {
   edge_port                      string
   verbose                        bool
 
+  pid                            int
   state                          router_state            
   cmd                          * exec.Cmd
-  connect_to_ports               [] string
+  connect_to_ports            [] string
+  connect_to_names            [] string
   resource_usage_dir             string
   mem_usage_file_name            string
   cpu_usage_file_name            string
   resource_measurement_frequency int
   resource_ticker              * time.Ticker
 
-  qdstat_outputs                 [] * qdo.Qdstat_output
+  qdstat_outputs            [] * qdo.Qdstat_output
   qdstat_output_filename         string
 }
 
@@ -163,12 +182,34 @@ func New_Router ( name                        string,
 
 
 
+
+func ( r * Router ) Print () {
+  fp ( os.Stdout, "router |%s| -------------\n", r.name )
+  fp ( os.Stdout, "  PID: %d\n", r.pid )
+  fp ( os.Stdout, "  state: %s\n", state_to_string ( r.state ) )
+  fp ( os.Stdout, "  client port: %s\n", r.client_port )
+  fp ( os.Stdout, "  router port: %s\n", r.router_port )
+  fp ( os.Stdout, "  edge   port: %s\n", r.edge_port )
+  fp ( os.Stdout, "\n" )
+
+  for i, name := range r.connect_to_names {
+    fp ( os.Stdout, "  connect_to %s %s\n", name, r.connect_to_ports [ i ] )
+  }
+
+  fp ( os.Stdout, "\n" )
+}
+
+
+
+
+
 /*
   Tell the router a port number (represented as a string)
   that it should attach to.
 */
-func ( r * Router ) Connect_to ( port string ) {
+func ( r * Router ) Connect_to ( name string, port string ) {
   r.connect_to_ports = append ( r.connect_to_ports, port )
+  r.connect_to_names = append ( r.connect_to_names, name )
 }
 
 
@@ -364,7 +405,7 @@ func ( r * Router ) write_config_file ( ) error {
 
 
 
-func ( r * Router ) check_memory ( ) {
+func ( r * Router ) Check_memory ( ) {
 
   qdstat_path := r.dispatch_install_root + "/bin/qdstat"
 
@@ -452,7 +493,8 @@ func ( r * Router ) Run ( ) error {
   r.cmd = exec.Command ( executable_path,  args_list... )
   r.cmd.Start ( )
   r.state = running
-  env_dir := r.result_path + "/env/" + strconv.Itoa(r.cmd.Process.Pid) 
+  r.pid = r.cmd.Process.Pid
+  env_dir := r.result_path + "/env/" + strconv.Itoa(r.pid) 
   utils.Find_or_create_dir ( env_dir )
 
   if do_resource_measurement {
@@ -531,7 +573,7 @@ func ( r * Router ) State ( ) ( string ) {
 func ( r * Router ) resource_measurement_ticker ( ) {
   for range r.resource_ticker.C {
     r.record_resource_usage ( )
-    r.check_memory ( )
+    r.Check_memory ( )
   }
 }
 
@@ -548,6 +590,10 @@ func ( r * Router ) resource_measurement_ticker ( ) {
   an error code.
 */
 func ( r * Router ) Halt ( ) error {
+
+  if r.verbose {
+    fp ( os.Stdout, "halting router |%s|\n", r.name )
+  }
 
   if r.state == halted {
     if r.verbose {

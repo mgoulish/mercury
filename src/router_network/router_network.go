@@ -163,6 +163,21 @@ func ( rn * Router_Network ) Print ( ) {
   fp ( os.Stdout, "  proton_root                    |%s|\n", rn.proton_root )
   fp ( os.Stdout, "  verbose                         %t\n",  rn.verbose )
   fp ( os.Stdout, "  resource_measurement_frequency  %d\n",  rn.resource_measurement_frequency )
+  fp ( os.Stdout, "\n" )
+
+  for _, r := range rn.routers {
+    r.Print ( )
+  }
+}
+
+
+
+
+
+func ( rn * Router_Network ) Check_memory_all () {
+  for _, r := range rn.routers {
+    rn.Check_memory ( r.Name() )
+  }
 }
 
 
@@ -319,9 +334,9 @@ func ( rn * Router_Network ) Connect_router ( router_1_name string, router_2_nam
   }
 
   if router_1.Type() == "edge" {
-    router_1.Connect_to ( router_2.Edge_port() )
+    router_1.Connect_to ( router_2_name, router_2.Edge_port() )
   } else {
-    router_1.Connect_to ( router_2.Router_port() )
+    router_1.Connect_to ( router_2_name, router_2.Router_port() )
   }
 }
 
@@ -356,7 +371,11 @@ func ( rn * Router_Network ) Run ( ) {
   }
 
   if len(rn.clients) > 0 {
-    time.Sleep ( 10 * time.Second )
+    nap_time := 10
+    if rn.verbose {
+      fp ( os.Stdout, "network info: sleeping %d seconds to wait for network stabilization.\n", nap_time )
+    }
+    time.Sleep ( time.Duration(nap_time) * time.Second )
 
     upl ( "starting clients.", module_name )
     for _, c := range rn.clients {
@@ -381,10 +400,8 @@ func ( rn * Router_Network ) Client_port ( target_router_name string ) ( client_
 
 func ( rn * Router_Network ) Check_memory ( router_name string ) error {
   // set up env ----------------------------------------------
-  INSTALL_ROOT          := "/home/mick/mercury/system_code/install"
-
-  PROTON_INSTALL_DIR    := INSTALL_ROOT + "/proton"
-  DISPATCH_INSTALL_DIR  := INSTALL_ROOT + "/dispatch"
+  PROTON_INSTALL_DIR    := rn.proton_root
+  DISPATCH_INSTALL_DIR  := rn.dispatch_root
 
   DISPATCH_LIBRARY_PATH := DISPATCH_INSTALL_DIR + "/lib64"
   PROTON_LIBRARY_PATH   := PROTON_INSTALL_DIR   + "/lib64"
@@ -399,13 +416,14 @@ func ( rn * Router_Network ) Check_memory ( router_name string ) error {
   os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
   // done set up env -----------------------------------------
 
+
   router := rn.get_router_by_name ( router_name )
   args := "-m -b 0.0.0.0:" + router.Client_port ( )
   args_list := strings.Fields ( args )
   cmd := exec.Command ( rn.qdstat_path,  args_list... )
   out, _ := cmd.Output()
 
-  fp ( os.Stderr, " here's the output: |%s|\n", out )
+  fp ( os.Stderr, "\nMemory Report for router |%s| -------------\n%s\n\n\n", router_name, out )
 
   return nil
 }
@@ -422,10 +440,8 @@ func ( rn * Router_Network ) Check_memory ( router_name string ) error {
 */
 func ( rn * Router_Network ) Check_links ( router_name string ) error {
   // set up env ----------------------------------------------
-  INSTALL_ROOT          := "/home/mick/mercury/system_code/install"
-
-  PROTON_INSTALL_DIR    := INSTALL_ROOT + "/proton"
-  DISPATCH_INSTALL_DIR  := INSTALL_ROOT + "/dispatch"
+  PROTON_INSTALL_DIR    := rn.proton_root
+  DISPATCH_INSTALL_DIR  := rn.dispatch_root
 
   DISPATCH_LIBRARY_PATH := DISPATCH_INSTALL_DIR + "/lib64"
   PROTON_LIBRARY_PATH   := PROTON_INSTALL_DIR   + "/lib64"
