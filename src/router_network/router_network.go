@@ -330,15 +330,21 @@ func ( rn * Router_Network ) Connect_router ( router_1_name string, router_2_nam
   router_2 := rn.get_router_by_name ( router_2_name )
 
   if router_2.Type() == "edge" {
+    // A router can't connect to an edge router.
     return
   }
 
+  connect_to_port := router_2.Router_port()
   if router_1.Type() == "edge" {
-    router_1.Connect_to ( router_2_name, router_2.Edge_port() )
-  } else {
-    router_1.Connect_to ( router_2_name, router_2.Router_port() )
+    connect_to_port = router_2.Edge_port()
   }
+
+  // Tell router_1 whom to connect to.  ( To whom to connect? To? )
+  router_1.Connect_to ( router_2_name, connect_to_port )
+  // And tell router_2 who just connected to it.
+  router_2.Connected_to_you ( router_1_name, "edge" == router_1.Type() )
 }
+
 
 
 

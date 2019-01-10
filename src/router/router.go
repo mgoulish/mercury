@@ -115,8 +115,12 @@ type Router struct {
   pid                            int
   state                          router_state            
   cmd                          * exec.Cmd
-  connect_to_ports            [] string
-  connect_to_names            [] string
+  i_connect_to_ports            [] string
+  i_connect_to_names            [] string
+
+  connect_to_me_interior        [] string
+  connect_to_me_edge            [] string
+
   resource_usage_dir             string
   mem_usage_file_name            string
   cpu_usage_file_name            string
@@ -182,9 +186,17 @@ func New_Router ( name                        string,
 
 
 
+func ( r * Router ) Connected_to_you ( router_name string, edge bool ) {
+  if edge {
+    r.connect_to_me_edge = append ( r.connect_to_me_edge, router_name )
+  } else {
+    r.connect_to_me_interior = append ( r.connect_to_me_interior, router_name )
+  }
+}
+
 
 func ( r * Router ) Print () {
-  fp ( os.Stdout, "router |%s| -------------\n", r.name )
+  fp ( os.Stdout, "router %s -------------\n", r.name )
   fp ( os.Stdout, "  PID: %d\n", r.pid )
   fp ( os.Stdout, "  state: %s\n", state_to_string ( r.state ) )
   fp ( os.Stdout, "  client port: %s\n", r.client_port )
@@ -192,8 +204,25 @@ func ( r * Router ) Print () {
   fp ( os.Stdout, "  edge   port: %s\n", r.edge_port )
   fp ( os.Stdout, "\n" )
 
-  for i, name := range r.connect_to_names {
-    fp ( os.Stdout, "  connect_to %s %s\n", name, r.connect_to_ports [ i ] )
+  if 0 < len(r.i_connect_to_names) {
+    fp ( os.Stdout, "  Routers that I connect to:\n" )
+    for i, name := range r.i_connect_to_names {
+      fp ( os.Stdout, "    %s %s\n", name, r.i_connect_to_ports [ i ] )
+    }
+  }
+
+  if 0 < len(r.connect_to_me_interior) {
+    fp ( os.Stdout, "  Interior routers that connect to me:\n" )
+    for _, name := range r.connect_to_me_interior {
+      fp ( os.Stdout, "    %s\n", name )
+    }
+  }
+
+  if 0 < len(r.connect_to_me_edge) {
+    fp ( os.Stdout, "  Edge routers that connect to me:\n" )
+    for _, name := range r.connect_to_me_edge {
+      fp ( os.Stdout, "    %s\n", name )
+    }
   }
 
   fp ( os.Stdout, "\n" )
@@ -203,22 +232,22 @@ func ( r * Router ) Print () {
 
 
 
-/*
-  Tell the router a port number (represented as a string)
-  that it should attach to.
-*/
+// Tell the router a port number (represented as a string)
+// that it should attach to.
 func ( r * Router ) Connect_to ( name string, port string ) {
-  r.connect_to_ports = append ( r.connect_to_ports, port )
-  r.connect_to_names = append ( r.connect_to_names, name )
+  r.i_connect_to_ports = append ( r.i_connect_to_ports, port )
+  r.i_connect_to_names = append ( r.i_connect_to_names, name )
+
+  if "edge" == r.router_type {
+  } else {
+  }
 }
 
 
 
 
 
-/*
-  Get the router's name.
-*/
+// Get the router's name.
 func ( r * Router ) Name ( ) string  {
   return r.name
 }
@@ -377,7 +406,7 @@ func ( r * Router ) write_config_file ( ) error {
   }
 
   // The Connectors --------------------
-  for _, port := range r.connect_to_ports {
+  for _, port := range r.i_connect_to_ports {
     // fp ( os.Stderr, "router %s connect to %s\n", r.name, port )
     fp ( f, "connector {\n" )
     //fp ( f, "  verifyHostname     : no\n")
