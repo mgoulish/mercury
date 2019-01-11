@@ -76,6 +76,7 @@ type action struct {
 
 
 type Context struct {
+  session_name               string
   commands              [] * command
 
   dispatch_install_root      string
@@ -374,10 +375,11 @@ func init_context ( context * Context ) {
 func create_network ( context * Context ) {
 
   context.router_path   = context.dispatch_install_root + "/sbin/qdrouterd"
-  context.result_path   = context.mercury_root + "/mercury/results"
-  context.config_path   = context.mercury_root + "/mercury/config"
-  context.log_path      = context.mercury_root + "/mercury/log"
   context.client_path   = context.mercury_root + "/clients/c_proactor_client"
+
+  context.result_path   = context.session_name + "/" + "/mercury/results"
+  context.config_path   = context.session_name + "/" + "/mercury/config"
+  context.log_path      = context.session_name + "/" + "/mercury/log"
 
   utils.Find_or_create_dir ( context.result_path )
   utils.Find_or_create_dir ( context.config_path )
@@ -772,7 +774,10 @@ func main() {
   var context Context
   init_context ( & context )
 
-  context.mercury_log_name = "./mercury_" + time.Now().Format ( "2006_01_02_1504" ) + ".log"
+  context.session_name = "./sessions/session_" + time.Now().Format ( "2006_01_02_1504" )
+  utils.Find_or_create_dir ( context.session_name )
+
+  context.mercury_log_name = context.session_name + "/mercury_log"
   context.mercury_log_file, _ = os.Create ( context.mercury_log_name )
   defer context.mercury_log_file.Close()
 

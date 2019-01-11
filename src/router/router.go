@@ -237,10 +237,6 @@ func ( r * Router ) Print () {
 func ( r * Router ) Connect_to ( name string, port string ) {
   r.i_connect_to_ports = append ( r.i_connect_to_ports, port )
   r.i_connect_to_names = append ( r.i_connect_to_names, name )
-
-  if "edge" == r.router_type {
-  } else {
-  }
 }
 
 
