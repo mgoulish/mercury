@@ -151,6 +151,20 @@ func ( rn * Router_Network ) N_routers ( ) ( int ) {
 
 
 
+func ( rn * Router_Network ) Get_router_edges ( router_name string ) ( [] string ) {
+  rtr := rn.get_router_by_name ( router_name )
+  if rtr == nil {
+    fp ( os.Stdout, "    network.Get_router_edges error: can't find router |%s|\n", router_name )
+    return nil
+  }
+
+  return rtr.Edges ( )
+}
+
+
+
+
+
 func ( rn * Router_Network ) Print ( ) {
   fp ( os.Stdout, "network                          |%s|\n", rn.Name )
   fp ( os.Stdout, "  worker_threads                  %d\n",  rn.worker_threads )

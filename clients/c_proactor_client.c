@@ -237,7 +237,7 @@ send_message ( context_p context, pn_link_t * link )
   context->total_bytes_sent += outgoing_size;
   if ( ! (context->messages_sent % 10) )
   {
-    log ( context, "sent %d messages %d bytes\n", context->messages_sent, context->total_bytes_sent );
+    log ( context, "STATUS sent %d\n", context->messages_sent );
   }
 }
 
@@ -323,12 +323,15 @@ process_event ( context_p context, pn_event_t * event )
     case PN_LINK_FLOW : 
       log ( context, "flow. credit == %d\n", pn_link_credit ( event_link ) );
       event_link = pn_event_link ( event );
-      if ( pn_link_is_sender ( event_link ) )
+      if ( pn_link_is_sender ( event_link ) && context->messages_sent < context->messages )
       {
         while ( pn_link_credit ( event_link ) > 0 && context->messages_sent < context->messages )
           send_message ( context, event_link );
         
-        log ( context, "sender finished sending. Credit == %d, sent == %d\n", pn_link_credit ( event_link ), context->messages_sent );
+        log ( context, 
+              "sender finished sending. Credit == %d, sent == %d\n", 
+              pn_link_credit ( event_link ), 
+              context->messages_sent );
       }
     break;
 
@@ -365,22 +368,14 @@ process_event ( context_p context, pn_event_t * event )
         pn_delivery_settle ( event_delivery );
         context->received ++;
 
-        log ( context,
-              "info received %d messages %ld bytes\n",
-              context->received,
-              context->total_bytes_received
-            );
-        /*
         if ( context->received >= context->next_received_report )
         {
           log ( context,
-                "info received %d messages %ld bytes\n",
-                context->received,
-                context->total_bytes_received
+                "STATUS received %d\n",
+                context->received
               );
           context->next_received_report += 100;
         }
-         */
 
         if ( context->received >= context->messages) 
         {
@@ -643,6 +638,7 @@ main ( int argc, char ** argv )
           context.total_bytes_received
         );
   }
+
   return 0;
 }
 

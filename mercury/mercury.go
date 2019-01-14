@@ -377,9 +377,9 @@ func create_network ( context * Context ) {
   context.router_path   = context.dispatch_install_root + "/sbin/qdrouterd"
   context.client_path   = context.mercury_root + "/clients/c_proactor_client"
 
-  context.result_path   = context.session_name + "/" + "/mercury/results"
-  context.config_path   = context.session_name + "/" + "/mercury/config"
-  context.log_path      = context.session_name + "/" + "/mercury/log"
+  context.result_path   = context.session_name + "/" + "/results"
+  context.config_path   = context.session_name + "/" + "/config"
+  context.log_path      = context.session_name + "/" + "/log"
 
   utils.Find_or_create_dir ( context.result_path )
   utils.Find_or_create_dir ( context.config_path )
@@ -469,6 +469,13 @@ func add_command ( context * Context, cmd * command ) {
 
 
 
+func get_next_interior_router_name ( context * Context ) ( string ) {
+  routers_so_far := context.network.N_routers()
+  name := fmt.Sprintf ( "%c", 'A' + byte(routers_so_far) )
+  return name
+}
+
+
 
 
 /*=====================================================================
@@ -495,8 +502,7 @@ func add_routers ( context * Context, am argmap ) {
   }
 
   for i:= 0; i < count; i ++ {
-    router_name := fmt.Sprintf ( "%c", 'A' + byte(i) + byte(routers_so_far) )
-
+    router_name := get_next_interior_router_name ( context )
     context.network.Add_router ( router_name )
 
     if context.verbose {
@@ -551,6 +557,39 @@ func verbose ( context * Context, am argmap ) {
   if a := am["off"]; a.value == "true" {
     context.verbose = false
   }
+}
+
+
+
+
+
+func add_edge ( context * Context, am argmap ) {
+
+  router_arg := am["router"].value
+  if router_arg == "" {
+    print_usage ( context, get_command (context, "add_edge" ) )
+    return
+  }
+
+  var target_router, edge_name string
+
+  if router_arg == "RANDOM" {
+    interior_router_count := context.network.How_many_interior_routers()
+    random_index := rand.Intn ( interior_router_count )
+    target_router = context.network.Get_nth_interior_router_name ( random_index )
+  } else {
+    target_router = router_arg
+  }
+
+  edge_name = fmt.Sprintf ( "edge_%04d", context.edge_count )
+  context.network.Add_edge ( edge_name )
+  context.network.Connect_router ( edge_name, target_router )
+  if context.verbose {
+    fp ( os.Stdout, 
+         "    %c info: add_edges: added |%s| to |%s|\n", 
+         mercury, edge_name, target_router )
+  }
+  context.edge_count ++
 }
 
 
@@ -614,7 +653,16 @@ func set_paths ( context * Context, am argmap ) {
 
 
 func help ( context * Context, am argmap ) {
+
+  cmd_pattern := am["command"].value
+
   for _, cmd := range context.commands  {
+    if cmd_pattern != "" {
+      if ! strings.Contains ( cmd.name, cmd_pattern ) {
+        continue
+      }
+    }
+
     fp ( os.Stdout, "---------------------\n" )
     fp ( os.Stdout, "%s\n",   cmd.name )
     fp ( os.Stdout, "---------------------\n" )
@@ -673,23 +721,102 @@ func connect ( context * Context, am argmap ) {
 
 func add_receivers ( context * Context, am argmap ) {
   router_name           := am["router"].value
+  router_with_edges     := am["edges"].value
   count, _              := strconv.Atoi ( am["count"].value )
   n_messages, _         := strconv.Atoi ( am["n_messages"].value )
   max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
   address               := am["address"].value
-  fp ( os.Stderr, " recv: addr: |%s| explicit: %t\n", address, am["address"].explicit )
 
-  var receiver_name string
-  var i int
-  for i = 0; i < count; i ++ {
-    receiver_name = fmt.Sprintf ( "receiver_%04d", i + context.receiver_count )
-    context.network.Add_receiver ( receiver_name, n_messages, max_message_length, router_name, address )
+  if router_name == "" && router_with_edges == "" {
+    fp ( os.Stdout, 
+         "    %c error: add_receivers: You must specify either 'router' or 'edges' arg.\n", 
+         mercury )
+    return
+  }
 
-    if context.verbose {
-      fp ( os.Stdout, "  %c info: created receiver %s attached to router %s.\n", mercury, receiver_name, router_name )
+  if ! (router_name == "" || router_with_edges == "" ) {
+    fp ( os.Stdout, 
+         "    %c error: add_receivers: You cannot specify both 'router' and 'edges' arg.\n", 
+         mercury )
+    return
+  }
+
+  if router_name != "" {
+    // We are attaching these receivers to an interior router.
+    var receiver_name string
+    var i int
+    for i = 0; i < count; i ++ {
+      receiver_name = fmt.Sprintf ( "receiver_%04d", i + context.receiver_count )
+      context.network.Add_receiver ( receiver_name, n_messages, max_message_length, router_name, address )
+
+      if context.verbose {
+        fp ( os.Stdout, 
+             "  %c info: created receiver %s on router %s.\n", 
+             mercury, 
+             receiver_name, 
+             router_name )
+      }
+    }
+    context.receiver_count += i
+  } else if router_with_edges != "" {
+    // We are attaching these receivers to the edge
+    // routers associated with the given interior router.
+    edges_array := context.network.Get_router_edges ( router_with_edges )
+    edge_count := len(edges_array)
+
+    var router_index     int
+    var edge_router_name string
+    var receiver_name    string
+
+    for i := 0; i < count; i ++ {
+      router_index = i % edge_count
+      edge_router_name = edges_array [ router_index ]
+      receiver_name = fmt.Sprintf ( "receiver_%04d", context.receiver_count )
+      context.network.Add_receiver ( receiver_name, 
+                                     n_messages, 
+                                     max_message_length, 
+                                     edge_router_name, 
+                                     address )
+
+        if context.verbose {
+          fp ( os.Stdout, 
+               "  %c info: created receiver %s on edge router %s, which is on router %s.\n", 
+               mercury, 
+               receiver_name,
+               edge_router_name,
+               router_with_edges )
+        }
+
+      context.receiver_count ++
     }
   }
-  context.receiver_count += i
+}
+
+
+
+
+
+func add_receiver ( context * Context, am argmap ) {
+  router_name           := am["router"].value
+  n_messages, _         := strconv.Atoi ( am["n_messages"].value )
+  max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
+  address               := am["address"].value
+
+  receiver_name := fmt.Sprintf ( "receiver_%04d", context.receiver_count )
+  context.network.Add_receiver ( receiver_name, 
+                                 n_messages, 
+                                 max_message_length, 
+                                 router_name, 
+                                 address )
+
+  if context.verbose {
+    fp ( os.Stdout, 
+         "  %c info: created receiver %s attached to router %s.\n", 
+         mercury, 
+         receiver_name, 
+         router_name )
+  }
+  context.receiver_count ++
 }
 
 
@@ -698,23 +825,101 @@ func add_receivers ( context * Context, am argmap ) {
 
 func add_senders ( context * Context, am argmap ) {
   router_name           := am["router"].value
+  router_with_edges     := am["edges"].value
   count, _              := strconv.Atoi ( am["count"].value )
   n_messages, _         := strconv.Atoi ( am["n_messages"].value )
   max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
   address               := am["address"].value
-  fp ( os.Stderr, " send: addr: |%s| explicit: %t\n", address, am["address"].explicit )
 
-  var sender_name string
-  var i int
-  for i = 0; i < count; i ++ {
-    sender_name = fmt.Sprintf ( "sender_%04d", i + context.sender_count )
-    context.network.Add_sender ( sender_name, n_messages, max_message_length, router_name, address )
 
-    if context.verbose {
-      fp ( os.Stdout, "  %c info: created sender %s attached to router %s.\n", mercury, sender_name, router_name )
+  if router_name == "" && router_with_edges == "" {
+    fp ( os.Stdout, 
+         "    %c error: add_receivers: You must specify either 'router' or 'edges' arg.\n", 
+         mercury )
+    return
+  }
+
+  if ! (router_name == "" || router_with_edges == "" ) {
+    fp ( os.Stdout, 
+         "    %c error: add_receivers: You cannot specify both 'router' and 'edges' arg.\n", 
+         mercury )
+    return
+  }
+
+
+
+  if router_name != "" {
+    // We are attaching these senders to an interior router.
+    var sender_name string
+    var i int
+    for i = 0; i < count; i ++ {
+      sender_name = fmt.Sprintf ( "sender_%04d", i + context.sender_count )
+      context.network.Add_sender ( sender_name, 
+                                   n_messages, 
+                                   max_message_length, 
+                                   router_name, 
+                                   address )
+
+      if context.verbose {
+        fp ( os.Stdout, 
+             "  %c info: created sender %s attached to router %s.\n", 
+             mercury, 
+             sender_name, 
+             router_name )
+      }
+    }
+    context.sender_count += i
+  } else if router_with_edges != "" {
+    // We are attaching these senders to the edge
+    // routers associated with the given interior router.
+    edges_array := context.network.Get_router_edges ( router_with_edges )
+    edge_count := len(edges_array)
+
+    var router_index     int
+    var edge_router_name string
+    var sender_name      string
+
+    for i := 0; i < count; i ++ {
+      router_index = i % edge_count
+      edge_router_name = edges_array [ router_index ]
+      sender_name = fmt.Sprintf ( "sender_%04d", context.sender_count )
+      context.network.Add_sender ( sender_name, 
+                                   n_messages, 
+                                   max_message_length, 
+                                   edge_router_name, 
+                                   address )
+
+        if context.verbose {
+          fp ( os.Stdout, 
+               "  %c info: created sender %s on edge router %s, which is on router %s.\n", 
+               mercury, 
+               sender_name,
+               edge_router_name,
+               router_with_edges )
+        }
+
+      context.sender_count ++
     }
   }
-  context.sender_count += i
+}
+
+
+
+
+
+func add_sender ( context * Context, am argmap ) {
+  router_name           := am["router"].value
+  n_messages, _         := strconv.Atoi ( am["n_messages"].value )
+  max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
+  address               := am["address"].value
+
+  sender_name := fmt.Sprintf ( "sender_%04d", context.sender_count )
+  context.network.Add_sender ( sender_name, n_messages, max_message_length, router_name, address )
+
+  if context.verbose {
+    fp ( os.Stdout, "  %c info: created sender %s attached to router %s.\n", mercury, sender_name, router_name )
+  }
+  context.sender_count ++
 }
 
 
@@ -764,6 +969,47 @@ func mem ( context  * Context, am argmap ) {
   }
 }
 
+func linear ( context  * Context, am argmap ) {
+  size_str := am["count"].value
+  if size_str == "" {
+    fp ( os.Stdout, "    %c error: linear command needs a count arg.\n", mercury )
+    return
+  }
+
+  size, err := strconv.Atoi ( size_str )
+  if err != nil {
+    fp ( os.Stdout, 
+         "    %c error: linear command problem with count arg: |%s|\n", 
+         mercury,
+         err.Error() )
+    return
+  }
+
+  var router_name string
+  var temp_names [] string
+  for i := 0; i < size; i ++ {
+    router_name = get_next_interior_router_name ( context )
+    context.network.Add_router ( router_name )
+    temp_names = append ( temp_names, router_name )
+
+    if context.verbose {
+      fp ( os.Stdout, "    %c info: added router %s\n", mercury, router_name )
+    }
+  }
+
+  for index, name := range temp_names {
+    if index < len(temp_names) - 1 {
+      pitcher := name
+      catcher := temp_names [ index + 1 ]
+      context.network.Connect_router ( pitcher, catcher )
+
+      if context.verbose {
+        fp ( os.Stdout, "    %c info: connected %s to %s\n", mercury, pitcher, catcher )
+      }
+    }
+  }
+
+}
 
 
 
@@ -787,6 +1033,10 @@ func main() {
   /*-------------------------------------------
     Make commands.
   -------------------------------------------*/
+
+
+
+  // ---------------------------------- add_routers ----------------------------------
   c := new_command ( "add_routers", 
                      add_routers, 
                      "Add one or more internal routers to the network, up to 26.\n  Names will be A, B, ... Z." )
@@ -794,12 +1044,14 @@ func main() {
   add_command ( & context, c )
 
 
+  // ---------------------------------- quit ----------------------------------
   c = new_command ( "quit", 
                     quit, 
                     "Shut down the network and halt Mercury." )
   add_command ( & context, c )
 
 
+  // ---------------------------------- echo ----------------------------------
   c = new_command ( "echo", 
                     echo, 
                     "Echo the given string." )
@@ -807,12 +1059,14 @@ func main() {
   add_command ( & context, c )
 
 
+  // ---------------------------------- start_actions ----------------------------------
   c = new_command ( "start_actions", 
                     start_actions, 
                     "Start running all actions that have already been registered." )
   add_command ( & context, c )
 
 
+  // ---------------------------------- verbose ----------------------------------
   c = new_command ( "verbose", 
                     verbose, 
                     "Tell Mercury to turn verbose mode on or off." )
@@ -821,6 +1075,7 @@ func main() {
   add_command ( & context, c )
 
 
+  // ---------------------------------- set_paths ----------------------------------
   c = new_command ( "set_paths", 
                     set_paths, 
                     "Define the paths that Mercury needs to run."  )
@@ -830,12 +1085,14 @@ func main() {
   add_command ( & context, c )
 
 
+  // ---------------------------------- network ----------------------------------
   c = new_command ( "network", 
                     network, 
                     "Create the initial network. Do this after paths are defined,\n  and before you start adding routers and clients." )
   add_command ( & context, c )
 
 
+  // ---------------------------------- sleep ----------------------------------
   c = new_command ( "sleep", 
                     sleep, 
                     "Tell the main thread to sleep the given number of seconds.\n  Repeating actions will continue running." )
@@ -843,6 +1100,7 @@ func main() {
   add_command ( & context, c )
 
 
+  // ---------------------------------- connect ----------------------------------
   c = new_command ( "connect", 
                     connect, 
                     "Connect the 'from' router to the 'to' router." )
@@ -851,46 +1109,77 @@ func main() {
   add_command ( & context, c )
 
 
+  // ---------------------------------- run ----------------------------------
   c = new_command ( "run", 
                     run, 
                     "Start the network running. Before doing this, you should add\n  all the internal routers and connect them as desired." )
   add_command ( & context, c )
 
 
+  // ---------------------------------- help ----------------------------------
   c = new_command ( "help", 
                     help, 
                     "Print all command and argument help." )
+  c.add_arg ( "command",   "string", "Pattern for command you want help with.",   "" )
   add_command ( & context, c )
 
 
+  // ---------------------------------- add_receivers ----------------------------------
   c = new_command ( "add_receivers",
                     add_receivers,
                     "Add receivers to a given router." )
   c.add_arg ( "count", "string", "How many senders to create.", "1" )
   c.add_arg ( "router", "string", "The router that the receivers will attach to.", "" )
-  c.add_arg ( "n_messages", "string", "How many messages to receive before quitting.", "100" )
+  c.add_arg ( "edges", "string", "Add these clients to edges that are attached to the named router. Use this argument, or the 'routers' argument, but not both.", "" )
+  c.add_arg ( "n_messages", "string", "How many messages to receive before quitting.", "1000" )
   c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
   c.add_arg ( "address", "string", "Address to receive from.", "my_address" )
   add_command ( & context, c )
 
 
+  // ---------------------------------- add_receiver ----------------------------------
+  c = new_command ( "add_receiver",
+                    add_receiver,
+                    "Add receiver to a given router." )
+  c.add_arg ( "router", "string", "The router that the receiver will attach to.", "" )
+  c.add_arg ( "n_messages", "string", "How many messages to receive before quitting.", "1000" )
+  c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
+  c.add_arg ( "address", "string", "Address to receive from.", "my_address" )
+  add_command ( & context, c )
+
+
+  // ---------------------------------- add_senders ----------------------------------
   c = new_command ( "add_senders",
                     add_senders,
                     "Add senders to a given router." )
   c.add_arg ( "count", "string", "How many senders to create.", "1" )
   c.add_arg ( "router", "string", "The router that the senders will attach to.", "" )
-  c.add_arg ( "n_messages", "string", "How many messages to send.", "100" )
+  c.add_arg ( "edges", "string", "Add these clients to edges that are attached to the named router. Use this argument, or the 'routers' argument, but not both.", "" )
+  c.add_arg ( "n_messages", "string", "How many messages to send.", "1000" )
   c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
   c.add_arg ( "address", "string", "Address to send to.", "my_address" )
   add_command ( & context, c )
 
 
+  // ---------------------------------- add_sender ----------------------------------
+  c = new_command ( "add_sender",
+                    add_sender,
+                    "Add sender to a given router." )
+  c.add_arg ( "router", "string", "The router that the sender will attach to.", "" )
+  c.add_arg ( "n_messages", "string", "How many messages to send.", "1000" )
+  c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
+  c.add_arg ( "address", "string", "Address to send to.", "my_address" )
+  add_command ( & context, c )
+
+
+  // ---------------------------------- report ----------------------------------
   c = new_command ( "report",
                     report,
                     "Report on the status of all running processes." )
   add_command ( & context, c )
 
 
+  // ---------------------------------- add_edges ----------------------------------
   c = new_command ( "add_edges",
                     add_edges,
                     "Add edge-routers to the given interior router." )
@@ -899,17 +1188,36 @@ func main() {
   add_command ( & context, c )
 
 
+  // ---------------------------------- add_edge ----------------------------------
+  c = new_command ( "add_edge",
+                    add_edge,
+                    "Add an edge-router to the given interior router." )
+  c.add_arg ( "router", "string", "Which router to add it to. (or RANDOM)", "" )
+  add_command ( & context, c )
+
+
+  // ---------------------------------- show ----------------------------------
   c = new_command ( "show",
                     show,
                     "Print details of the current network." )
   add_command ( & context, c )
 
 
+  // ---------------------------------- mem ----------------------------------
   c = new_command ( "mem",
                     mem,
                     "Check memory usage on all routers." )
   c.add_arg ( "router", "string", "Which router to print mem usage for.", "" )
   add_command ( & context, c )
+
+
+  // ---------------------------------- linear ----------------------------------
+  c = new_command ( "linear",
+                    linear,
+                    "Create a linear router network with the given count." )
+  c.add_arg ( "count", "string", "How many routers to make in the linear network.", "" )
+  add_command ( & context, c )
+
 
 
 

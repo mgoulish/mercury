@@ -186,6 +186,14 @@ func New_Router ( name                        string,
 
 
 
+func ( r * Router ) Edges ( ) ( [] string ) {
+  return r.connect_to_me_edge
+}
+
+
+
+
+
 func ( r * Router ) Connected_to_you ( router_name string, edge bool ) {
   if edge {
     r.connect_to_me_edge = append ( r.connect_to_me_edge, router_name )
