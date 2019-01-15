@@ -1015,12 +1015,22 @@ func linear ( context  * Context, am argmap ) {
 
 
 func main() {
+
   rand.Seed ( int64 ( os.Getpid()) )
+
+  cwd, err := os.Getwd()
+  if err != nil {
+    fp ( os.Stdout, 
+         "    %c error: Can't get path for program name |%s|\n", 
+         mercury, 
+         os.Args[0] )
+  }
+
   
   var context Context
   init_context ( & context )
 
-  context.session_name = "./sessions/session_" + time.Now().Format ( "2006_01_02_1504" )
+  context.session_name = cwd + "/sessions/session_" + time.Now().Format ( "2006_01_02_1504" )
   utils.Find_or_create_dir ( context.session_name )
 
   context.mercury_log_name = context.session_name + "/mercury_log"

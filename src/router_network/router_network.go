@@ -423,7 +423,7 @@ func ( rn * Router_Network ) Check_memory ( router_name string ) error {
   PROTON_INSTALL_DIR    := rn.proton_root
   DISPATCH_INSTALL_DIR  := rn.dispatch_root
 
-  DISPATCH_LIBRARY_PATH := DISPATCH_INSTALL_DIR + "/lib64"
+  DISPATCH_LIBRARY_PATH := DISPATCH_INSTALL_DIR + "/lib"
   PROTON_LIBRARY_PATH   := PROTON_INSTALL_DIR   + "/lib64"
   LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
 

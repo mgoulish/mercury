@@ -501,7 +501,7 @@ func ( r * Router ) Run ( ) error {
     fp ( os.Stderr, "router.Run router %s\n", r.name )
   }
 
-  DISPATCH_LIBRARY_PATH := r.dispatch_install_root + "/lib64"
+  DISPATCH_LIBRARY_PATH := r.dispatch_install_root + "/lib"
   PROTON_LIBRARY_PATH   := r.proton_install_root   + "/lib64"
   LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
 
@@ -527,8 +527,8 @@ func ( r * Router ) Run ( ) error {
   r.cmd.Start ( )
   r.state = running
   r.pid = r.cmd.Process.Pid
-  env_dir := r.result_path + "/env/" + strconv.Itoa(r.pid) 
-  utils.Find_or_create_dir ( env_dir )
+  setup_dir := r.result_path + "/setup/" + r.name
+  utils.Find_or_create_dir ( setup_dir )
 
   if do_resource_measurement {
     r.resource_usage_dir = r.result_path + "/resources/" + strconv.Itoa(r.cmd.Process.Pid)
@@ -537,9 +537,9 @@ func ( r * Router ) Run ( ) error {
     r.cpu_usage_file_name = r.resource_usage_dir + "/cpu"
   }
 
-  // Write the environment variables to the results directory.
+  // Write the environment variables to the setup directory.
   // This helps the user to reproduce this test, if desired.
-  env_file_name := env_dir + "/environment_variables"
+  env_file_name := setup_dir + "/environment_variables"
   env_file, err := os.Create ( env_file_name )
   utils.Check ( err )
   defer env_file.Close ( )
@@ -550,7 +550,7 @@ func ( r * Router ) Run ( ) error {
 
   // Write the command line to the results directory.
   // This helps the user to reproduce this test, if desired.
-  command_file_name := env_dir + "/command_line"
+  command_file_name := setup_dir + "/command_line"
   command_file, err := os.Create ( command_file_name )
   utils.Check ( err )
   defer command_file.Close ( )

@@ -2,9 +2,4 @@ verbose on
 set_paths dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton mercury /home/mick/mercury
 network
 linear count 3
-add_edges count 10 router A
-add_edges count 10 router C
-add_receivers count 13 edges A
-#add_receiver router C
-#add_sender   router A
-# run
+run
