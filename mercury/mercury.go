@@ -483,6 +483,32 @@ func get_next_interior_router_name ( context * Context ) ( string ) {
 ======================================================================*/
 
 
+func add_router ( context * Context, am argmap ) {
+
+  routers_so_far := context.network.N_routers()
+
+  if routers_so_far >= 26 {
+    fp ( os.Stdout, 
+         "%c error: You can't have any more routers. You have %d already.\n", 
+         mercury, 
+         routers_so_far )
+    return
+  }
+
+  version := am["version"].value
+
+  router_name := get_next_interior_router_name ( context )
+  context.network.Add_router ( router_name, version )
+
+  if context.verbose {
+    fp ( os.Stderr, "%c info: made router %s. Network now has %d routers.\n", mercury, router_name, context.network.N_routers() )
+  }
+}
+
+
+
+
+
 func add_routers ( context * Context, am argmap ) {
 
   routers_so_far := context.network.N_routers()
@@ -496,6 +522,7 @@ func add_routers ( context * Context, am argmap ) {
   }
 
   count, _ := strconv.Atoi ( am["count"].value )
+  version := am["version"].value
 
   if count + routers_so_far >= 26 {
     count = 26 - routers_so_far
@@ -503,7 +530,7 @@ func add_routers ( context * Context, am argmap ) {
 
   for i:= 0; i < count; i ++ {
     router_name := get_next_interior_router_name ( context )
-    context.network.Add_router ( router_name )
+    context.network.Add_router ( router_name, version )
 
     if context.verbose {
       fp ( os.Stderr, "%c info: made router %s. Network now has %d routers.\n", mercury, router_name, context.network.N_routers() )
@@ -571,6 +598,8 @@ func add_edge ( context * Context, am argmap ) {
     return
   }
 
+  version := am["version"].value
+
   var target_router, edge_name string
 
   if router_arg == "RANDOM" {
@@ -582,7 +611,7 @@ func add_edge ( context * Context, am argmap ) {
   }
 
   edge_name = fmt.Sprintf ( "edge_%04d", context.edge_count )
-  context.network.Add_edge ( edge_name )
+  context.network.Add_edge ( edge_name, version )
   context.network.Connect_router ( edge_name, target_router )
   if context.verbose {
     fp ( os.Stdout, 
@@ -598,8 +627,10 @@ func add_edge ( context * Context, am argmap ) {
 
 func add_edges ( context * Context, am argmap ) {
 
-  count_str  := am["count"].value
-  router_arg := am["router"].value
+  count_str  := am   ["count"].value
+  router_arg := am  ["router"].value
+  version    := am ["version"].value
+
   if count_str == "" || router_arg == "" {
     print_usage ( context, get_command (context, "add_edges" ) )
     return
@@ -623,7 +654,7 @@ func add_edges ( context * Context, am argmap ) {
     }
 
     edge_name = fmt.Sprintf ( "edge_%04d", context.edge_count )
-    context.network.Add_edge ( edge_name )
+    context.network.Add_edge ( edge_name, version )
     context.network.Connect_router ( edge_name, target_router )
     if context.verbose {
       fp ( os.Stdout, 
@@ -958,6 +989,17 @@ func show ( context  * Context, am argmap ) {
 
 
 
+func dispatch_version ( context  * Context, am argmap ) {
+  name  := am["name"].value
+  path  := am["path"].value
+
+  context.network.Add_dispatch_version ( name, path )
+}
+
+
+
+
+
 func mem ( context  * Context, am argmap ) {
   
   name := am["router"].value
@@ -968,6 +1010,10 @@ func mem ( context  * Context, am argmap ) {
     context.network.Check_memory ( name )
   }
 }
+
+
+
+
 
 func linear ( context  * Context, am argmap ) {
   size_str := am["count"].value
@@ -985,11 +1031,13 @@ func linear ( context  * Context, am argmap ) {
     return
   }
 
+  version := am["version"].value
+
   var router_name string
   var temp_names [] string
   for i := 0; i < size; i ++ {
     router_name = get_next_interior_router_name ( context )
-    context.network.Add_router ( router_name )
+    context.network.Add_router ( router_name, version )
     temp_names = append ( temp_names, router_name )
 
     if context.verbose {
@@ -1008,8 +1056,8 @@ func linear ( context  * Context, am argmap ) {
       }
     }
   }
-
 }
+
 
 
 
@@ -1046,11 +1094,20 @@ func main() {
 
 
 
-  // ---------------------------------- add_routers ----------------------------------
-  c := new_command ( "add_routers", 
-                     add_routers, 
-                     "Add one or more internal routers to the network, up to 26.\n  Names will be A, B, ... Z." )
+  // ---------------------------------- add_router ----------------------------------
+  c := new_command ( "add_router", 
+                     add_router, 
+                     "Add one internal router to the network.\n  Name will be next letter of alphabet." )
+  c.add_arg ( "version", "string",    "The version of dispatch to use for this router.", "" )
+  add_command ( & context, c )
+
+
+  // ---------------------------------- add_router ----------------------------------
+  c = new_command ( "add_routers", 
+                    add_routers, 
+                    "Add one or more internal routers to the network, up to 26.\n  Names will be A, B, ... Z." )
   c.add_arg ( "count", "int",    "how many routers to create", "1" )
+  c.add_arg ( "version", "string",    "The version of dispatch to use for these routers.", "" )
   add_command ( & context, c )
 
 
@@ -1225,17 +1282,22 @@ func main() {
   c = new_command ( "linear",
                     linear,
                     "Create a linear router network with the given count." )
-  c.add_arg ( "count", "string", "How many routers to make in the linear network.", "" )
+  c.add_arg ( "count",   "string", "How many routers to make in the linear network.", "" )
+  c.add_arg ( "version", "string", "What version of the dispatch code do you want these routers to use?", "" )
   add_command ( & context, c )
 
 
-
-
+  // ---------------------------------- dispatch_version ----------------------------------
+  c = new_command ( "dispatch_version",
+                    dispatch_version,
+                    "Add a new version of dispatch." )
+  c.add_arg ( "name", "string", "The nickname you will use for this version.",  "" )
+  c.add_arg ( "path", "string", "The path to the install dir of this version.", "" )
+  add_command ( & context, c )
 
 
   // Get the commands into alphabetical order.
   sort.Sort ( Commands_by_name ( context.commands ) )
-
 
 
   /*--------------------------------------------

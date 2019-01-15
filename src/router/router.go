@@ -98,6 +98,7 @@ func state_to_string ( state router_state ) ( string ) {
 */
 type Router struct {
   name                           string
+  version                        string
   router_type                    string
   worker_threads                 int
   result_path                    string
@@ -108,6 +109,7 @@ type Router struct {
   dispatch_install_root          string
   proton_install_root            string
   client_port                    string
+  console_port                   string
   router_port                    string
   edge_port                      string
   verbose                        bool
@@ -148,6 +150,7 @@ type Router struct {
   edge routers.
 */
 func New_Router ( name                        string, 
+                  version                     string,
                   router_type                 string,
                   worker_threads              int,
                   result_path                 string,
@@ -157,6 +160,7 @@ func New_Router ( name                        string,
                   dispatch_install_root       string,
                   proton_install_root         string,
                   client_port                 string,
+                  console_port                string,
                   router_port                 string,
                   edge_port                   string,
                   verbose                     bool,
@@ -164,6 +168,7 @@ func New_Router ( name                        string,
   var r * Router
 
   r = & Router { name                           : name, 
+                 version                        : version,
                  router_type                    : router_type,
                  worker_threads                 : worker_threads,
                  result_path                    : result_path,
@@ -173,6 +178,7 @@ func New_Router ( name                        string,
                  dispatch_install_root          : dispatch_install_root,
                  proton_install_root            : proton_install_root,
                  client_port                    : client_port,
+                 console_port                   : console_port,
                  router_port                    : router_port,
                  edge_port                      : edge_port,
                  verbose                        : verbose,
@@ -380,6 +386,19 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  authenticatePeer   : no\n")
   fp ( f, "}\n")
 
+  // The Console Listener -----------------
+  fp ( f, "listener {\n" )
+  fp ( f, "  role               : normal\n")
+  fp ( f, "  host               : 0.0.0.0\n")
+  fp ( f, "  port               : %s\n", r.console_port )
+  fp ( f, "  stripAnnotations   : no\n")
+  fp ( f, "  idleTimeoutSeconds : 120\n")
+  fp ( f, "  saslMechanisms     : ANONYMOUS\n")
+  fp ( f, "  authenticatePeer   : no\n")
+  fp ( f, "  http               : true\n")
+  fp ( f, "  httpRoot           : /home/mick/latest/install/dispatch/share/qpid-dispatch/console/stand-alone\n")
+  fp ( f, "}\n")
+
   // The Router Listener -----------------
   if r.router_type != "edge" {
     fp ( f, "listener {\n" )
@@ -524,8 +543,18 @@ func ( r * Router ) Run ( ) error {
   // Start the router process and get its pid for the result directory name.
   // After the Start() call, the router process is running detached.
   r.cmd = exec.Command ( executable_path,  args_list... )
+  if r.cmd == nil {
+    fp ( os.Stdout, "   router.Run error: can't execute |%s|\n", executable_path )
+    return errors.New ( "Can't execute router executable." )
+  }
   r.cmd.Start ( )
   r.state = running
+
+  if r.cmd.Process == nil {
+    fp ( os.Stdout, "   router.Run error: can't execute |%s|\n", executable_path )
+    return errors.New ( "Can't execute router executable." )
+  }
+
   r.pid = r.cmd.Process.Pid
   setup_dir := r.result_path + "/setup/" + r.name
   utils.Find_or_create_dir ( setup_dir )
