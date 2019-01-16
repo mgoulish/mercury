@@ -86,7 +86,7 @@ type Router_Network struct {
   routers                        [] * router.Router
   clients                        [] * client.Client
 
-  dispatch_versions              map [string] string
+  Dispatch_versions              map [string] string
 }
 
 
@@ -141,7 +141,7 @@ func New_Router_Network ( name                           string,
                           verbose                        : verbose,
                           resource_measurement_frequency : resource_measurement_frequency }
 
-  rn.dispatch_versions = make ( map [string] string )
+  rn.Dispatch_versions = make ( map [string] string )
   return rn
 }
 
@@ -208,7 +208,7 @@ func ( rn * Router_Network ) add_router ( name string, router_type string, versi
   router_port, _ := utils.Available_port ( )
   edge_port, _   := utils.Available_port ( )
 
-  executable_path := rn.dispatch_versions [ version ] + "/sbin/qdrouterd"
+  executable_path := rn.Dispatch_versions [ version ] + "/sbin/qdrouterd"
 
   r := router.New_Router ( name,
                            version,
@@ -227,10 +227,6 @@ func ( rn * Router_Network ) add_router ( name string, router_type string, versi
                            rn.verbose,
                            rn.resource_measurement_frequency )
   rn.routers = append ( rn.routers, r )
-
-  if rn.verbose {
-    fp ( os.Stdout, "    router_network: added router %s of version %s\n", name, version )
-  }
 }
 
 
@@ -432,7 +428,7 @@ func ( rn * Router_Network ) Client_port ( target_router_name string ) ( client_
 
 
 func ( rn * Router_Network ) Add_dispatch_version ( name, path string ) {
-  rn.dispatch_versions [ name ] = path
+  rn.Dispatch_versions [ name ] = path
 }
 
 

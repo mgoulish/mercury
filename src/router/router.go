@@ -212,10 +212,11 @@ func ( r * Router ) Connected_to_you ( router_name string, edge bool ) {
 func ( r * Router ) Print () {
   fp ( os.Stdout, "router %s -------------\n", r.name )
   fp ( os.Stdout, "  PID: %d\n", r.pid )
-  fp ( os.Stdout, "  state: %s\n", state_to_string ( r.state ) )
-  fp ( os.Stdout, "  client port: %s\n", r.client_port )
-  fp ( os.Stdout, "  router port: %s\n", r.router_port )
-  fp ( os.Stdout, "  edge   port: %s\n", r.edge_port )
+  fp ( os.Stdout, "  state:  %s\n", state_to_string ( r.state ) )
+  fp ( os.Stdout, "  client  port: %s\n", r.client_port )
+  fp ( os.Stdout, "  router  port: %s\n", r.router_port )
+  fp ( os.Stdout, "  edge    port: %s\n", r.edge_port )
+  fp ( os.Stdout, "  console port: %s\n", r.console_port )
   fp ( os.Stdout, "\n" )
 
   if 0 < len(r.i_connect_to_names) {

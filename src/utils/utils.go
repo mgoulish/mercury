@@ -68,6 +68,21 @@ func Available_port () ( port string, err error ) {
 
 
 
+func Path_exists ( path string ) ( bool ) {
+
+  _, err := os.Stat ( path )
+
+  if nil != err && os.IsNotExist ( err ) { 
+    return false
+  }
+
+  return true
+}
+
+
+
+
+
 func Find_or_create_dir ( path string ) {
   _, err := os.Stat ( path )
   if os.IsNotExist ( err ) {

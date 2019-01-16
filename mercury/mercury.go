@@ -10,6 +10,7 @@ import (
   "strconv"
   "time"
   "math/rand"
+  "errors"
 
   "utils"
   rn "router_network"
@@ -104,6 +105,8 @@ type Context struct {
   mercury_log_file         * os.File
   first_nonwhitespace_rgx  * regexp.Regexp
   line_rgx                 * regexp.Regexp
+  
+  first_version_name         string
 }
 
 
@@ -236,6 +239,7 @@ func process_line ( context * Context, line string ) {
 
 func print_usage ( context * Context, cmd * command ) {
   fp ( os.Stderr, "Usage for command |%s|\n", cmd.name )
+  help_for_command ( context, cmd )
 }
 
 
@@ -276,9 +280,13 @@ func make_default_args ( cmd * command ) ( argmap ) {
   be over-written by whatever values the user supplied 
   on the command line.
 =======================================================*/
-func make_arg_map ( context * Context, cmd * command, command_line [] string ) ( argmap )  {
+func make_arg_map ( context * Context, cmd * command, command_line [] string ) ( argmap, error )  {
 
   am := make_default_args ( cmd )
+
+  if len(command_line) <= 1 {
+    return nil, nil
+  }
 
   // Look at each arg on the command line.
   for i := 1; i < len(command_line); i ++ {
@@ -287,9 +295,11 @@ func make_arg_map ( context * Context, cmd * command, command_line [] string ) (
 
     if arg == nil {
       // There is no such arg for this command.
-      fp ( os.Stderr, "Bad arg: |%s|\n", arg_name )
+      fp ( os.Stdout, "\n--------------------------------------\n" )
+      fp ( os.Stdout, "Bad arg: |%s|\n", arg_name )
+      fp ( os.Stdout, "--------------------------------------\n\n\n" )
       print_usage ( context, cmd )
-      return nil
+      return nil, errors.New ( "Bad arg." )
     } 
 
     // This is a valid arg for this command.
@@ -301,7 +311,7 @@ func make_arg_map ( context * Context, cmd * command, command_line [] string ) (
       // This arg is a non-flag type and must take a value.
       if i == len(command_line) - 1 {
         fp ( os.Stderr, "mercury error: no value for argument |%s| in command |%s|\n", cmd.name, arg_name )
-        return nil
+        return nil, nil
       }
       av := argval { value : command_line [ i + 1 ], explicit : true }
       am [ arg_name ] = av
@@ -310,7 +320,7 @@ func make_arg_map ( context * Context, cmd * command, command_line [] string ) (
     }
   }
 
-  return am
+  return am, nil
 }
 
 
@@ -330,9 +340,10 @@ func call_command ( context * Context, command_line [] string ) {
     return
   }
 
-  am := make_arg_map ( context, cmd, command_line )
-
-  cmd.fn ( context, am )
+  am, err := make_arg_map ( context, cmd, command_line )
+  if err == nil {
+    cmd.fn ( context, am )
+  }
 }
 
 
@@ -377,9 +388,9 @@ func create_network ( context * Context ) {
   context.router_path   = context.dispatch_install_root + "/sbin/qdrouterd"
   context.client_path   = context.mercury_root + "/clients/c_proactor_client"
 
-  context.result_path   = context.session_name + "/" + "/results"
-  context.config_path   = context.session_name + "/" + "/config"
-  context.log_path      = context.session_name + "/" + "/log"
+  context.result_path   = context.session_name + "/" + "results"
+  context.config_path   = context.session_name + "/" + "config"
+  context.log_path      = context.session_name + "/" + "log"
 
   utils.Find_or_create_dir ( context.result_path )
   utils.Find_or_create_dir ( context.config_path )
@@ -495,7 +506,12 @@ func add_router ( context * Context, am argmap ) {
     return
   }
 
+  var err error
   version := am["version"].value
+  version, err = get_version_name ( context, version )
+  if err != nil {
+    return
+  }
 
   router_name := get_next_interior_router_name ( context )
   context.network.Add_router ( router_name, version )
@@ -522,7 +538,13 @@ func add_routers ( context * Context, am argmap ) {
   }
 
   count, _ := strconv.Atoi ( am["count"].value )
+
+  var err error
   version := am["version"].value
+  version, err = get_version_name ( context, version )
+  if err != nil {
+    return
+  }
 
   if count + routers_so_far >= 26 {
     count = 26 - routers_so_far
@@ -598,7 +620,12 @@ func add_edge ( context * Context, am argmap ) {
     return
   }
 
+  var err error
   version := am["version"].value
+  version, err = get_version_name ( context, version )
+  if err != nil {
+    return
+  }
 
   var target_router, edge_name string
 
@@ -627,9 +654,15 @@ func add_edge ( context * Context, am argmap ) {
 
 func add_edges ( context * Context, am argmap ) {
 
+  var err error
+
   count_str  := am   ["count"].value
   router_arg := am  ["router"].value
   version    := am ["version"].value
+  version, err = get_version_name ( context, version )
+  if err != nil {
+    return
+  }
 
   if count_str == "" || router_arg == "" {
     print_usage ( context, get_command (context, "add_edges" ) )
@@ -683,6 +716,26 @@ func set_paths ( context * Context, am argmap ) {
 
 
 
+func help_for_command ( context * Context, cmd * command ) {
+
+  fp ( os.Stdout, "---------------------\n" )
+  fp ( os.Stdout, "%s\n",   cmd.name )
+  fp ( os.Stdout, "---------------------\n" )
+  fp ( os.Stdout, "  %s\n", cmd.help )
+  for _, ad := range cmd.arg_descriptors {
+    fp ( os.Stdout, "\n" )
+    fp ( os.Stdout, "  arg         : %s\n", ad.name )
+    fp ( os.Stdout, "  type        : %s\n", ad.data_type )
+    fp ( os.Stdout, "  explanation : %s\n", ad.explanation )
+    fp ( os.Stdout, "  default     : %s\n", ad.default_value )
+  }
+  fp ( os.Stdout, "\n\n" )
+}
+
+
+
+
+
 func help ( context * Context, am argmap ) {
 
   cmd_pattern := am["command"].value
@@ -694,18 +747,7 @@ func help ( context * Context, am argmap ) {
       }
     }
 
-    fp ( os.Stdout, "---------------------\n" )
-    fp ( os.Stdout, "%s\n",   cmd.name )
-    fp ( os.Stdout, "---------------------\n" )
-    fp ( os.Stdout, "  %s\n", cmd.help )
-    for _, ad := range cmd.arg_descriptors {
-      fp ( os.Stdout, "\n" )
-      fp ( os.Stdout, "  arg         : %s\n", ad.name )
-      fp ( os.Stdout, "  type        : %s\n", ad.data_type )
-      fp ( os.Stdout, "  explanation : %s\n", ad.explanation )
-      fp ( os.Stdout, "  default     : %s\n", ad.default_value )
-    }
-    fp ( os.Stdout, "\n\n" )
+    help_for_command ( context, cmd )
   }
 }
 
@@ -940,17 +982,61 @@ func add_senders ( context * Context, am argmap ) {
 
 func add_sender ( context * Context, am argmap ) {
   router_name           := am["router"].value
+  router_with_edges     := am["edge"].value
   n_messages, _         := strconv.Atoi ( am["n_messages"].value )
   max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
   address               := am["address"].value
 
-  sender_name := fmt.Sprintf ( "sender_%04d", context.sender_count )
-  context.network.Add_sender ( sender_name, n_messages, max_message_length, router_name, address )
-
-  if context.verbose {
-    fp ( os.Stdout, "  %c info: created sender %s attached to router %s.\n", mercury, sender_name, router_name )
+  if router_name == "" && router_with_edges == "" {
+    fp ( os.Stdout, 
+         "    %c error: add_receivers: You must specify either 'router' or 'edge' arg.\n", 
+         mercury )
+    return
   }
-  context.sender_count ++
+
+  if ! (router_name == "" || router_with_edges == "" ) {
+    fp ( os.Stdout, 
+         "    %c error: add_receivers: You cannot specify both 'router' and 'edge' arg.\n", 
+         mercury )
+    return
+  }
+
+  sender_name := fmt.Sprintf ( "sender_%04d", context.sender_count )
+
+  if router_name != "" {
+    context.network.Add_sender ( sender_name, n_messages, max_message_length, router_name, address )
+
+    if context.verbose {
+      fp ( os.Stdout, "  %c info: created sender %s attached to router %s.\n", mercury, sender_name, router_name )
+    }
+    context.sender_count ++
+  } else if router_with_edges != "" {
+    // We are attaching this sender to an edge
+    // router associated with the given interior router.
+
+    var edge_router_name string
+    var sender_name      string
+
+    edges_array := context.network.Get_router_edges ( router_with_edges )
+    random_index := rand.Intn ( len(edges_array) )
+    edge_router_name = edges_array [ random_index ]
+    sender_name = fmt.Sprintf ( "sender_%04d", context.sender_count )
+    context.sender_count ++
+    context.network.Add_sender ( sender_name, 
+                                 n_messages, 
+                                 max_message_length, 
+                                 edge_router_name, 
+                                 address )
+
+    if context.verbose {
+      fp ( os.Stdout, 
+           "  %c info: created sender %s on edge router %s, which is on router %s.\n", 
+           mercury, 
+           sender_name,
+           edge_router_name,
+           router_with_edges )
+    }
+  }
 }
 
 
@@ -993,7 +1079,17 @@ func dispatch_version ( context  * Context, am argmap ) {
   name  := am["name"].value
   path  := am["path"].value
 
+  if ! utils.Path_exists ( path ) {
+    fp ( os.Stdout, "   %c error: version path |%s| does not exist.\n", mercury, path )
+    return
+  }
+
   context.network.Add_dispatch_version ( name, path )
+
+  
+  if context.first_version_name == "" {
+    context.first_version_name = name
+  }
 }
 
 
@@ -1009,6 +1105,28 @@ func mem ( context  * Context, am argmap ) {
   } else {
     context.network.Check_memory ( name )
   }
+}
+
+
+
+
+
+func get_version_name ( context  * Context, input_name string ) ( string, error ) {
+
+  var output_name string
+
+  if input_name == "" {
+    output_name = context.first_version_name
+    if output_name == "" {
+      fp ( os.Stdout, "    %c error: there are no dispatch versions defined. Use command dispatch_version.\n", mercury )
+      return "", errors.New ( "No defined versions." )
+    }
+    if context.verbose {
+      fp ( os.Stdout, "    %c info: dispatch version for this command set to |%s|\n", mercury, output_name )
+    }
+  }
+
+  return output_name, nil
 }
 
 
@@ -1032,6 +1150,11 @@ func linear ( context  * Context, am argmap ) {
   }
 
   version := am["version"].value
+  version, err = get_version_name ( context, version )
+  if err != nil {
+    return
+  }
+
 
   var router_name string
   var temp_names [] string
@@ -1058,6 +1181,67 @@ func linear ( context  * Context, am argmap ) {
   }
 }
 
+
+
+
+
+func mesh ( context  * Context, am argmap ) {
+  size_str := am["count"].value
+  if size_str == "" {
+    fp ( os.Stdout, "    %c error: mesh command needs a count arg.\n", mercury )
+    return
+  }
+
+  size, err := strconv.Atoi ( size_str )
+  if err != nil {
+    fp ( os.Stdout, 
+         "    %c error: linear command problem with count arg: |%s|\n", 
+         mercury,
+         err.Error() )
+    return
+  }
+
+  version := am["version"].value
+  version, err = get_version_name ( context, version )
+  if err != nil {
+    return
+  }
+
+  var router_name string
+  var temp_names [] string
+  for i := 0; i < size; i ++ {
+    router_name = get_next_interior_router_name ( context )
+    context.network.Add_router ( router_name, version )
+    temp_names = append ( temp_names, router_name )
+
+    if context.verbose {
+      fp ( os.Stdout, "    %c info: added router %s\n", mercury, router_name )
+    }
+  }
+
+  var catcher string
+  for index, pitcher := range temp_names {
+    if index < len(temp_names) - 1 {
+      for j := index + 1; j < len(temp_names); j ++ {
+        catcher = temp_names[j]
+        context.network.Connect_router ( pitcher, catcher )
+        if context.verbose {
+          fp ( os.Stdout, "    %c info: connected %s to %s\n", mercury, pitcher, catcher )
+        }
+      }
+    }
+  }
+}
+
+
+
+
+
+func versions ( context  * Context, am argmap ) {
+  for key, val := range context.network.Dispatch_versions {
+    fp ( os.Stdout, "    %s : %s\n", key, val )
+  }
+}
 
 
 
@@ -1236,6 +1420,7 @@ func main() {
   c.add_arg ( "n_messages", "string", "How many messages to send.", "1000" )
   c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
   c.add_arg ( "address", "string", "Address to send to.", "my_address" )
+  c.add_arg ( "edge", "string", "Add this client to an edge that is attached to the named router. Use this argument, or the 'router' argument, but not both.", "" )
   add_command ( & context, c )
 
 
@@ -1287,12 +1472,28 @@ func main() {
   add_command ( & context, c )
 
 
+  // ---------------------------------- mesh ----------------------------------
+  c = new_command ( "mesh",
+                    mesh,
+                    "Create a mesh router network with the given count." )
+  c.add_arg ( "count",   "string", "How many routers to make in the mesh network.", "" )
+  c.add_arg ( "version", "string", "What version of the dispatch code do you want these routers to use?", "" )
+  add_command ( & context, c )
+
+
   // ---------------------------------- dispatch_version ----------------------------------
   c = new_command ( "dispatch_version",
                     dispatch_version,
                     "Add a new version of dispatch." )
   c.add_arg ( "name", "string", "The nickname you will use for this version.",  "" )
   c.add_arg ( "path", "string", "The path to the install dir of this version.", "" )
+  add_command ( & context, c )
+
+
+  // ---------------------------------- versions ----------------------------------
+  c = new_command ( "versions",
+                    versions,
+                    "List the dispatch versions that have been defined." )
   add_command ( & context, c )
 
 
