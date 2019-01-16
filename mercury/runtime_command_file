@@ -8,22 +8,3 @@ dispatch_version name latest path /home/mick/latest/install/dispatch
 dispatch_version name other  path /home/mick/other/install/dispatch
 
 
-#######################################
-#   Do a 3-linear by hand.
-#######################################
-#add_router version latest
-#add_router version latest
-#add_router version latest
-#add_router version latest
-#
-#connect from A to B
-#connect from B to C
-#connect from C to D
-#
-#add_sender   router A
-#add_receiver router D
-#
-#run
-
-
-

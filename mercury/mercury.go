@@ -291,6 +291,11 @@ func make_arg_map ( context * Context, cmd * command, command_line [] string ) (
   // Look at each arg on the command line.
   for i := 1; i < len(command_line); i ++ {
     arg_name := command_line [ i ]
+
+    if arg_name == "" {
+      continue
+    }
+
     arg := cmd.get_arg ( arg_name )
 
     if arg == nil {
@@ -481,7 +486,7 @@ func add_command ( context * Context, cmd * command ) {
 
 
 func get_next_interior_router_name ( context * Context ) ( string ) {
-  routers_so_far := context.network.N_routers()
+  routers_so_far := context.network.N_interior_routers()
   name := fmt.Sprintf ( "%c", 'A' + byte(routers_so_far) )
   return name
 }
@@ -496,7 +501,7 @@ func get_next_interior_router_name ( context * Context ) ( string ) {
 
 func add_router ( context * Context, am argmap ) {
 
-  routers_so_far := context.network.N_routers()
+  routers_so_far := context.network.N_interior_routers()
 
   if routers_so_far >= 26 {
     fp ( os.Stdout, 
@@ -517,7 +522,7 @@ func add_router ( context * Context, am argmap ) {
   context.network.Add_router ( router_name, version )
 
   if context.verbose {
-    fp ( os.Stderr, "%c info: made router %s. Network now has %d routers.\n", mercury, router_name, context.network.N_routers() )
+    fp ( os.Stderr, "%c info: made router %s. Network now has %d routers.\n", mercury, router_name, context.network.N_interior_routers() )
   }
 }
 
@@ -527,7 +532,7 @@ func add_router ( context * Context, am argmap ) {
 
 func add_routers ( context * Context, am argmap ) {
 
-  routers_so_far := context.network.N_routers()
+  routers_so_far := context.network.N_interior_routers()
 
   if routers_so_far >= 26 {
     fp ( os.Stdout, 
@@ -555,7 +560,7 @@ func add_routers ( context * Context, am argmap ) {
     context.network.Add_router ( router_name, version )
 
     if context.verbose {
-      fp ( os.Stderr, "%c info: made router %s. Network now has %d routers.\n", mercury, router_name, context.network.N_routers() )
+      fp ( os.Stderr, "%c info: made router %s. Network now has %d routers.\n", mercury, router_name, context.network.N_interior_routers() )
     }
   }
 }
@@ -871,25 +876,66 @@ func add_receivers ( context * Context, am argmap ) {
 
 func add_receiver ( context * Context, am argmap ) {
   router_name           := am["router"].value
+  router_with_edges     := am["edge"].value
   n_messages, _         := strconv.Atoi ( am["n_messages"].value )
   max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
   address               := am["address"].value
 
-  receiver_name := fmt.Sprintf ( "receiver_%04d", context.receiver_count )
-  context.network.Add_receiver ( receiver_name, 
-                                 n_messages, 
-                                 max_message_length, 
-                                 router_name, 
-                                 address )
-
-  if context.verbose {
+  if router_name == "" && router_with_edges == "" {
     fp ( os.Stdout, 
-         "  %c info: created receiver %s attached to router %s.\n", 
-         mercury, 
-         receiver_name, 
-         router_name )
+         "    %c error: add_senders: You must specify either 'router' or 'edges' arg.\n", 
+         mercury )
+    return
   }
-  context.receiver_count ++
+
+  if ! (router_name == "" || router_with_edges == "" ) {
+    fp ( os.Stdout, 
+         "    %c error: add_senders: You cannot specify both 'router' and 'edges' arg.\n", 
+         mercury )
+    return
+  }
+
+
+  if router_name != "" {
+    receiver_name := fmt.Sprintf ( "receiver_%04d", context.receiver_count )
+    context.network.Add_receiver ( receiver_name, 
+                                   n_messages, 
+                                   max_message_length, 
+                                   router_name, 
+                                   address )
+
+    if context.verbose {
+      fp ( os.Stdout, 
+           "  %c info: created receiver %s attached to router %s.\n", 
+           mercury, 
+           receiver_name, 
+           router_name )
+    }
+    context.receiver_count ++
+  } else if router_with_edges != "" {
+    // We are attaching this receiver to the edge
+    // router associated with the given interior router.
+    edges_array      := context.network.Get_router_edges ( router_with_edges )
+    router_index     := rand.Intn ( len(edges_array) )
+    edge_router_name := edges_array [ router_index ]
+    receiver_name    := fmt.Sprintf ( "receiver_%04d", context.receiver_count )
+    context.network.Add_receiver ( receiver_name, 
+                                   n_messages, 
+                                   max_message_length, 
+                                   edge_router_name, 
+                                   address )
+
+      if context.verbose {
+        fp ( os.Stdout, 
+             "  %c info: created receiver %s on edge router %s, which is on router %s.\n", 
+             mercury, 
+             receiver_name,
+             edge_router_name,
+             router_with_edges )
+      }
+
+      context.receiver_count ++
+  }
 }
 
 
@@ -907,19 +953,17 @@ func add_senders ( context * Context, am argmap ) {
 
   if router_name == "" && router_with_edges == "" {
     fp ( os.Stdout, 
-         "    %c error: add_receivers: You must specify either 'router' or 'edges' arg.\n", 
+         "    %c error: add_senders: You must specify either 'router' or 'edges' arg.\n", 
          mercury )
     return
   }
 
   if ! (router_name == "" || router_with_edges == "" ) {
     fp ( os.Stdout, 
-         "    %c error: add_receivers: You cannot specify both 'router' and 'edges' arg.\n", 
+         "    %c error: add_senders: You cannot specify both 'router' and 'edges' arg.\n", 
          mercury )
     return
   }
-
-
 
   if router_name != "" {
     // We are attaching these senders to an interior router.
@@ -989,14 +1033,14 @@ func add_sender ( context * Context, am argmap ) {
 
   if router_name == "" && router_with_edges == "" {
     fp ( os.Stdout, 
-         "    %c error: add_receivers: You must specify either 'router' or 'edge' arg.\n", 
+         "    %c error: add_sender: You must specify either 'router' or 'edge' arg.\n", 
          mercury )
     return
   }
 
   if ! (router_name == "" || router_with_edges == "" ) {
     fp ( os.Stdout, 
-         "    %c error: add_receivers: You cannot specify both 'router' and 'edge' arg.\n", 
+         "    %c error: add_sender: You cannot specify both 'router' and 'edge' arg.\n", 
          mercury )
     return
   }
@@ -1014,13 +1058,10 @@ func add_sender ( context * Context, am argmap ) {
     // We are attaching this sender to an edge
     // router associated with the given interior router.
 
-    var edge_router_name string
-    var sender_name      string
-
     edges_array := context.network.Get_router_edges ( router_with_edges )
     random_index := rand.Intn ( len(edges_array) )
-    edge_router_name = edges_array [ random_index ]
-    sender_name = fmt.Sprintf ( "sender_%04d", context.sender_count )
+    edge_router_name := edges_array [ random_index ]
+    sender_name := fmt.Sprintf ( "sender_%04d", context.sender_count )
     context.sender_count ++
     context.network.Add_sender ( sender_name, 
                                  n_messages, 
@@ -1061,6 +1102,8 @@ func run ( context  * Context, am argmap ) {
   }
   
   context.network_running = true
+
+  // context.network.Print_console_ports()
 }
 
 
@@ -1117,13 +1160,20 @@ func get_version_name ( context  * Context, input_name string ) ( string, error 
 
   if input_name == "" {
     output_name = context.first_version_name
-    if output_name == "" {
-      fp ( os.Stdout, "    %c error: there are no dispatch versions defined. Use command dispatch_version.\n", mercury )
-      return "", errors.New ( "No defined versions." )
-    }
-    if context.verbose {
-      fp ( os.Stdout, "    %c info: dispatch version for this command set to |%s|\n", mercury, output_name )
-    }
+  }
+
+  if output_name == "" {
+    fp ( os.Stdout, 
+         "    %c error: there are no dispatch versions defined. Use command dispatch_version.\n", 
+         mercury )
+    return "", errors.New ( "No defined versions." )
+  }
+
+  if context.verbose {
+    fp ( os.Stdout, 
+         "    %c info: dispatch version for this command set to |%s|\n", 
+         mercury, 
+         output_name )
   }
 
   return output_name, nil
@@ -1242,6 +1292,27 @@ func versions ( context  * Context, am argmap ) {
     fp ( os.Stdout, "    %s : %s\n", key, val )
   }
 }
+
+
+
+
+
+func kill_random_edge ( context  * Context, am argmap ) {
+  fp ( os.Stdout, " kill_random_edge.\n" )
+  edge_list := context.network.Get_edge_list()
+  n_edges := len(edge_list)
+  fp ( os.Stdout, " there are %d edges\n", n_edges )
+  random_index := rand.Intn ( n_edges )
+  random_edge := edge_list [ random_index ]
+
+  fp ( os.Stdout, "my random edge is |%s|\n", random_edge )
+  context.network.Halt_router ( random_edge )
+
+  if context.verbose {
+    fp ( os.Stdout, "    %c info: halted router |%s|\n", mercury, random_edge )
+  }
+}
+
 
 
 
@@ -1393,6 +1464,7 @@ func main() {
                     add_receiver,
                     "Add receiver to a given router." )
   c.add_arg ( "router", "string", "The router that the receiver will attach to.", "" )
+  c.add_arg ( "edge", "string", "Add this client to an edge that is attached to the named router. Use this argument, or the 'routers' argument, but not both.", "" )
   c.add_arg ( "n_messages", "string", "How many messages to receive before quitting.", "1000" )
   c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
   c.add_arg ( "address", "string", "Address to receive from.", "my_address" )
@@ -1495,6 +1567,14 @@ func main() {
                     versions,
                     "List the dispatch versions that have been defined." )
   add_command ( & context, c )
+
+
+  // ---------------------------------- kill_random_edge ----------------------------------
+  c = new_command ( "kill_random_edge",
+                    kill_random_edge,
+                    "Kill a random edge router." )
+  add_command ( & context, c )
+
 
 
   // Get the commands into alphabetical order.

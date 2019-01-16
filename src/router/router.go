@@ -209,6 +209,17 @@ func ( r * Router ) Connected_to_you ( router_name string, edge bool ) {
 }
 
 
+
+
+
+func ( r * Router ) Print_console_port () {
+  fp ( os.Stdout, "  router %s console port %s\n", r.name, r.console_port )
+}
+
+
+
+
+
 func ( r * Router ) Print () {
   fp ( os.Stdout, "router %s -------------\n", r.name )
   fp ( os.Stdout, "  PID: %d\n", r.pid )

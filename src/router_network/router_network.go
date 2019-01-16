@@ -155,6 +155,20 @@ func ( rn * Router_Network ) N_routers ( ) ( int ) {
 
 
 
+func ( rn * Router_Network ) N_interior_routers ( ) ( int ) {
+  count := 0
+  for _, r := range rn.routers {
+    if r.Type() == "interior" {
+      count ++
+    }
+  }
+  return count
+}
+
+
+
+
+
 func ( rn * Router_Network ) Get_router_edges ( router_name string ) ( [] string ) {
   rtr := rn.get_router_by_name ( router_name )
   if rtr == nil {
@@ -187,6 +201,17 @@ func ( rn * Router_Network ) Print ( ) {
     r.Print ( )
   }
 }
+
+
+
+
+
+func ( rn * Router_Network ) Print_console_ports ( ) {
+  for _, r := range rn.routers {
+    r.Print_console_port ( )
+  }
+}
+
 
 
 
@@ -393,18 +418,27 @@ func ( rn * Router_Network ) Init ( ) {
   Start all routers in the network that are not already started.
 */
 func ( rn * Router_Network ) Run ( ) {
+
+  router_run_count := 0
+
   for _, r := range rn.routers {
     if r.State() == "initialized" {
       r.Run ( )
+      router_run_count ++
     }
   }
 
   if len(rn.clients) > 0 {
-    nap_time := 10
-    if rn.verbose {
-      fp ( os.Stdout, "network info: sleeping %d seconds to wait for network stabilization.\n", nap_time )
+
+    if router_run_count > 0 {
+      nap_time := 10
+      if rn.verbose {
+        fp ( os.Stdout, 
+             "network info: sleeping %d seconds to wait for network stabilization.\n", 
+             nap_time )
+      }
+      time.Sleep ( time.Duration(nap_time) * time.Second )
     }
-    time.Sleep ( time.Duration(nap_time) * time.Second )
 
     upl ( "starting clients.", module_name )
     for _, c := range rn.clients {
@@ -538,6 +572,33 @@ func halt_router ( wg * sync.WaitGroup, r * router.Router ) {
   if err != nil {
     upl ( "Router %s halting error: %s", module_name, r.Name(), err.Error() )
   }
+}
+
+
+
+
+
+func (rn * Router_Network) Halt_router ( router_name string ) {
+  r := rn.get_router_by_name ( router_name )
+  if r == nil {
+    return
+  }
+
+  go r.Halt()
+}
+
+
+
+
+
+func (rn * Router_Network) Get_edge_list ( ) ( edge_list [] string){
+  for _, r := range rn.routers {
+    if r.Type() == "edge" {
+      edge_list = append ( edge_list, r.Name() )
+    }
+  }
+
+  return edge_list
 }
 
 
