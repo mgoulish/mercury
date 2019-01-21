@@ -399,6 +399,8 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "}\n")
 
   // The Console Listener -----------------
+  console_dir := r.dispatch_install_root + "/share/qpid-dispatch/console/stand-alone"
+
   fp ( f, "listener {\n" )
   fp ( f, "  role               : normal\n")
   fp ( f, "  host               : 0.0.0.0\n")
@@ -408,7 +410,8 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  saslMechanisms     : ANONYMOUS\n")
   fp ( f, "  authenticatePeer   : no\n")
   fp ( f, "  http               : true\n")
-  fp ( f, "  httpRoot           : /home/mick/latest/install/dispatch/share/qpid-dispatch/console/stand-alone\n")
+  // CHANGE THIS   BUGALERT
+  fp ( f, "  httpRoot           : %s\n", console_dir)
   fp ( f, "}\n")
 
   // The Router Listener -----------------

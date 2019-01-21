@@ -8,3 +8,7 @@ dispatch_version name latest path /home/mick/latest/install/dispatch
 dispatch_version name other  path /home/mick/other/install/dispatch
 
 
+linear count 3
+add_receiver router C n_messages 1000
+add_sender router A n_messages 1000 throttle 100
+run

@@ -85,6 +85,8 @@ type Client struct {
   State                 Client_state
   max_message_length    int
   address               string
+
+  throttle              string
 }
 
 
@@ -101,7 +103,8 @@ func New_client ( name      string,
                   proton_install_root   string,
                   n_messages            int,
                   max_message_length    int, 
-                  address               string ) ( * Client )  { 
+                  address               string,
+                  throttle              string ) ( * Client )  { 
   var c * Client
 
   c = & Client { Name                  : name,
@@ -115,7 +118,8 @@ func New_client ( name      string,
                  proton_install_root   : proton_install_root,
                  n_messages            : n_messages,
                  max_message_length    : max_message_length,
-                 address               : address }
+                 address               : address,
+                 throttle              : throttle }
 
   return c
 }
@@ -149,7 +153,7 @@ func ( c * Client ) Run ( ) {
   //fp ( os.Stderr, "export LD_LIBRARY_PATH=" + LD_LIBRARY_PATH + "\n" )
   //fp ( os.Stderr, "export PYTHONPATH=" + PYTHONPATH + "\n" )
 
-  args := " --name " + c.Name + " --operation " + c.Operation + " --id " + c.Id + " --port " + c.Port + " --log " + c.log_path +"/"+ c.Name + " --messages " + strconv.Itoa(c.n_messages) + " --max_message_length " + strconv.Itoa(c.max_message_length) + " --address " + c.address
+  args := " --name " + c.Name + " --operation " + c.Operation + " --id " + c.Id + " --port " + c.Port + " --log " + c.log_path +"/"+ c.Name + " --messages " + strconv.Itoa(c.n_messages) + " --max_message_length " + strconv.Itoa(c.max_message_length) + " --address " + c.address + " --throttle " + c.throttle
   args_list := strings.Fields ( args )
   c.cmd = exec.Command ( c.Path,  args_list... )
 

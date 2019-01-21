@@ -883,14 +883,14 @@ func add_receiver ( context * Context, am argmap ) {
 
   if router_name == "" && router_with_edges == "" {
     fp ( os.Stdout, 
-         "    %c error: add_senders: You must specify either 'router' or 'edges' arg.\n", 
+         "    %c error: add_receiver: You must specify either 'router' or 'edges' arg.\n", 
          mercury )
     return
   }
 
   if ! (router_name == "" || router_with_edges == "" ) {
     fp ( os.Stdout, 
-         "    %c error: add_senders: You cannot specify both 'router' and 'edges' arg.\n", 
+         "    %c error: add_receiver: You cannot specify both 'router' and 'edges' arg.\n", 
          mercury )
     return
   }
@@ -949,6 +949,7 @@ func add_senders ( context * Context, am argmap ) {
   n_messages, _         := strconv.Atoi ( am["n_messages"].value )
   max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
   address               := am["address"].value
+  throttle              := am["throttle"].value
 
 
   if router_name == "" && router_with_edges == "" {
@@ -975,7 +976,8 @@ func add_senders ( context * Context, am argmap ) {
                                    n_messages, 
                                    max_message_length, 
                                    router_name, 
-                                   address )
+                                   address,
+                                   throttle )
 
       if context.verbose {
         fp ( os.Stdout, 
@@ -1004,7 +1006,8 @@ func add_senders ( context * Context, am argmap ) {
                                    n_messages, 
                                    max_message_length, 
                                    edge_router_name, 
-                                   address )
+                                   address,
+                                   throttle )
 
         if context.verbose {
           fp ( os.Stdout, 
@@ -1025,11 +1028,12 @@ func add_senders ( context * Context, am argmap ) {
 
 
 func add_sender ( context * Context, am argmap ) {
-  router_name           := am["router"].value
-  router_with_edges     := am["edge"].value
+  router_name           :=                am["router"].value
+  router_with_edges     :=                am["edge"].value
+  address               :=                am["address"].value
   n_messages, _         := strconv.Atoi ( am["n_messages"].value )
   max_message_length, _ := strconv.Atoi ( am["max_message_length"].value )
-  address               := am["address"].value
+  throttle              :=                am["throttle"].value
 
   if router_name == "" && router_with_edges == "" {
     fp ( os.Stdout, 
@@ -1048,7 +1052,12 @@ func add_sender ( context * Context, am argmap ) {
   sender_name := fmt.Sprintf ( "sender_%04d", context.sender_count )
 
   if router_name != "" {
-    context.network.Add_sender ( sender_name, n_messages, max_message_length, router_name, address )
+    context.network.Add_sender ( sender_name, 
+                                 n_messages, 
+                                 max_message_length, 
+                                 router_name, 
+                                 address,
+                                 throttle )
 
     if context.verbose {
       fp ( os.Stdout, "  %c info: created sender %s attached to router %s.\n", mercury, sender_name, router_name )
@@ -1067,7 +1076,8 @@ func add_sender ( context * Context, am argmap ) {
                                  n_messages, 
                                  max_message_length, 
                                  edge_router_name, 
-                                 address )
+                                 address,
+                                 throttle )
 
     if context.verbose {
       fp ( os.Stdout, 
@@ -1480,6 +1490,7 @@ func main() {
   c.add_arg ( "edges", "string", "Add these clients to edges that are attached to the named router. Use this argument, or the 'routers' argument, but not both.", "" )
   c.add_arg ( "n_messages", "string", "How many messages to send.", "1000" )
   c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
+  c.add_arg ( "throttle", "string", "Msec between messages. 0 for fast-as-possible.", "0" )
   c.add_arg ( "address", "string", "Address to send to.", "my_address" )
   add_command ( & context, c )
 
@@ -1493,6 +1504,7 @@ func main() {
   c.add_arg ( "max_message_length", "string", "Average length of messages will be about half of this.", "100" )
   c.add_arg ( "address", "string", "Address to send to.", "my_address" )
   c.add_arg ( "edge", "string", "Add this client to an edge that is attached to the named router. Use this argument, or the 'router' argument, but not both.", "" )
+  c.add_arg ( "throttle", "string", "Msec between messages. 0 for fast-as-possible.", "0" )
   add_command ( & context, c )
 
 

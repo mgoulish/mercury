@@ -26,6 +26,17 @@
 
 
 
+static
+double
+get_timestamp ( void )
+{
+  struct timeval t;
+  gettimeofday ( & t, 0 );
+  return t.tv_sec + ((double) t.tv_usec) / 1000000.0;
+}
+
+
+
 
 #define MAX_NAME   1000
 #define MAX_LINKS  1000
@@ -35,6 +46,7 @@ typedef
 struct context_s 
 {
   pn_link_t       * links [ MAX_LINKS ];
+  pn_link_t       * send_link;
   int               link_count;
   char              name [ MAX_NAME ];
   int               sending;
@@ -62,6 +74,7 @@ struct context_s
   pn_listener_t   * listener;
   pn_connection_t * connection;
   size_t            accepted;
+  int               throttle;
 }
 context_t,
 * context_p;
@@ -82,18 +95,6 @@ rand_int ( int one_past_max )
 {
   double zero_to_one = (double) rand() / (double) RAND_MAX;
   return (int) (zero_to_one * (double) one_past_max);
-}
-
-
-
-
-
-double
-get_timestamp ( void )
-{
-  struct timeval t;
-  gettimeofday ( & t, 0 );
-  return t.tv_sec + ((double) t.tv_usec) / 1000000.0;
 }
 
 
@@ -201,8 +202,16 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 
 
 void 
-send_message ( context_p context, pn_link_t * link ) 
+send_message ( context_p context ) 
 {
+  pn_link_t * link = context->send_link;
+
+  if ( ! link )
+  {
+    // No send link yet.
+    return;
+  }
+
   /*
    *   Set messages ID from sent count.
    */
@@ -278,6 +287,7 @@ process_event ( context_p context, pn_event_t * event )
         pn_terminus_set_address ( pn_link_target(context->links[0]), context->path );
         pn_link_set_snd_settle_mode ( context->links[0], PN_SND_UNSETTLED );
         pn_link_set_rcv_settle_mode ( context->links[0], PN_RCV_FIRST );
+        context->send_link = context->links[0];
       }
       else
       {
@@ -320,19 +330,58 @@ process_event ( context_p context, pn_event_t * event )
     break;
 
 
-    case PN_LINK_FLOW : 
-      log ( context, "flow. credit == %d\n", pn_link_credit ( event_link ) );
-      event_link = pn_event_link ( event );
-      if ( pn_link_is_sender ( event_link ) && context->messages_sent < context->messages )
+    case PN_CONNECTION_WAKE:
+    {
+      if ( context->throttle > 0 )
       {
-        while ( pn_link_credit ( event_link ) > 0 && context->messages_sent < context->messages )
-          send_message ( context, event_link );
-        
-        log ( context, 
-              "sender finished sending. Credit == %d, sent == %d\n", 
-              pn_link_credit ( event_link ), 
-              context->messages_sent );
+        if ( context->messages_sent < context->messages )
+        {
+          send_message ( context );
+          pn_proactor_set_timeout ( context->proactor, context->throttle );
+        }
       }
+      break;
+    }
+
+
+    case PN_PROACTOR_TIMEOUT:
+    {
+      if ( context->throttle > 0 )
+      {
+        pn_connection_wake ( context->connection );
+      }
+      break;
+    }
+
+
+    case PN_LINK_FLOW : 
+    {
+      event_link = pn_event_link ( event );
+
+      if ( context->throttle > 0 )
+      {
+        if ( context->messages_sent < context->messages )
+        {
+          if ( pn_link_is_sender(event_link) )
+          {
+            pn_proactor_set_timeout ( context->proactor, context->throttle );
+          }
+        }
+      }
+      else
+      {
+        if ( pn_link_is_sender ( event_link ) && context->messages_sent < context->messages )
+        {
+          while ( pn_link_credit ( event_link ) > 0 && context->messages_sent < context->messages )
+            send_message ( context );
+          
+          log ( context, 
+                "sender finished sending. Credit == %d, sent == %d\n", 
+                pn_link_credit ( event_link ), 
+                context->messages_sent );
+        }
+      }
+    }
     break;
 
 
@@ -459,14 +508,24 @@ init_context ( context_p context, int argc, char ** argv )
   context->credit_window        = 1000;
   context->max_send_length      = 100;
 
+  context->send_link            = 0;
+  context->throttle             = 0;
+
 
 
   for ( int i = 1; i < argc; ++ i )
   {
+    // throttle ----------------------------------------------
+    if ( ! strcmp ( "--throttle", argv[i] ) )
+    {
+      context->throttle = atoi(NEXT_ARG);
+      i ++;
+    }
     // address ----------------------------------------------
+    else
     if ( ! strcmp ( "--address", argv[i] ) )
     {
-      strcpy ( context->path, argv[i+1] ) ;
+      strcpy ( context->path, NEXT_ARG ) ;
       i ++;
     }
     // operation ----------------------------------------------
