@@ -323,6 +323,7 @@ func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages i
     operation = "send"
   } else {
     operation = "receive"
+    throttle = "0" // Receivers do not get throttled.
   }
 
   r := rn.get_router_by_name ( router_name )

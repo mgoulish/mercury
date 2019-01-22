@@ -1,3 +1,4 @@
+
 verbose on
 
 set_paths dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton mercury /home/mick/mercury
@@ -9,6 +10,15 @@ dispatch_version name other  path /home/mick/other/install/dispatch
 
 
 linear count 3
-add_receiver router C n_messages 1000
-add_sender router A n_messages 1000 throttle 100
-run
+
+add_edges count 10 router A
+add_edges count 10 router C
+
+add_senders count 10 router A n_messages 1000 throttle 50 base_address addr_%d 
+add_senders count 15 edges  A n_messages 1000 throttle 50 base_address addr_%d  start_at 11
+
+add_receivers count 15 router C base_address addr_%d
+add_receivers count 10 edges  C base_address addr_%d start_at 16
+
+
+
