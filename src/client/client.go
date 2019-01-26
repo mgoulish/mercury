@@ -93,12 +93,12 @@ type Client struct {
 
 
 
-func New_client ( name      string,
-                  operation string,
-                  id        string,
-                  port      string,
-                  path      string,
-                  log_path  string,
+func New_client ( name                  string,
+                  operation             string,
+                  id                    string,
+                  port                  string,
+                  path                  string,
+                  log_path              string,
                   dispatch_install_root string,
                   proton_install_root   string,
                   n_messages            int,

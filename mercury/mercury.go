@@ -147,7 +147,6 @@ func ( context * Context ) add_command ( name      string,
   cmd.argmap = make ( map [ string ] * arg_descriptor, 0 )
 
   context.commands [ name ] = cmd
-  fp ( os.Stdout, " MDEBUG - new-style command created.\n" )
   return cmd
 }
 
@@ -191,7 +190,6 @@ func (c * command) add_arg ( name          string,
     }
   }
 
-  fp ( os.Stdout, " MDEBUG - new-style arg %s added to cmd %s created.\n", name, c.name )
   c.argmap [ name ] = a
 }
 
@@ -229,7 +227,6 @@ func parse_command_line ( context *      Context,
   // If there are any unlabeled args, they will be left over after 
   // these are removed.
   for _, arg := range cmd.argmap {
-    fp ( os.Stdout, " looking through argmap: |%s|\n", arg.name )
     str_val := command_line.Get_value_and_remove ( arg.name )
     if str_val != "" {
       if arg.data_type == "string" {
@@ -249,11 +246,8 @@ func parse_command_line ( context *      Context,
   // If this command has unlabelable args, get them last.
   // Get the unlabelable string.
   if cmd.unlabelable_string != nil {
-    name := cmd.unlabelable_string.name
-    fp ( os.Stdout, " this command has an unlabel str called %s\n", name )
     ul_str, e2 := command_line.Get_string_cdr ( )
     if e2 == nil {
-      fp ( os.Stdout, " I got it and it is: |%s| !\n", ul_str )
       // Fill in the value, so the command can get at it.
       cmd.unlabelable_string.string_value = ul_str
       cmd.unlabelable_string.explicit     = true
@@ -502,6 +496,7 @@ func senders ( context * Context, arglist * lisp.List ) {
   // Here we try to get all the args by name.
   //-------------------------------------------------
   n_messages   := arglist.Get_value_and_remove ( "n_messages" )
+  max_message_length   := arglist.Get_value_and_remove ( "max_message_length" )
   router       := arglist.Get_value_and_remove ( "router" )
   edges        := arglist.Get_value_and_remove ( "edges" )  // The name of the router whose edges we want.
   throttle     := arglist.Get_value_and_remove ( "throttle" )
@@ -519,9 +514,15 @@ func senders ( context * Context, arglist * lisp.List ) {
     return
   }
 
-  throttle_int, e2 := strconv.Atoi ( throttle )
-  if e1 != nil {
-    m_error ( "senders: error reading throttle: |%s|", e1.Error() )
+  _, e2 := strconv.Atoi ( throttle )
+  if e2 != nil {
+    m_error ( "senders: error reading throttle: |%s|", e2.Error() )
+    return
+  }
+
+  max_message_length_int, e3 := strconv.Atoi ( max_message_length )
+  if e3 != nil {
+    m_error ( "senders: error reading max_message_length: |%s|", e3.Error() )
     return
   }
 
@@ -594,11 +595,6 @@ func senders ( context * Context, arglist * lisp.List ) {
     router_list = context.network.Get_router_edges ( edges )
   }
 
-  // TEMP
-  fp ( os.Stdout, " MDEBUG router list: \n")
-  fmt.Println ( router_list )
-  // END TEMP
-
   final_addr := address
   variable_address := false
   if strings.Contains ( address, "%d" ) {
@@ -616,12 +612,21 @@ func senders ( context * Context, arglist * lisp.List ) {
       start_at_int ++
     }
 
-    fp ( os.Stdout, " OK -- MAKE A SENDER ---------------------- \n" )
-    fp ( os.Stdout, " sender_name:   |%s|\n", sender_name )
-    fp ( os.Stdout, " addr:          |%s|\n", final_addr )
-    fp ( os.Stdout, " router:        |%s|\n", router_list[router_index] )
-    fp ( os.Stdout, " n_messages:     %d\n",      n_messages_int )
-    fp ( os.Stdout, " throttle        %d\n",         throttle_int )
+    router_name := router_list[router_index]
+
+    context.network.Add_sender ( sender_name,
+                                 n_messages_int,
+                                 max_message_length_int,
+                                 router_name,
+                                 final_addr,
+                                 throttle )
+
+
+    m_info ( context,
+             "senders: added sender |%s| with addr |%s| to router |%s|.", 
+             sender_name,
+             final_addr,
+             router_name )
 
     router_index ++
     if router_index >= len(router_list) {

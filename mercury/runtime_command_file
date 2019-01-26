@@ -11,7 +11,7 @@ linear
 
 edges A 10 
 
-senders 20 edges A n_messages 1000 throttle 50 address addr_%d
+senders 20 edges A n_messages 1000 throttle 50 address addr_%d max_message_length 1000
 
 # receivers 20 C 
 
