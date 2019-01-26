@@ -97,23 +97,6 @@ type Router_Network struct {
   Create a new router network.
   Tell it how many worker threads each router should have,
   and provide lots of paths.
-
-    1. executable_path : router executable
-    2. config_path     : where to put all the router config files
-    3. log_path        : where to put all the log files
-    4. dispatch_root   : the root of the installed dispatch code.
-                         i.e. the directory that contains 
-                           bin
-                           etc
-                           include
-                           lib
-                           sbin
-                           share
-    5. proton_root     : the root of the installed proton code.
-                         i.e. the directory that contains
-                           include
-                           lib64
-                           share
 */
 func New_Router_Network ( name                           string,
                           worker_threads                 int,
@@ -227,11 +210,13 @@ func ( rn * Router_Network ) Check_memory_all () {
 
 
 
-func ( rn * Router_Network ) add_router ( name string, router_type string, version string ) {
+func ( rn * Router_Network ) add_router ( name        string, 
+                                          router_type string, 
+                                          version     string ) {
   console_port, _ := utils.Available_port ( )
-  client_port, _ := utils.Available_port ( )
-  router_port, _ := utils.Available_port ( )
-  edge_port, _   := utils.Available_port ( )
+  client_port, _  := utils.Available_port ( )
+  router_port, _  := utils.Available_port ( )
+  edge_port, _    := utils.Available_port ( )
 
   version_path := rn.Dispatch_versions [ version ]
   executable_path := version_path + "/sbin/qdrouterd"
@@ -285,7 +270,11 @@ func ( rn * Router_Network ) Add_edge ( name string, version string ) {
 
 
 
-func ( rn * Router_Network ) Add_receiver ( name string, n_messages int, max_message_length int, router_name string, address string ) {
+func ( rn * Router_Network ) Add_receiver ( name               string, 
+                                            n_messages         int, 
+                                            max_message_length int, 
+                                            router_name        string, 
+                                            address            string ) {
 
   throttle := "0" // Receivers do not get throttled.
   r := rn.get_router_by_name ( router_name )
@@ -309,7 +298,12 @@ func ( rn * Router_Network ) Add_receiver ( name string, n_messages int, max_mes
 
 
 
-func ( rn * Router_Network ) Add_sender ( name string, n_messages int, max_message_length int, router_name string, address string, throttle string ) {
+func ( rn * Router_Network ) Add_sender ( name               string, 
+                                          n_messages         int, 
+                                          max_message_length int, 
+                                          router_name        string, 
+                                          address            string, 
+                                          throttle           string ) {
   rn.Add_client ( name, true, n_messages, max_message_length, router_name, address, throttle )
 }
 
@@ -317,7 +311,13 @@ func ( rn * Router_Network ) Add_sender ( name string, n_messages int, max_messa
 
 
 
-func ( rn * Router_Network ) Add_client ( name string, sender bool, n_messages int, max_message_length int, router_name string, address string, throttle string ) {
+func ( rn * Router_Network ) Add_client ( name               string, 
+                                          sender             bool, 
+                                          n_messages         int, 
+                                          max_message_length int, 
+                                          router_name        string, 
+                                          address            string, 
+                                          throttle           string ) {
 
   var operation string
   if sender {

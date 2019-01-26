@@ -490,137 +490,65 @@ func paths ( context * Context, arglist * lisp.List ) {
 
 
 
-func senders ( context * Context, arglist * lisp.List ) {
+func senders ( context * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "senders" ]
+  parse_command_line ( context, cmd, command_line )
 
-  //-------------------------------------------------
-  // Here we try to get all the args by name.
-  //-------------------------------------------------
-  n_messages   := arglist.Get_value_and_remove ( "n_messages" )
-  max_message_length   := arglist.Get_value_and_remove ( "max_message_length" )
-  router       := arglist.Get_value_and_remove ( "router" )
-  edges        := arglist.Get_value_and_remove ( "edges" )  // The name of the router whose edges we want.
-  throttle     := arglist.Get_value_and_remove ( "throttle" )
-  address      := arglist.Get_value_and_remove ( "address" )
-  start_at     := arglist.Get_value_and_remove ( "start_at" )
-  count        := arglist.Get_value_and_remove ( "count" )
+  target_router_list := make ( [] string, 0 )
 
-  //-------------------------------------------------
-  // Now we convert all ints to ints.
-  // Maybe do them as separate lists?
-  //-------------------------------------------------
-  n_messages_int, e1 := strconv.Atoi ( n_messages )
-  if e1 != nil {
-    m_error ( "senders: error reading n_messages: |%s|", e1.Error() )
-    return
+  router_name := cmd.unlabelable_string.string_value
+  count       := cmd.unlabelable_int.int_value
+
+  target_router_list = append ( target_router_list, router_name )
+
+  router_with_edges   := cmd.argmap [ "edges" ] . string_value
+
+  var edge_list [] string
+  if router_with_edges != "" {
+    edge_list = context.network.Get_router_edges ( router_with_edges )
   }
+  target_router_list = append ( target_router_list, edge_list ... )
 
-  _, e2 := strconv.Atoi ( throttle )
-  if e2 != nil {
-    m_error ( "senders: error reading throttle: |%s|", e2.Error() )
-    return
-  }
-
-  max_message_length_int, e3 := strconv.Atoi ( max_message_length )
-  if e3 != nil {
-    m_error ( "senders: error reading max_message_length: |%s|", e3.Error() )
-    return
-  }
-
-  start_at_int := 1
-  if start_at != "" {
-    start_at_int, e2 = strconv.Atoi ( start_at )
-    if e1 != nil {
-      m_error ( "senders: error reading start_at: |%s|", e2.Error() )
-      return
-    }
-  }
-
-  //-------------------------------------------------
-  // Finally, we get the unlabeled ones.
-  // There can be only one unlabeled per type (string, int)
-  //-------------------------------------------------
-
-  //-------------------------------------------------
-  // The unlabeled int.
-  //-------------------------------------------------
-  // If the count was unlabeled, it will still 
-  // be in the arglist as an integer-string.
-  if count == "" {
-    count, _ = arglist.Get_int_cdr ( )
-    if count == "" {
-      m_error ( "senders: no count argument." )
-      return
-    }
-  }
-  // And now get the integer value.
-  count_int, err := strconv.Atoi ( count )
-  if err != nil {
-    m_error ( "senders: error reading count: |%s|", err.Error() )
-    return
-  }
-
-  //-------------------------------------------------
-  // The unlabeled string.
-  //-------------------------------------------------
-  // If at this point we have no destination,
-  // the user must have put an unlabeled router 
-  // name in the arglist.
-  if router == "" && edges == "" {
-    router, _ = arglist.Get_string_cdr ( )
-    if router == "" {
-      m_error ( "senders: needs a destination." )
-      return
-    }
-  }
-
-  //--------------------------------------------------------
-  // And now , fn-specific logic to remove contradictions.
-  //--------------------------------------------------------
-  // We can't have the user specifying both an unterior router,
-  // and the edges of some router as the destinations.
-  if router != "" && edges != "" {
-    m_error (  "senders: Two destinations: router %s edges %s", router, edges )
-    return
-  }
-
-
-  // Get the list of the routers we are going to distribute 
-  // these senders over. If the user specified an interior
-  // router, this will be a list of length one.
-  var router_list [] string
-  if router != "" {
-    router_list = append ( router_list, router )
-  } else {
-    // Then we are doing edges.
-    router_list = context.network.Get_router_edges ( edges )
-  }
-
+  // If it turns out that this address is not variable, 
+  // then this 'final' address is the only one we will
+  // use. But if address is variable this value will get
+  // replaced every time through the loop with the changing
+  // value of the variable address: add_r, addr_2, etc.
+  address    := cmd.argmap [ "address" ] . string_value
   final_addr := address
+
+  // Is this address variable? It is if it contains a "%d" somewhere.
+  // I have to test for this because fmt.Sprintf treats it as an 
+  // error if I have a format string that contains no "%d" and I try
+  // to print it with what would be an unused int arg.
   variable_address := false
   if strings.Contains ( address, "%d" ) {
     variable_address = true
   }
 
-  router_index := 0
+  start_at           := cmd.argmap [ "start_at"           ] . int_value
+  n_messages         := cmd.argmap [ "n_messages"         ] . int_value
+  max_message_length := cmd.argmap [ "max_message_length" ] . int_value
+  throttle           := cmd.argmap [ "throttle"           ] . string_value
 
-  for i := 0; i < count_int; i ++ {
+  router_index := 0
+  for i := 0; i < count; i ++ {
     context.sender_count ++
     sender_name := fmt.Sprintf ( "sender_%04d", context.sender_count )
 
     if variable_address {
-      final_addr = fmt.Sprintf ( address, start_at_int )
-      start_at_int ++
+      final_addr = fmt.Sprintf ( address, start_at )
+      start_at ++
     }
 
-    router_name := router_list[router_index]
+    router_name := target_router_list[router_index]
 
     context.network.Add_sender ( sender_name,
-                                 n_messages_int,
-                                 max_message_length_int,
+                                 n_messages,
+                                 max_message_length,
                                  router_name,
                                  final_addr,
                                  throttle )
-
 
     m_info ( context,
              "senders: added sender |%s| with addr |%s| to router |%s|.", 
@@ -629,12 +557,10 @@ func senders ( context * Context, arglist * lisp.List ) {
              router_name )
 
     router_index ++
-    if router_index >= len(router_list) {
+    if router_index >= len(target_router_list) {
       router_index = 0
     }
   }
-
-  fp ( os.Stdout, " ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n" )
 }
 
 
@@ -762,7 +688,6 @@ func main() {
   if err != nil {
     m_error ( "Can't get cwd path for program name %s", os.Args[0] )
   }
-
   
   var context Context
   init_context ( & context )
@@ -777,7 +702,6 @@ func main() {
   context.line_rgx                = regexp.MustCompile(`\s+`)
   context.first_nonwhitespace_rgx = regexp.MustCompile(`\S`)
 
-
   /*===========================================
     Make commands. 
   ============================================*/
@@ -790,7 +714,7 @@ func main() {
                                verbose,
                                "Turn verbosity 'on' or 'off'." )
   cmd.add_arg ( "state",
-                true,
+                true,        // unlabelable
                 "string",
                 "on",
                 "'on' or 'off" )
@@ -819,13 +743,13 @@ func main() {
                               edges,
                               "Create edge router on a given interior router." )
   cmd.add_arg ( "count",
-                true,
+                true,   // unlabelable
                 "int",
                 "",
                 "How many edge routers to create." )
 
   cmd.add_arg ( "router",
-                true,
+                true,   // unlabelable
                 "string",
                 "",
                 "Which interior router to add the edges to." )
@@ -842,6 +766,68 @@ func main() {
   cmd = context.add_command ( "senders",
                               senders,
                               "Create message-sending clients." )
+
+  cmd.add_arg ( "router",
+                true,   // unlabelable
+                "string",
+                "",
+                "Which router the senders should attach to." )
+
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "1",
+                "How many senders to make." )
+
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "1",
+                "How many senders to make." )
+
+  cmd.add_arg ( "n_messages",
+                false,
+                "int",
+                "1000",
+                "How many messages to send." )
+
+  cmd.add_arg ( "max_message_length",
+                false,
+                "int",
+                "1000",
+                "Max length for each messages. " +
+                "Lengths will be random, and average will be half this." )
+
+  cmd.add_arg ( "edges",
+                false,
+                "string",
+                "",
+                "Add senders to the edges of this router. " +
+                "i.e. 'edges A' means add senders to edges of router A." )
+
+  cmd.add_arg ( "throttle",
+                false,
+                "string",
+                "0",
+                "How many msec between each sent message. " +
+                "0 means send as fast as possible." )
+
+  cmd.add_arg ( "address",
+                false,
+                "string",
+                "my_address",
+                "Address to send to. Embed a '%d' if you " +
+                "want addresses to count up." )
+
+  cmd.add_arg ( "start_at",
+                false,
+                "int",
+                "1",
+                "If you use %d in address, use this to tell what int " +
+                "the counting should start with." )
+
+
+
 
   // run -------------------------------------------------------
   cmd = context.add_command ( "run",
