@@ -3,6 +3,6 @@
 export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
-go run ./mercury.go ./runtime_command_file 
+go run ./command_line_processing.go ./mercury.go ./runtime_command_file 
 
 

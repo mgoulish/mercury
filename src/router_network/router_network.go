@@ -233,7 +233,8 @@ func ( rn * Router_Network ) add_router ( name string, router_type string, versi
   router_port, _ := utils.Available_port ( )
   edge_port, _   := utils.Available_port ( )
 
-  executable_path := rn.Dispatch_versions [ version ] + "/sbin/qdrouterd"
+  version_path := rn.Dispatch_versions [ version ]
+  executable_path := version_path + "/sbin/qdrouterd"
 
   r := router.New_Router ( name,
                            version,

@@ -56,7 +56,6 @@ var module_name = "router"
 
 
 
-
 type router_state int
 
 const (
@@ -410,7 +409,6 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  saslMechanisms     : ANONYMOUS\n")
   fp ( f, "  authenticatePeer   : no\n")
   fp ( f, "  http               : true\n")
-  // CHANGE THIS   BUGALERT
   fp ( f, "  httpRoot           : %s\n", console_dir)
   fp ( f, "}\n")
 
@@ -551,22 +549,21 @@ func ( r * Router ) Run ( ) error {
 
   router_args     := " --config " + r.config_file_path + include
   args            := router_args
-  executable_path := r.executable_path
 
   args_list := strings.Fields ( args )
 
   // Start the router process and get its pid for the result directory name.
   // After the Start() call, the router process is running detached.
-  r.cmd = exec.Command ( executable_path,  args_list... )
+  r.cmd = exec.Command ( r.executable_path,  args_list... )
   if r.cmd == nil {
-    fp ( os.Stdout, "   router.Run error: can't execute |%s|\n", executable_path )
+    fp ( os.Stdout, "   router.Run error: can't execute |%s|\n", r.executable_path )
     return errors.New ( "Can't execute router executable." )
   }
   r.cmd.Start ( )
   r.state = running
 
   if r.cmd.Process == nil {
-    fp ( os.Stdout, "   router.Run error: can't execute |%s|\n", executable_path )
+    fp ( os.Stdout, "   router.Run error: can't execute |%s|\n", r.executable_path )
     return errors.New ( "Can't execute router executable." )
   }
 

@@ -1,24 +1,19 @@
 
 verbose on
 
-set_paths dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton mercury /home/mick/mercury
-network
+paths /home/mick/latest/install/dispatch /home/mick/latest/install/proton /home/mick/mercury
 
-dispatch_version name latest path /this/path/is/not/real
-dispatch_version name latest path /home/mick/latest/install/dispatch
-dispatch_version name other  path /home/mick/other/install/dispatch
+dispatch_version latest /home/mick/latest/install/dispatch
+dispatch_version other  /home/mick/other/install/dispatch
+dispatch_version faux   /this/path/is/not/real
 
+linear
 
-linear count 3
+edges A 10 
 
-add_edges count 10 router A
-add_edges count 10 router C
+senders 20 edges A n_messages 1000 throttle 50 address addr_%d
 
-add_senders count 10 router A n_messages 1000 throttle 50 base_address addr_%d 
-add_senders count 15 edges  A n_messages 1000 throttle 50 base_address addr_%d  start_at 11
-
-add_receivers count 15 router C base_address addr_%d
-add_receivers count 10 edges  C base_address addr_%d start_at 16
+# receivers 20 C 
 
 
 
