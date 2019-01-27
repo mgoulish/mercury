@@ -378,6 +378,28 @@ func this_is_an_interior_router_name ( context * Context, name string ) ( bool )
 
 
 
+func get_version_name ( context  * Context, input_name string ) ( string, error ) {
+
+  var output_name string
+
+  if input_name == "" {
+    output_name = context.first_version_name
+  }
+
+  if output_name == "" {
+    m_error ( "get_version_name: there are no dispatch versions defined. Use command dispatch_version.")
+    return "", errors.New ( "No defined versions." )
+  }
+
+  m_info ( context, "dispatch version for this command set to %s", output_name )
+
+  return output_name, nil
+}
+
+
+
+
+
 /*=====================================================================
   Command Functions
 ======================================================================*/
@@ -490,18 +512,22 @@ func paths ( context * Context, arglist * lisp.List ) {
 
 
 
-func senders ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "senders" ]
+func send ( context * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "send" ]
   parse_command_line ( context, cmd, command_line )
 
+  // The user may specify target routers two different ways:
+  // with the 'router' arg, which specifies a single interior
+  // node, or with the 'edges' arg, which specifies all the 
+  // edge-routers attached to an interior router.
+  // This list will accumulate all targets.
   target_router_list := make ( [] string, 0 )
 
   router_name := cmd.unlabelable_string.string_value
   count       := cmd.unlabelable_int.int_value
 
   target_router_list = append ( target_router_list, router_name )
-
-  router_with_edges   := cmd.argmap [ "edges" ] . string_value
+  router_with_edges := cmd.argmap [ "edges" ] . string_value
 
   var edge_list [] string
   if router_with_edges != "" {
@@ -534,7 +560,7 @@ func senders ( context * Context, command_line * lisp.List ) {
   router_index := 0
   for i := 0; i < count; i ++ {
     context.sender_count ++
-    sender_name := fmt.Sprintf ( "sender_%04d", context.sender_count )
+    sender_name := fmt.Sprintf ( "send_%04d", context.sender_count )
 
     if variable_address {
       final_addr = fmt.Sprintf ( address, start_at )
@@ -551,7 +577,7 @@ func senders ( context * Context, command_line * lisp.List ) {
                                  throttle )
 
     m_info ( context,
-             "senders: added sender |%s| with addr |%s| to router |%s|.", 
+             "send: added sender |%s| with addr |%s| to router |%s|.", 
              sender_name,
              final_addr,
              router_name )
@@ -567,14 +593,95 @@ func senders ( context * Context, command_line * lisp.List ) {
 
 
 
-func dispatch_version ( context * Context, arglist * lisp.List ) {
-  version_name, err := arglist.Get_atom ( 1 )
+func recv ( context * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "recv" ]
+  parse_command_line ( context, cmd, command_line )
+
+  // The user may specify target routers two different ways:
+  // with the 'router' arg, which specifies a single interior
+  // node, or with the 'edges' arg, which specifies all the 
+  // edge-routers attached to an interior router.
+  // This list will accumulate all targets.
+  target_router_list := make ( [] string, 0 )
+
+  router_name := cmd.unlabelable_string.string_value
+  count       := cmd.unlabelable_int.int_value
+
+  target_router_list = append ( target_router_list, router_name )
+  router_with_edges := cmd.argmap [ "edges" ] . string_value
+
+  var edge_list [] string
+  if router_with_edges != "" {
+    edge_list = context.network.Get_router_edges ( router_with_edges )
+  }
+  target_router_list = append ( target_router_list, edge_list ... )
+
+  // If it turns out that this address is not variable, 
+  // then this 'final' address is the only one we will
+  // use. But if address is variable this value will get
+  // replaced every time through the loop with the changing
+  // value of the variable address: add_r, addr_2, etc.
+  address    := cmd.argmap [ "address" ] . string_value
+  final_addr := address
+
+  // Is this address variable? It is if it contains a "%d" somewhere.
+  // I have to test for this because fmt.Sprintf treats it as an 
+  // error if I have a format string that contains no "%d" and I try
+  // to print it with what would be an unused int arg.
+  variable_address := false
+  if strings.Contains ( address, "%d" ) {
+    variable_address = true
+  }
+
+  start_at           := cmd.argmap [ "start_at"           ] . int_value
+  n_messages         := cmd.argmap [ "n_messages"         ] . int_value
+  max_message_length := cmd.argmap [ "max_message_length" ] . int_value
+
+  router_index := 0
+  for i := 0; i < count; i ++ {
+    context.receiver_count ++
+    recv_name := fmt.Sprintf ( "recv_%04d", context.receiver_count )
+
+    if variable_address {
+      final_addr = fmt.Sprintf ( address, start_at )
+      start_at ++
+    }
+
+    router_name := target_router_list[router_index]
+
+    context.network.Add_receiver ( recv_name,
+                                   n_messages,
+                                   max_message_length,
+                                   router_name,
+                                   final_addr )
+
+    m_info ( context,
+             "recv: added |%s| with addr |%s| to router |%s|.", 
+             recv_name,
+             final_addr,
+             router_name )
+
+    router_index ++
+    if router_index >= len(target_router_list) {
+      router_index = 0
+    }
+  }
+}
+
+
+
+
+
+// This command has its own special magic syntax, so it 
+// parses the command lline its own way.
+func dispatch_version ( context * Context, command_line * lisp.List ) {
+  version_name, err := command_line.Get_atom ( 1 )
   if err != nil {
     m_error ( "dispatch_version: error on version name: %s", err.Error() )
     return
   }
 
-  path, err := arglist.Get_atom ( 2 )
+  path, err := command_line.Get_atom ( 2 )
   if err != nil {
     m_error ( "dispatch_version: error on path: %s", err.Error() )
     return
@@ -594,28 +701,6 @@ func dispatch_version ( context * Context, arglist * lisp.List ) {
     context.first_version_name = version_name
     m_info ( context, "dispatch_version: version %s is default.", context.first_version_name )
   }
-}
-
-
-
-
-
-func get_version_name ( context  * Context, input_name string ) ( string, error ) {
-
-  var output_name string
-
-  if input_name == "" {
-    output_name = context.first_version_name
-  }
-
-  if output_name == "" {
-    m_error ( "get_version_name: there are no dispatch versions defined. Use command dispatch_version.")
-    return "", errors.New ( "No defined versions." )
-  }
-
-  m_info ( context, "dispatch version for this command set to %s", output_name )
-
-  return output_name, nil
 }
 
 
@@ -700,7 +785,7 @@ func main() {
   context.commands = make ( map[string] * command, 0 )
 
 
-  // verbose -------------------------------------------------------
+  // verbose command -------------------------------------------------------
   cmd := context.add_command ( "verbose",
                                verbose,
                                "Turn verbosity 'on' or 'off'." )
@@ -710,20 +795,20 @@ func main() {
                 "on",
                 "'on' or 'off" )
 
-  // paths -------------------------------------------------------
+  // paths command -------------------------------------------------------
   // Is the dispatch path still used ??? 
   cmd = context.add_command ( "paths",
                               paths,
                               "Define dispatch, proton, and mercury paths." )
 
 
-  // dispatch_version -------------------------------------------------------
+  // dispatch_version command -------------------------------------------------------
   cmd = context.add_command ( "dispatch_version",
                               dispatch_version,
                               "Define different version of the dispatch code." )
 
 
-  // linear -------------------------------------------------------
+  // linear command -------------------------------------------------------
   cmd = context.add_command ( "linear",
                               linear,
                               "Create a linear router network." )
@@ -743,7 +828,7 @@ func main() {
 
 
 
-  // edges -------------------------------------------------------
+  // edges command -------------------------------------------------------
   cmd = context.add_command ( "edges",
                               edges,
                               "Create edge router on a given interior router." )
@@ -767,9 +852,9 @@ func main() {
                 "Defaults to the first version you defined." )
 
 
-  // senders -------------------------------------------------------
-  cmd = context.add_command ( "senders",
-                              senders,
+  // send command -------------------------------------------------------
+  cmd = context.add_command ( "send",
+                              send,
                               "Create message-sending clients." )
 
   cmd.add_arg ( "router",
@@ -777,12 +862,6 @@ func main() {
                 "string",
                 "",
                 "Which router the senders should attach to." )
-
-  cmd.add_arg ( "count",
-                true,   // unlabelable
-                "int",
-                "1",
-                "How many senders to make." )
 
   cmd.add_arg ( "count",
                 true,   // unlabelable
@@ -834,7 +913,61 @@ func main() {
 
 
 
-  // run -------------------------------------------------------
+  // recv command -------------------------------------------------------
+  cmd = context.add_command ( "recv",
+                              recv,
+                              "Create message-receiving clients." )
+
+  cmd.add_arg ( "router",
+                true,   // unlabelable
+                "string",
+                "",
+                "Which router the senders should attach to." )
+
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "1",
+                "How many senders to make." )
+
+  cmd.add_arg ( "n_messages",
+                false,
+                "int",
+                "1000",
+                "How many messages to send." )
+
+  cmd.add_arg ( "edges",
+                false,
+                "string",
+                "",
+                "Add senders to the edges of this router. " +
+                "i.e. 'edges A' means add senders to edges of router A." )
+
+  cmd.add_arg ( "address",
+                false,
+                "string",
+                "my_address",
+                "Address to send to. Embed a '%d' if you " +
+                "want addresses to count up." )
+
+  cmd.add_arg ( "start_at",
+                false,
+                "int",
+                "1",
+                "If you use %d in address, use this to tell what int " +
+                "the counting should start with." )
+
+  cmd.add_arg ( "max_message_length",
+                false,
+                "int",
+                "1000",
+                "Max length for each messages. " )
+
+
+
+
+
+  // run command -------------------------------------------------------
   cmd = context.add_command ( "run",
                               run,
                               "Start the network of routers and clients." )
