@@ -622,28 +622,18 @@ func get_version_name ( context  * Context, input_name string ) ( string, error 
 
 
 
-func linear ( context  * Context, arglist * lisp.List ) {
+func linear ( context  * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "linear" ]
+  parse_command_line ( context, cmd, command_line )
 
-  count, e1 := arglist.Get_int ( ) 
-  if e1 != nil {
-    // The user did not specify a count.
-    count = 3
-    m_info ( context, "linear network count defaults to %d.", count )
-  }
+  count   := cmd.unlabelable_int.int_value
+  version := cmd.unlabelable_string.string_value
 
-  version, e2 := arglist.Get_string_cdr ( )
-  if e2 != nil {
-    // The user did not specify a version.
+  if version == "" {
     version = context.first_version_name
-    if version == "" {
-      m_error ( "linear: No dispatch version available." )
-      return
-    }
-
-    m_info ( context, "linear network dispatch version defaults to %s.", version )
   }
 
-
+  // Make the requested routers.
   var router_name string
   var temp_names [] string
   for i := 0; i < count; i ++ {
@@ -653,6 +643,7 @@ func linear ( context  * Context, arglist * lisp.List ) {
     m_info ( context, "linear: added router |%s| with version |%s|.", router_name, version )
   }
 
+  // And connect them.
   for index, name := range temp_names {
     if index < len(temp_names) - 1 {
       pitcher := name
@@ -736,6 +727,20 @@ func main() {
   cmd = context.add_command ( "linear",
                               linear,
                               "Create a linear router network." )
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "3",    // default is 3 routers
+                "How many edge routers to create in the linear network." )
+
+  cmd.add_arg ( "version",
+                true,
+                "string",
+                "",
+                "Which version of the dispatch code to use.\n" +
+                "Defaults to the first version you defined." )
+
+
 
 
   // edges -------------------------------------------------------
