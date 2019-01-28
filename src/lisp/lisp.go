@@ -35,7 +35,7 @@ type Element struct {
 
 
 type List struct {
-  elements [] * Element
+  Elements [] * Element
 }
 
 
@@ -70,7 +70,7 @@ func new_element_list ( l * List ) ( * Element ) {
 
 
 func ( l * List ) Append_atom ( a Atom ) {
-  l.elements = append ( l.elements, new_element_atom(a) )
+  l.Elements = append ( l.Elements, new_element_atom(a) )
 }
 
 
@@ -78,7 +78,7 @@ func ( l * List ) Append_atom ( a Atom ) {
 
 
 func ( l * List ) Append_list ( l2 * List ) {
-  l.elements = append ( l.elements, new_element_list(l2) )
+  l.Elements = append ( l.Elements, new_element_list(l2) )
 }
 
 
@@ -87,11 +87,11 @@ func ( l * List ) Append_list ( l2 * List ) {
 
 func ( l * List ) Get_atom ( index int ) (string, error) {
 
-  if index >= len ( l.elements) {
+  if index >= len ( l.Elements) {
     return "", errors.New ( "Index out of range." )
   }
 
-  return string ( l.elements[index].atom ), nil
+  return string ( l.Elements[index].atom ), nil
 }
 
 
@@ -99,7 +99,7 @@ func ( l * List ) Get_atom ( index int ) (string, error) {
 
 
 func ( l * List ) Get_string ( ) (string, error) {
-  for _, el := range l.elements {
+  for _, el := range l.Elements {
     if el.atom != "" {
       // I do not want integers here.
       if _, err := strconv.Atoi ( string(el.atom) ); err != nil {
@@ -116,7 +116,7 @@ func ( l * List ) Get_string ( ) (string, error) {
 
 
 func ( l * List ) Get_string_cdr ( ) (string, error) {
-  for i, el := range l.elements {
+  for i, el := range l.Elements {
     if i == 0 {
       continue // ignore first element
     }
@@ -136,7 +136,7 @@ func ( l * List ) Get_string_cdr ( ) (string, error) {
 
 
 func ( l * List ) Get_int_cdr ( ) (string, error) {
-  for i, el := range l.elements {
+  for i, el := range l.Elements {
     if i == 0 {
       continue // ignore first element
     }
@@ -159,7 +159,7 @@ func ( l * List ) Get_strings ( ) ( []string ) {
 
   var strings [] string
 
-  for _, el := range l.elements {
+  for _, el := range l.Elements {
     if el.atom != "" {
       // I do not want integers here.
       if _, err := strconv.Atoi ( string(el.atom) ); err != nil {
@@ -180,7 +180,7 @@ func ( l * List ) Get_int ( ) (int, error) {
   var value int
   var err   error
 
-  for _, el := range l.elements {
+  for _, el := range l.Elements {
     if el.atom != "" {
       value, err = strconv.Atoi ( string(el.atom) )
       if err == nil {
@@ -197,7 +197,7 @@ func ( l * List ) Get_int ( ) (int, error) {
 
 
 func ( l * List ) Match_atom ( pattern string ) ( string ) {
-  for _, el := range l.elements {
+  for _, el := range l.Elements {
     if el.atom != "" {
       if strings.Contains ( string(el.atom), pattern ) {
         return string ( el.atom )
@@ -213,9 +213,9 @@ func ( l * List ) Match_atom ( pattern string ) ( string ) {
 
 
 func ( l * List ) Get_value ( attr string ) ( string ) {
-  for index, el := range l.elements {
+  for index, el := range l.Elements {
     if string(el.atom) == attr {
-      value_element := l.elements [ index + 1 ]
+      value_element := l.Elements [ index + 1 ]
       return string ( value_element.atom )
     }
   }
@@ -228,11 +228,11 @@ func ( l * List ) Get_value ( attr string ) ( string ) {
 
 
 func ( l * List ) Get_value_and_remove ( attr string ) ( string ) {
-  for index, el := range l.elements {
+  for index, el := range l.Elements {
     if string(el.atom) == attr {
-      value_element := l.elements [ index + 1 ]
+      value_element := l.Elements [ index + 1 ]
       value := string ( value_element.atom )
-      l.elements = append ( l.elements [ : index ], l.elements [ index+2 : ] ...)
+      l.Elements = append ( l.Elements [ : index ], l.Elements [ index+2 : ] ...)
       return value
     }
   }
@@ -246,7 +246,7 @@ func ( l * List ) Get_value_and_remove ( attr string ) ( string ) {
 
 func ( l * List ) Print ( indent int ) {
   indent_str := strings.Repeat ( " ", indent )
-  for _, el := range ( l.elements ) {
+  for _, el := range ( l.Elements ) {
     if el.atom != "" {
       fp ( os.Stdout, "%s%s\n", indent_str, el.atom )
     } else if el.list != nil {

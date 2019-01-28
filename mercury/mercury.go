@@ -393,8 +393,7 @@ func main() {
                 true,
                 "string",
                 "",
-                "Which version of the dispatch code to use.\n" +
-                "Defaults to the first version you defined." )
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
 
@@ -413,8 +412,7 @@ func main() {
                 true,
                 "string",
                 "",
-                "Which version of the dispatch code to use.\n" +
-                "Defaults to the first version you defined." )
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
 
@@ -427,8 +425,7 @@ func main() {
                 true,
                 "string",
                 "",
-                "Which version of the dispatch code to use.\n" +
-                "Defaults to the first version you defined." )
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
 
@@ -453,8 +450,7 @@ func main() {
                 false,
                 "string",
                 "",
-                "Which version of the dispatch code to use.\n" +
-                "Defaults to the first version you defined." )
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
   // send command -------------------------------------------------------

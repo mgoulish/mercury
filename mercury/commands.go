@@ -488,24 +488,86 @@ func console_ports ( context * Context, command_line * lisp.List ) {
 
 
 
-func help ( context * Context, command_line * lisp.List ) {
+func is_a_command_name ( context * Context, name string ) (bool) {
+  for _, cmd := range ( context.commands ) {
+    if name == cmd.name {
+      return true
+    }
+  }
+  return false
+}
 
-  // Get the command names.
-  names := make ( []string, 0 )
+
+
+
+
+func help_for_cmd ( context * Context, cmd * command ) {
+  fp ( os.Stdout, "\n    %s : %s\n", cmd.name, cmd.help )
+
+  longest_arg_name := 0
+  var temp_names [] string
+  for _, arg := range cmd.argmap {
+    temp_names = append ( temp_names, arg.name )
+    if len(arg.name) > longest_arg_name {
+      longest_arg_name = len(arg.name)
+    }
+  }
+
+  sort.Strings ( temp_names )
+
+  for _, arg_name := range temp_names {
+    pad_size := longest_arg_name - len(arg_name)
+    pad      := strings.Repeat(" ", pad_size)
+    arg      := cmd.argmap [ arg_name ]
+    fp ( os.Stdout, "      %s%s : %s\n", arg_name, pad, arg.help )
+  }
+  fp ( os.Stdout, "\n\n" )
+}
+
+
+
+
+
+func help ( context * Context, command_line * lisp.List ) {
+  // Get a sorted list of command names, 
+  // and find the longest one.
   longest_command_name := 0
+  cmd_names := make ( []string, 0 )
   for _, cmd := range context.commands {
-    names = append ( names, cmd.name )
+    cmd_names = append ( cmd_names, cmd.name )
     if len(cmd.name) > longest_command_name {
       longest_command_name = len(cmd.name)
     }
   }
+  sort.Strings ( cmd_names )
 
-  sort.Strings ( names )
-
-  for _, name := range names {
-    cmd := context.commands [ name ]
-    pad := longest_command_name - len(name)
-    fp ( os.Stdout, "    %s%s : %s\n", name, strings.Repeat(" ", pad), cmd.help )
+  // If there is an arg on the command line, the 
+  // user is asking for help with a specific command
+  if len(command_line.Elements) > 1 {
+    requested_command, _ := command_line.Get_atom ( 1 )
+    if is_a_command_name ( context, requested_command ) {
+      cmd := context.commands [ requested_command ]
+      help_for_cmd ( context, cmd )
+    } else {
+      // The user did not enter a command name.
+      // Maybe it is the first few letters of a command?
+      // Give him the first one that matches.
+      for _, cmd_name := range cmd_names {
+        if strings.HasPrefix ( cmd_name, requested_command ) {
+          cmd := context.commands [ cmd_name ]
+          help_for_cmd ( context, cmd ) 
+        }
+      }
+    }
+  } else {
+    // No arg on command line. The user 
+    // wants all commands. Get the names.
+    for _, name := range cmd_names {
+      cmd      := context.commands [ name ]
+      pad_size := longest_command_name - len(name)
+      pad      := strings.Repeat(" ", pad_size)
+      fp ( os.Stdout, "    %s%s : %s\n", name, pad, cmd.help )
+    }
   }
 }
 
