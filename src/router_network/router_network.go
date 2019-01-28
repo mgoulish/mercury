@@ -447,6 +447,7 @@ func ( rn * Router_Network ) Run ( ) {
 
     upl ( "starting clients.", module_name )
     for _, c := range rn.clients {
+      fp ( os.Stdout, "starting client |%s|\n", c.Name )
       c.Run ( )
     }
     upl ( "Done starting clients.", module_name )

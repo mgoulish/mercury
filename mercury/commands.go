@@ -152,6 +152,7 @@ func send ( context * Context, command_line * lisp.List ) {
   // value of the variable address: add_r, addr_2, etc.
   address    := cmd.argmap [ "address" ] . string_value
   final_addr := address
+  fp ( os.Stdout, " address init to |%s|\n", address )
 
   // Is this address variable? It is if it contains a "%d" somewhere.
   // I have to test for this because fmt.Sprintf treats it as an 
@@ -371,6 +372,14 @@ func quit ( context * Context, command_line * lisp.List ) {
   }
   m_info ( context, "Mercury quitting." )
   os.Exit ( 0 )
+}
+
+
+
+
+
+func console_ports ( context  * Context, command_line * lisp.List ) {
+  context.network.Print_console_ports ( )
 }
 
 

@@ -1,4 +1,13 @@
 
+/*
+  Saint Greenspun's Tenth Law:
+  "Any sufficiently complicated C or Fortran program contains an ad-hoc, 
+  informally-specified, bug-ridden, slow implementation of half of CommonLisp."
+
+  Mick's 2019 Addendum: "Or Go program."
+*/
+
+
 package lisp
 
 

@@ -103,6 +103,7 @@ func parse_command_line ( context *      Context,
   for _, arg := range cmd.argmap {
     str_val := command_line.Get_value_and_remove ( arg.name )
     if str_val != "" {
+      // The user provided a value.
       if arg.data_type == "string" {
         arg.string_value = str_val
         arg.explicit = true
@@ -113,6 +114,21 @@ func parse_command_line ( context *      Context,
           return
         }
         arg.explicit = true
+      }
+    } else {
+      // This arg was not on the command line.
+      // Give it its default value. If it has one.
+      arg.explicit = false
+      arg.string_value = arg.default_value
+      if arg.data_type == "int" && arg.default_value != "" {
+        val, err := strconv.Atoi ( arg.default_value )
+        if err != nil {
+          m_error ( "parse_command_line: error converting default val |%s| of arg |%s| to int.", 
+                    arg.default_value,
+                    arg.name )
+        } else {
+          arg.int_value = val
+        }
       }
     }
   }

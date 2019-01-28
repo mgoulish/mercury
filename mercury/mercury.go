@@ -318,6 +318,11 @@ func get_version_name ( context  * Context, input_name string ) ( string, error 
 
 
 
+
+
+
+
+
 /*=====================================================================
   Main
 ======================================================================*/
@@ -439,7 +444,7 @@ func main() {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                "1000",
+                "100000",
                 "How many messages to send." )
 
   cmd.add_arg ( "max_message_length",
@@ -458,7 +463,7 @@ func main() {
 
   cmd.add_arg ( "throttle",
                 false,
-                "string",
+                "string",    // Just ... don't ask.
                 "0",
                 "How many msec between each sent message. " +
                 "0 means send as fast as possible." )
@@ -500,7 +505,7 @@ func main() {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                "1000",
+                "100000",
                 "How many messages to send." )
 
   cmd.add_arg ( "edges",
@@ -544,6 +549,13 @@ func main() {
   cmd = context.add_command ( "quit",
                               quit,
                               "Shut down the network and halt Mercury." )
+
+
+
+  // console_ports command -------------------------------------------------------
+  cmd = context.add_command ( "console_ports",
+                              console_ports,
+                              "Show the console ports for all routers." )
 
 
 
