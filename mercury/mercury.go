@@ -318,11 +318,6 @@ func get_version_name ( context  * Context, input_name string ) ( string, error 
 
 
 
-
-
-
-
-
 /*=====================================================================
   Main
 ======================================================================*/
@@ -357,6 +352,10 @@ func main() {
   context.commands = make ( map[string] * command, 0 )
 
 
+
+  one_MILLION := "1000000"
+
+
   // verbose command -------------------------------------------------------
   cmd := context.add_command ( "verbose",
                                verbose,
@@ -388,8 +387,42 @@ func main() {
                 true,   // unlabelable
                 "int",
                 "3",    // default is 3 routers
-                "How many edge routers to create in the linear network." )
+                "How many routers to create in the linear network." )
 
+  cmd.add_arg ( "version",
+                true,
+                "string",
+                "",
+                "Which version of the dispatch code to use.\n" +
+                "Defaults to the first version you defined." )
+
+
+
+
+  // mesh command -------------------------------------------------------
+  cmd = context.add_command ( "mesh",
+                              mesh,
+                              "Create a fully-connected router network." )
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "4",    // default is 4 routers
+                "How many routers to create in the linear network." )
+
+  cmd.add_arg ( "version",
+                true,
+                "string",
+                "",
+                "Which version of the dispatch code to use.\n" +
+                "Defaults to the first version you defined." )
+
+
+
+
+  // teds_diamond command -------------------------------------------------------
+  cmd = context.add_command ( "teds_diamond",
+                              teds_diamond,
+                              "Create a fully-connected router network, with two outliers." )
   cmd.add_arg ( "version",
                 true,
                 "string",
@@ -444,7 +477,7 @@ func main() {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                "100000",
+                one_MILLION,
                 "How many messages to send." )
 
   cmd.add_arg ( "max_message_length",
@@ -505,7 +538,7 @@ func main() {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                "100000",
+                one_MILLION,
                 "How many messages to send." )
 
   cmd.add_arg ( "edges",
@@ -526,17 +559,13 @@ func main() {
                 false,
                 "int",
                 "1",
-                "If you use %d in address, use this to tell what int " +
-                "the counting should start with." )
+                "If %d in address, this tells where to start." )
 
   cmd.add_arg ( "max_message_length",
                 false,
                 "int",
                 "1000",
                 "Max length for each messages. " )
-
-
-
 
 
   // run command -------------------------------------------------------
@@ -556,6 +585,13 @@ func main() {
   cmd = context.add_command ( "console_ports",
                               console_ports,
                               "Show the console ports for all routers." )
+
+
+
+  // help command -------------------------------------------------------
+  cmd = context.add_command ( "help",
+                              help,
+                              "List all commands, or give help on a specific command." )
 
 
 

@@ -213,10 +213,18 @@ func ( rn * Router_Network ) Check_memory_all () {
 func ( rn * Router_Network ) add_router ( name        string, 
                                           router_type string, 
                                           version     string ) {
-  console_port, _ := utils.Available_port ( )
+  var console_port string
+
+  if name == "A" {
+    console_port = "5673"
+  } else {
+    console_port, _ = utils.Available_port ( )
+  }
+
   client_port, _  := utils.Available_port ( )
   router_port, _  := utils.Available_port ( )
   edge_port, _    := utils.Available_port ( )
+
 
   version_path := rn.Dispatch_versions [ version ]
   executable_path := version_path + "/sbin/qdrouterd"

@@ -3,6 +3,7 @@ package main
 import (
   "fmt"
   "os"
+  "sort"
   "strings"
 
   "lisp"
@@ -152,7 +153,6 @@ func send ( context * Context, command_line * lisp.List ) {
   // value of the variable address: add_r, addr_2, etc.
   address    := cmd.argmap [ "address" ] . string_value
   final_addr := address
-  fp ( os.Stdout, " address init to |%s|\n", address )
 
   // Is this address variable? It is if it contains a "%d" somewhere.
   // I have to test for this because fmt.Sprintf treats it as an 
@@ -354,6 +354,108 @@ func linear ( context  * Context, command_line * lisp.List ) {
 
 
 
+func mesh ( context  * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "mesh" ]
+  parse_command_line ( context, cmd, command_line )
+
+  count   := cmd.unlabelable_int.int_value
+  version := cmd.unlabelable_string.string_value
+
+  if version == "" {
+    version = context.first_version_name
+  }
+
+  // Make the requested routers.
+  var router_name string
+  var temp_names [] string
+  for i := 0; i < count; i ++ {
+    router_name = get_next_interior_router_name ( context )
+    context.network.Add_router ( router_name, version )
+    temp_names = append ( temp_names, router_name )
+    m_info ( context, "mesh: added router |%s| with version |%s|.", router_name, version )
+  }
+
+  // And connect them.
+    var catcher string
+  for index, pitcher := range temp_names {
+    if index < len(temp_names) - 1 {
+      for j := index + 1; j < len(temp_names); j ++ {
+        catcher = temp_names[j]
+        context.network.Connect_router ( pitcher, catcher )
+        if context.verbose {
+          m_info ( context, "mesh: connected router |%s| to router |%s|", pitcher, catcher )
+        }
+      }
+    }
+  }
+}
+
+
+
+
+
+func teds_diamond ( context  * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "teds_diamond" ]
+  parse_command_line ( context, cmd, command_line )
+
+  count   := 4
+  version := cmd.unlabelable_string.string_value
+
+  if version == "" {
+    version = context.first_version_name
+  }
+
+  // Make the requested routers.
+  var router_name string
+  var temp_names [] string
+  for i := 0; i < count; i ++ {
+    router_name = get_next_interior_router_name ( context )
+    context.network.Add_router ( router_name, version )
+    temp_names = append ( temp_names, router_name )
+    m_info ( context, "teds_diamond: added router |%s| with version |%s|.", router_name, version )
+  }
+
+  // And connect them.
+    var catcher string
+  for index, pitcher := range temp_names {
+    if index < len(temp_names) - 1 {
+      for j := index + 1; j < len(temp_names); j ++ {
+        catcher = temp_names[j]
+        context.network.Connect_router ( pitcher, catcher )
+        if context.verbose {
+          m_info ( context, "teds_diamond: connected router |%s| to router |%s|", pitcher, catcher )
+        }
+      }
+    }
+  }
+
+  // Now make the two outliers.
+  outlier := get_next_interior_router_name ( context )
+  context.network.Add_router ( outlier, version )
+  m_info ( context, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
+  catcher = temp_names[0]
+  context.network.Connect_router ( outlier, catcher )
+  m_info ( context, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  catcher = temp_names[1]
+  context.network.Connect_router ( outlier, catcher )
+  m_info ( context, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+
+
+  outlier = get_next_interior_router_name ( context )
+  context.network.Add_router ( outlier, version )
+  m_info ( context, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
+  catcher = temp_names[2]
+  context.network.Connect_router ( outlier, catcher )
+  m_info ( context, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  catcher = temp_names[3]
+  context.network.Connect_router ( outlier, catcher )
+  m_info ( context, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+}
+
+
+
+
+
 func run ( context  * Context, command_line * lisp.List ) {
   context.network.Init ( )
   context.network.Run  ( )
@@ -378,8 +480,33 @@ func quit ( context * Context, command_line * lisp.List ) {
 
 
 
-func console_ports ( context  * Context, command_line * lisp.List ) {
+func console_ports ( context * Context, command_line * lisp.List ) {
   context.network.Print_console_ports ( )
+}
+
+
+
+
+
+func help ( context * Context, command_line * lisp.List ) {
+
+  // Get the command names.
+  names := make ( []string, 0 )
+  longest_command_name := 0
+  for _, cmd := range context.commands {
+    names = append ( names, cmd.name )
+    if len(cmd.name) > longest_command_name {
+      longest_command_name = len(cmd.name)
+    }
+  }
+
+  sort.Strings ( names )
+
+  for _, name := range names {
+    cmd := context.commands [ name ]
+    pad := longest_command_name - len(name)
+    fp ( os.Stdout, "    %s%s : %s\n", name, strings.Repeat(" ", pad), cmd.help )
+  }
 }
 
 
