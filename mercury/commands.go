@@ -360,6 +360,71 @@ func dispatch_version ( context * Context, command_line * lisp.List ) {
 
 
 
+func routers ( context  * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "routers" ]
+  parse_command_line ( context, cmd, command_line )
+
+  count   := cmd.unlabelable_int.int_value
+  version := cmd.unlabelable_string.string_value
+
+  if version == "" {
+    version = context.first_version_name
+  }
+
+  // Make the requested routers.
+  var router_name string
+  var temp_names [] string
+  for i := 0; i < count; i ++ {
+    router_name = get_next_interior_router_name ( context )
+    context.network.Add_router ( router_name, version )
+    temp_names = append ( temp_names, router_name )
+    m_info ( context, "routers: added router |%s| with version |%s|.", router_name, version )
+  }
+}
+
+
+
+
+
+func connect ( context  * Context, command_line * lisp.List ) {
+  from_router, _ := command_line.Get_atom ( 1 )
+  to_router, _   := command_line.Get_atom ( 2 )
+
+  if from_router == "" || to_router == "" {
+    m_error ( "connect: from and to routers must both be specified." )
+    return
+  }
+
+  context.network.Connect_router ( from_router, to_router )
+  
+  m_info ( context, 
+           "connect: connected router |%s| to router |%s|.", 
+           from_router, 
+           to_router )
+}
+
+
+
+
+
+func inc ( context  * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "inc" ]
+  parse_command_line ( context, cmd, command_line )
+
+  file_name := cmd.unlabelable_string.string_value
+
+  if file_name == "" {
+    m_error ( "inc: I need a file name." )
+    return
+  }
+
+  read_file ( context, file_name )
+}
+
+
+
+
+
 func linear ( context  * Context, command_line * lisp.List ) {
   cmd := context.commands [ "linear" ]
   parse_command_line ( context, cmd, command_line )

@@ -355,7 +355,7 @@ func main() {
 
 
 
-  one_MILLION := "1000000"
+  ten_MILLION := "10000000"
 
 
   // verbose command -------------------------------------------------------
@@ -402,6 +402,30 @@ func main() {
   cmd = context.add_command ( "dispatch_version",
                               dispatch_version,
                               "Define different version of the dispatch code." )
+
+
+  // routers command -------------------------------------------------------
+  cmd = context.add_command ( "routers",
+                              routers,
+                              "Create new routers." )
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "3",    // default is 3 routers
+                "How many new (and unconnected) routers to create." )
+
+  cmd.add_arg ( "version",
+                true,
+                "string",
+                "",
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
+
+
+  // connect command -------------------------------------------------------
+  cmd = context.add_command ( "connect",
+                              connect,
+                              "Connect two routers." )
+  // The connect command uses its own command line processing.
 
 
   // linear command -------------------------------------------------------
@@ -492,7 +516,7 @@ func main() {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                one_MILLION,
+                ten_MILLION,
                 "How many messages to send." )
 
   cmd.add_arg ( "max_message_length",
@@ -550,7 +574,7 @@ func main() {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                one_MILLION,
+                ten_MILLION,
                 "How many messages to send." )
 
   cmd.add_arg ( "edges",
@@ -596,6 +620,19 @@ func main() {
   cmd = context.add_command ( "console_ports",
                               console_ports,
                               "Show the console ports for all routers." )
+
+
+  // inc command -------------------------------------------------------
+  cmd = context.add_command ( "inc",
+                              inc,
+                              "Include the named file into the command stream." )
+  cmd.add_arg ( "file",
+                true,       // unlabelable
+                "string",   
+                "",
+                "Name of file to include." )
+
+
 
 
   // help command -------------------------------------------------------
