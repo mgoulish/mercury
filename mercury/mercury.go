@@ -82,6 +82,8 @@ type Context struct {
   client_path                string
 
   verbose                    bool
+  echo                       bool
+  prompt                     bool
 
   n_worker_threads           int
 
@@ -366,6 +368,29 @@ func main() {
                 "on",
                 "'on' or 'off" )
 
+
+  // echo command -------------------------------------------------------
+  cmd = context.add_command ( "echo",
+                               echo,
+                               "Echo all non-blank command lines." )
+  cmd.add_arg ( "state",
+                true,        // unlabelable
+                "string",
+                "on",
+                "'on' or 'off" )
+
+
+  // prompt command -------------------------------------------------------
+  cmd = context.add_command ( "prompt",
+                               prompt,
+                               "Prompt after every command before continuing." )
+  cmd.add_arg ( "state",
+                true,        // unlabelable
+                "string",
+                "on",
+                "'on' or 'off" )
+
+
   // paths command -------------------------------------------------------
   // Is the dispatch path still used ??? 
   cmd = context.add_command ( "paths",
@@ -396,8 +421,6 @@ func main() {
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
-
-
   // mesh command -------------------------------------------------------
   cmd = context.add_command ( "mesh",
                               mesh,
@@ -415,8 +438,6 @@ func main() {
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
-
-
   // teds_diamond command -------------------------------------------------------
   cmd = context.add_command ( "teds_diamond",
                               teds_diamond,
@@ -426,8 +447,6 @@ func main() {
                 "string",
                 "",
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
-
-
 
 
   // edges command -------------------------------------------------------
@@ -512,13 +531,10 @@ func main() {
                 "the counting should start with." )
 
 
-
-
   // recv command -------------------------------------------------------
   cmd = context.add_command ( "recv",
                               recv,
                               "Create message-receiving clients." )
-
   cmd.add_arg ( "router",
                 true,   // unlabelable
                 "string",
@@ -576,18 +592,28 @@ func main() {
                               "Shut down the network and halt Mercury." )
 
 
-
   // console_ports command -------------------------------------------------------
   cmd = context.add_command ( "console_ports",
                               console_ports,
                               "Show the console ports for all routers." )
 
 
-
   // help command -------------------------------------------------------
   cmd = context.add_command ( "help",
                               help,
                               "List all commands, or give help on a specific command." )
+
+
+  // kill command -------------------------------------------------------
+  cmd = context.add_command ( "kill",
+                              kill,
+                              "Kill a router." )
+  cmd.add_arg ( "router",
+                true,   // unlabelable
+                "string",
+                "",
+                "Which router to kill." )
+
 
 
 

@@ -592,13 +592,14 @@ func halt_router ( wg * sync.WaitGroup, r * router.Router ) {
 
 
 
-func (rn * Router_Network) Halt_router ( router_name string ) {
+func (rn * Router_Network) Halt_router ( router_name string ) ( error ) {
   r := rn.get_router_by_name ( router_name )
   if r == nil {
-    return
+    return errors.New ( "No such router." )
   }
 
   go r.Halt()
+  return nil
 }
 
 

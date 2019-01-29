@@ -23,12 +23,54 @@ func verbose ( context * Context, command_line * lisp.List ) {
   val := cmd.unlabelable_string.string_value
   if val == "on" {
     context.verbose = true
-    m_info ( context, "verbose: on" )
   } else if val == "off" {
     context.verbose = false
   } else {
-    fp ( os.Stdout, " ERROR do something here.\n" )
+    m_error ( "verbose: unknown value: |%s|", val )
   }
+
+  m_info ( context, "verbose: set to |%s|", val )
+}
+
+
+
+
+
+func echo ( context * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "echo" ]
+  parse_command_line ( context, cmd, command_line )
+
+  val := cmd.unlabelable_string.string_value
+  if val == "on" {
+    context.echo = true
+  } else if val == "off" {
+    context.echo = false
+  } else {
+    m_error ( "echo: unknown value: |%s|", val )
+    return
+  }
+
+  m_info ( context, "echo: set to |%s|", val )
+}
+
+
+
+
+
+func prompt ( context * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "prompt" ]
+  parse_command_line ( context, cmd, command_line )
+
+  val := cmd.unlabelable_string.string_value
+  if val == "on" {
+    context.prompt = true
+  } else if val == "off" {
+    context.prompt = false
+  } else {
+    m_error ( "prompt: unknown value: |%s|", val )
+  }
+
+  m_info ( context, "prompt: set to |%s|", val )
 }
 
 
@@ -523,6 +565,33 @@ func help_for_cmd ( context * Context, cmd * command ) {
   }
   fp ( os.Stdout, "\n\n" )
 }
+
+
+
+
+
+func kill ( context * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "kill" ]
+  parse_command_line ( context, cmd, command_line )
+
+  router_name := cmd.unlabelable_string.string_value
+
+  if err := context.network.Halt_router ( router_name ); err != nil {
+    m_error ( "kill: no such router |%s|", router_name )
+    return
+  }
+
+  m_info ( context, "kill: killing router |%s|", router_name )
+}
+
+
+
+
+
+
+
+
+
 
 
 

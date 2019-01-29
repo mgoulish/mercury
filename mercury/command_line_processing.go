@@ -23,6 +23,7 @@ func read_file ( context * Context, file_name string ) {
   defer file.Close()
 
   scanner := bufio.NewScanner ( file )
+
   for scanner.Scan() {
     process_line ( context, scanner.Text() )
   }
@@ -42,13 +43,14 @@ func process_line ( context * Context, line string ) {
 
   first_nonwhitespace := context.first_nonwhitespace_rgx.FindString ( line )
   if first_nonwhitespace == "" {
-    // If the line is just empty, don't even echo it to the log.
-    // The user just hit 'enter'.
+    // If the line is just empty, don't do anything with it.
     return
   }
 
-  // Except for empty lines, echo everything else, 
-  // including comments, to the log.
+  if context.echo {
+    fp ( os.Stdout, "%c echo: %s\n", mercury, line )
+  }
+
   fmt.Fprintf ( context.mercury_log_file, "%s\n", line )
 
   if first_nonwhitespace == "#" {
@@ -63,6 +65,13 @@ func process_line ( context * Context, line string ) {
   _, list := lisp.Parse_from_string ( fields )
 
   call_command ( context, list )
+
+
+  if context.prompt {
+    prompt_reader := bufio.NewReader ( os.Stdin )
+    fp ( os.Stdout, "%c: hit enter to continue.\n", mercury )
+    prompt_reader.ReadString ( '\n' )
+  }
 }
 
 
