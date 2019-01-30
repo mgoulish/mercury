@@ -85,8 +85,6 @@ type Router_Network struct {
 
   routers                        [] * router.Router
   clients                        [] * client.Client
-
-  Dispatch_versions              map [string] string
 }
 
 
@@ -124,7 +122,6 @@ func New_Router_Network ( name                           string,
                           verbose                        : verbose,
                           resource_measurement_frequency : resource_measurement_frequency }
 
-  rn.Dispatch_versions = make ( map [string] string )
   return rn
 }
 
@@ -214,7 +211,6 @@ func ( rn * Router_Network ) add_router ( name        string,
                                           router_type string, 
                                           version     string ) {
   var console_port string
-
   if name == "A" {
     console_port = "5673"
   } else {
@@ -226,8 +222,7 @@ func ( rn * Router_Network ) add_router ( name        string,
   edge_port, _    := utils.Available_port ( )
 
 
-  version_path := rn.Dispatch_versions [ version ]
-  executable_path := version_path + "/sbin/qdrouterd"
+  executable_path := version + "/sbin/qdrouterd"
 
   r := router.New_Router ( name,
                            version,
@@ -252,13 +247,11 @@ func ( rn * Router_Network ) add_router ( name        string,
 
 
 
-/*
-  Add a new router to the network. You can add all routers before
-  calling Init, but it's also OK to add more after the network has 
-  started. In that case, you must call Init() and Run() again.
-  Routers that have already been initialized and started will not 
-  be affected.
-*/
+// Add a new router to the network. You can add all routers before
+// calling Init, but it's also OK to add more after the network has 
+// started. In that case, you must call Init() and Run() again.
+// Routers that have already been initialized and started will not 
+// be affected.
 func ( rn * Router_Network ) Add_router ( name string, version string ) {
   rn.add_router ( name, "interior", version )
 }
@@ -475,14 +468,6 @@ func ( rn * Router_Network ) Client_port ( target_router_name string ) ( client_
 
 
 
-func ( rn * Router_Network ) Add_dispatch_version ( name, path string ) {
-  rn.Dispatch_versions [ name ] = path
-}
-
-
-
-
-
 func ( rn * Router_Network ) Check_memory ( router_name string ) error {
   // set up env ----------------------------------------------
   PROTON_INSTALL_DIR    := rn.proton_root
@@ -576,6 +561,7 @@ func ( rn * Router_Network ) Check_links ( router_name string ) error {
 
   return nil
 }
+
 
 
 

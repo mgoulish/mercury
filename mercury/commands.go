@@ -84,7 +84,7 @@ func edges ( context * Context, command_line * lisp.List ) {
   router_name := cmd.unlabelable_string.string_value
   count       := cmd.unlabelable_int.int_value
 
-  version_name := context.first_version_name  // This will be the default.
+  version_name := context.default_dispatch_version
   version_arg  := cmd.argmap [ "version" ]
   if version_arg.explicit {
     // The user entered a value.
@@ -110,52 +110,69 @@ func edges ( context * Context, command_line * lisp.List ) {
 
 
 
-func paths ( context * Context, arglist * lisp.List ) {
+func paths ( context * Context, command_line * lisp.List ) {
+  cmd := context.commands [ "paths" ]
+  parse_command_line ( context, cmd, command_line )
 
-  dispatch_path := arglist.Match_atom ( "dispatch" )
-  proton_path   := arglist.Match_atom ( "proton" )
-  mercury_path  := arglist.Match_atom ( "mercury" )
+  dispatch_path := cmd.argmap [ "dispatch" ]
+  proton_path   := cmd.argmap [ "proton" ]
+  mercury_path  := cmd.argmap [ "mercury" ]
+
 
   trouble := 0
 
-  if dispatch_path == "" {
+  if dispatch_path.string_value == "" {
     m_error ( "paths: dispatch path missing." )
     trouble ++
   }
-  if _, err := os.Stat ( dispatch_path ); os.IsNotExist ( err ) {
-    m_error ( "paths: dispatch path does not exist: |%s|.", dispatch_path )
+  if _, err := os.Stat ( dispatch_path.string_value ); os.IsNotExist ( err ) {
+    m_error ( "paths: dispatch path does not exist: |%s|.", dispatch_path.string_value )
     trouble ++
   }
 
-  if proton_path == "" {
+
+  if proton_path.string_value == "" {
     m_error ( "paths: proton path missing." )
     trouble ++
   }
-  if _, err := os.Stat ( mercury_path ); os.IsNotExist ( err ) {
-    m_error ( "paths: mercury path does not exist: |%s|.", mercury_path )
+  if _, err := os.Stat ( proton_path.string_value ); os.IsNotExist ( err ) {
+    m_error ( "paths: proton path does not exist: |%s|.", proton_path.string_value )
     trouble ++
   }
 
-  if mercury_path == "" {
+
+  if mercury_path.string_value == "" {
     m_error ( "paths: mercury path missing." )
     trouble ++
   }
-  if _, err := os.Stat ( proton_path ); os.IsNotExist ( err ) {
-    m_error ( "paths: proton path does not exist: |%s|.", proton_path )
+  if _, err := os.Stat ( mercury_path.string_value ); os.IsNotExist ( err ) {
+    m_error ( "paths: mercury path does not exist: |%s|.", mercury_path.string_value )
     trouble ++
   }
 
+  // If this is an interactive session, allow the user
+  // to try again. If it's a script, it will die in a
+  // little bit, but at least they'll know why.
   if trouble > 0 {
-    os.Exit ( 1 )
+    return
   }
 
-  context.dispatch_install_root = dispatch_path
-  context.proton_install_root   = proton_path
-  context.mercury_root          = mercury_path
 
-  m_info ( context, "paths: dispatch_path : |%s|", dispatch_path )
-  m_info ( context, "paths: proton_path   : |%s|", proton_path   )
-  m_info ( context, "paths: mercury_path  : |%s|", mercury_path  )
+  context.dispatch_install_root = dispatch_path.string_value
+  context.proton_install_root   = proton_path.string_value
+  context.mercury_root          = mercury_path.string_value
+
+  // The dispatch path defined in this command will be the default version.
+  // If the user wants to define other versions they may do so with the 
+  //'dispatch_version' command, but they are not forced to do so.
+  context.default_dispatch_version = context.dispatch_install_root
+  m_info ( context,
+           "paths: default dispatch version set to |%s|.", 
+           context.default_dispatch_version )
+
+  m_info ( context, "paths: dispatch_path : |%s|", context.dispatch_install_root )
+  m_info ( context, "paths: proton_path   : |%s|", context.proton_install_root   )
+  m_info ( context, "paths: mercury_path  : |%s|", context.mercury_root  )
 
   // Now that paths are set, the network can be created.
   create_network ( context )
@@ -328,6 +345,10 @@ func recv ( context * Context, command_line * lisp.List ) {
 // This command has its own special magic syntax, so it 
 // parses the command lline its own way.
 func dispatch_version ( context * Context, command_line * lisp.List ) {
+
+  m_info ( context, "version command is under construction." )
+  return
+
   version_name, err := command_line.Get_atom ( 1 )
   if err != nil {
     m_error ( "dispatch_version: error on version name: %s", err.Error() )
@@ -345,15 +366,8 @@ func dispatch_version ( context * Context, command_line * lisp.List ) {
     return
   }
 
-  context.network.Add_dispatch_version ( version_name, path )
+  // TODO store these at app level -- not in network.  context.network.Add_dispatch_version ( version_name, path )
   m_info ( context, "dispatch_version: added version %s with path %s", version_name, path )
-
-  // If this one is first, store it.
-  // It will become the default.
-  if context.first_version_name == "" {
-    context.first_version_name = version_name
-    m_info ( context, "dispatch_version: version %s is default.", context.first_version_name )
-  }
 }
 
 
@@ -368,7 +382,7 @@ func routers ( context  * Context, command_line * lisp.List ) {
   version := cmd.unlabelable_string.string_value
 
   if version == "" {
-    version = context.first_version_name
+    version = context.default_dispatch_version
   }
 
   // Make the requested routers.
@@ -433,8 +447,9 @@ func linear ( context  * Context, command_line * lisp.List ) {
   version := cmd.unlabelable_string.string_value
 
   if version == "" {
-    version = context.first_version_name
+    version = context.default_dispatch_version
   }
+
 
   // Make the requested routers.
   var router_name string
@@ -469,7 +484,7 @@ func mesh ( context  * Context, command_line * lisp.List ) {
   version := cmd.unlabelable_string.string_value
 
   if version == "" {
-    version = context.first_version_name
+    version = context.default_dispatch_version
   }
 
   // Make the requested routers.
@@ -509,7 +524,7 @@ func teds_diamond ( context  * Context, command_line * lisp.List ) {
   version := cmd.unlabelable_string.string_value
 
   if version == "" {
-    version = context.first_version_name
+    version = context.default_dispatch_version
   }
 
   // Make the requested routers.

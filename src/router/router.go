@@ -185,6 +185,14 @@ func New_Router ( name                        string,
 
   r.qdstat_output_filename = r.result_path + "/qdstat_output_" + r.name
 
+  if ! utils.Path_exists ( executable_path ) {
+
+    fp ( os.Stdout, 
+         "    router error: executable path |%s| does not exist.\n", 
+         executable_path )
+    os.Exit ( 1 )
+  }
+
   return r
 }
 

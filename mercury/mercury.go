@@ -98,7 +98,7 @@ type Context struct {
   first_nonwhitespace_rgx  * regexp.Regexp
   line_rgx                 * regexp.Regexp
   
-  first_version_name         string
+  default_dispatch_version   string
 
   // This should probably change to commands, not fns.
   commands                   map [ string ] * command
@@ -303,7 +303,7 @@ func get_version_name ( context  * Context, input_name string ) ( string, error 
   var output_name string
 
   if input_name == "" {
-    output_name = context.first_version_name
+    output_name = context.default_dispatch_version
   }
 
   if output_name == "" {
@@ -392,10 +392,27 @@ func main() {
 
 
   // paths command -------------------------------------------------------
-  // Is the dispatch path still used ??? 
   cmd = context.add_command ( "paths",
                               paths,
                               "Define dispatch, proton, and mercury paths." )
+  cmd.add_arg ( "dispatch",
+                false,        // not unlabelable
+                "string",
+                "/usr/local",
+                "Dispatch install directory. This will be default dispatch version." )
+
+  cmd.add_arg ( "proton",
+                false,        // not unlabelable
+                "string",
+                "/usr/local",
+                "Proton install directory." )
+
+  cmd.add_arg ( "mercury",
+                false,        // not unlabelable
+                "string",
+                "",
+                "Mercury top level directory." )
+
 
 
   // dispatch_version command -------------------------------------------------------
