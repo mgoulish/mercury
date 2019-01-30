@@ -196,7 +196,9 @@ func send ( context * Context, command_line * lisp.List ) {
   router_name := cmd.unlabelable_string.string_value
   count       := cmd.unlabelable_int.int_value
 
-  target_router_list = append ( target_router_list, router_name )
+  if router_name != "" {
+    target_router_list = append ( target_router_list, router_name )
+  }
   router_with_edges := cmd.argmap [ "edges" ] . string_value
 
   var edge_list [] string
@@ -237,7 +239,7 @@ func send ( context * Context, command_line * lisp.List ) {
       start_at ++
     }
 
-    router_name := target_router_list[router_index]
+    router_name = target_router_list[router_index]
 
     context.network.Add_sender ( sender_name,
                                  n_messages,
@@ -277,7 +279,9 @@ func recv ( context * Context, command_line * lisp.List ) {
   router_name := cmd.unlabelable_string.string_value
   count       := cmd.unlabelable_int.int_value
 
-  target_router_list = append ( target_router_list, router_name )
+  if router_name != "" {
+    target_router_list = append ( target_router_list, router_name )
+  }
   router_with_edges := cmd.argmap [ "edges" ] . string_value
 
   var edge_list [] string
@@ -641,7 +645,18 @@ func help_for_cmd ( context * Context, cmd * command ) {
     pad_size := longest_arg_name - len(arg_name)
     pad      := strings.Repeat(" ", pad_size)
     arg      := cmd.argmap [ arg_name ]
-    fp ( os.Stdout, "      %s%s : %s\n", arg_name, pad, arg.help )
+
+    str := fmt.Sprintf ( "      %s%s : ", arg_name, pad )
+    if arg.unlabelable {
+      str = fmt.Sprintf ( "%sUNLABELABLE ", str )
+    }
+    if arg.help != "" {
+      str = fmt.Sprintf ( "%s%s", str, arg.help )
+    }
+    if arg.default_value != "" {
+      str = fmt.Sprintf ( "%s -- default: |%s|", str, arg.default_value )
+    }
+    fp ( os.Stdout, "%s\n", str )
   }
   fp ( os.Stdout, "\n\n" )
 }

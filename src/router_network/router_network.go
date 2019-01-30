@@ -330,6 +330,11 @@ func ( rn * Router_Network ) Add_client ( name               string,
 
   r := rn.get_router_by_name ( router_name )
 
+  if r == nil {
+    fp ( os.Stdout, "    router_network error: no such router |%s|\n", router_name )
+    os.Exit ( 1 )
+  }
+
   client := client.New_client ( name,
                                 operation,
                                 name,
