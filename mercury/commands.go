@@ -6,13 +6,9 @@ import (
   "sort"
   "strings"
 
-  "utils"
   "lisp"
 )
 
-
-var ume     = utils.M_error
-var umi     = utils.M_info
 
 
 
