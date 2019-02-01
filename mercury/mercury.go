@@ -100,6 +100,7 @@ type Context struct {
   line_rgx                 * regexp.Regexp
   
   default_dispatch_version   string
+  versions                   map [ string ] string
 
   // This should probably change to commands, not fns.
   commands                   map [ string ] * command
@@ -396,7 +397,7 @@ func main() {
   // dispatch_version command -------------------------------------------------------
   cmd = context.add_command ( "dispatch_version",
                               dispatch_version,
-                              "Define different version of the dispatch code." )
+                              "Define different version of the dispatch code. Arg 1 is version name, arg 2 is path." )
 
 
   // routers command -------------------------------------------------------

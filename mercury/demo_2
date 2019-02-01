@@ -1,0 +1,26 @@
+##########################################################
+# This is a demo file 2: 
+# A Ted's Diamond network with edge routers on E and F.
+# Add clients and 'run' again when ready.
+##########################################################
+
+inc paths
+
+verbose on
+echo    on
+prompt  on
+
+
+teds_diamond
+edges E 10
+edges F 10
+run
+
+send 10 edges E address addr_%d
+recv edges F 10 address addr_%d
+
+#####################################
+# 'run' when ready
+#####################################
+prompt off
+echo off
