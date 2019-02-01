@@ -31,6 +31,7 @@ import ( "fmt"
 
 
 var fp = fmt.Fprintf
+var mercury = '\u263F'
 
 
 
@@ -40,6 +41,29 @@ func Check ( err error ) {
   if err != nil {
     panic ( err )
   }
+}
+
+
+
+
+
+func M_error ( format string, args ...interface{}) {
+  new_format := fmt.Sprintf ( "    %c error: %s", mercury, format + "\n" )
+  fp ( os.Stdout, "\n------------------------------------------------\n" )
+  fp ( os.Stdout, new_format, args ... )
+  fp ( os.Stdout,   "------------------------------------------------\n\n" )
+}
+
+
+
+
+
+func M_info ( verbose bool, format string, args ...interface{}) {
+  if ! verbose {
+    return
+  }
+  new_format := fmt.Sprintf ( "    %c info: %s\n", mercury, format )
+  fp ( os.Stdout, new_format, args ... )
 }
 
 
@@ -184,17 +208,6 @@ func Timestamp ( ) ( string ) {
   fsec := float64(nsec) / 1000000000.0
   return ts1 + fmt.Sprintf ( " %.6f", fsec )
 }
-
-
-
-
-func Print_log ( format string, args ...interface{} ) {
-  ts := Timestamp()
-  fp ( os.Stdout, ts + " : %s : " + format + "\n", args... )
-}
-
-
-
 
 
 

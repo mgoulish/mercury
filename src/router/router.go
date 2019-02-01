@@ -49,8 +49,10 @@ import ( "errors"
 
 
 var fp          = fmt.Fprintf
-var upl         = utils.Print_log
 var module_name = "router"
+var ume         = utils.M_error
+var umi         = utils.M_info
+
 
 
 
@@ -476,9 +478,7 @@ func ( r * Router ) write_config_file ( ) error {
     fp ( f, "}\n")
   }
 
-  if r.verbose {
-    upl ( "config file written to |%s|", module_name, r.config_file_path )
-  }
+  umi ( r.verbose, "router |%s| config file written to |%s|", r.name, r.config_file_path )
 
   return nil
 }
@@ -535,9 +535,7 @@ func ( r * Router ) Check_memory ( ) {
 */
 func ( r * Router ) Run ( ) error {
   if r.state == running {
-    if r.verbose {
-      upl ( "Attempt to re-run running router |%s|.\n", module_name, r.name )
-    }
+    ume ( "Attempt to re-run running router |%s|.", r.name )
     return nil
   }
 
@@ -586,9 +584,7 @@ func ( r * Router ) Run ( ) error {
   setup_dir := r.result_path + "/setup/" + r.name
   utils.Find_or_create_dir ( setup_dir )
 
-  if r.verbose {
-    upl ( "Router |%s| has started with pid %d .\n", module_name, r.name, r.pid )
-  }
+  umi ( r.verbose, "Router |%s| has started with pid %d .", r.name, r.pid )
 
   if do_resource_measurement {
     r.resource_usage_dir = r.result_path + "/resources/" + strconv.Itoa(r.cmd.Process.Pid)
@@ -688,9 +684,7 @@ func ( r * Router ) Halt ( ) error {
   }
 
   if r.state == halted {
-    if r.verbose {
-      upl ( "Attempt to re-halt router %s", module_name, r.name )
-    }
+    ume ( "Attempt to re-halt router |%s|.", r.name )
     return nil
   }
 
@@ -735,9 +729,7 @@ func ( r * Router ) Halt ( ) error {
 
       // This is the good case. It was not already dead when 
       // we came here, and we successfully halted it.
-      if r.verbose {
-        upl ( "router |%s| halted.\n", module_name, r.name )
-      }
+      umi ( r.verbose, "Router |%s| halted.", r.name )
       return nil
 
     case err := <-done:

@@ -7,9 +7,15 @@ import (
   "strings"
   "strconv"
 
+  "utils"
   "lisp"
 )
 
+
+
+var mercury = '\u263F'
+var ume     = utils.M_error
+var umi     = utils.M_info
 
 
 
@@ -119,7 +125,7 @@ func parse_command_line ( context *      Context,
       } else {
         arg.int_value, err = strconv.Atoi ( str_val )
         if err != nil {
-          m_error ( "parse_command_line: error reading int from |%s|", str_val )
+          ume.M_error ( "parse_command_line: error reading int from |%s|", str_val )
           return
         }
         arg.explicit = true
@@ -132,9 +138,9 @@ func parse_command_line ( context *      Context,
       if arg.data_type == "int" && arg.default_value != "" {
         val, err := strconv.Atoi ( arg.default_value )
         if err != nil {
-          m_error ( "parse_command_line: error converting default val |%s| of arg |%s| to int.", 
-                    arg.default_value,
-                    arg.name )
+          ume.M_error ( "parse_command_line: error converting default val |%s| of arg |%s| to int.", 
+                        arg.default_value,
+                        arg.name )
         } else {
           arg.int_value = val
         }
@@ -161,9 +167,9 @@ func parse_command_line ( context *      Context,
       var err error
       cmd.unlabelable_int.int_value, err = strconv.Atoi ( ul_str )
       if err != nil {
-        m_error ( "parse_command_line: error reading value for |%s| : |%s|", 
-                  name, 
-                  err.Error() )
+        ume.M_error ( "parse_command_line: error reading value for |%s| : |%s|", 
+                      name, 
+                      err.Error() )
         cmd.unlabelable_int.explicit = false
       } else {
         cmd.unlabelable_int.explicit = true

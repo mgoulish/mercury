@@ -34,8 +34,10 @@ import ( "errors"
 
 
 var fp          = fmt.Fprintf
-var upl         = utils.Print_log
 var module_name = "router_network"
+var ume         = utils.M_error
+var umi         = utils.M_info
+
 
 
 
@@ -434,12 +436,10 @@ func ( rn * Router_Network ) Run ( ) {
       time.Sleep ( time.Duration(nap_time) * time.Second )
     }
 
-    upl ( "starting clients.", module_name )
     for _, c := range rn.clients {
-      fp ( os.Stdout, "starting client |%s|\n", c.Name )
+      umi ( rn.verbose, "starting client |%s|\n", c.Name )
       c.Run ( )
     }
-    upl ( "Done starting clients.", module_name )
   }
 
   rn.Running = true
@@ -560,7 +560,7 @@ func halt_router ( wg * sync.WaitGroup, r * router.Router ) {
   defer wg.Done()
   err := r.Halt ( )
   if err != nil {
-    upl ( "Router %s halting error: %s", module_name, r.Name(), err.Error() )
+    ume ( "Router %s halting error: %s", r.Name(), err.Error() )
   }
 }
 
@@ -590,7 +590,7 @@ func (rn * Router_Network) Halt_and_restart_router ( router_name string, pause i
 
   r.Halt()
   if rn.verbose {
-    upl ( "Halt_and_restart_router: Pausing %d seconds.", module_name, pause )
+    umi ( rn.verbose, "Halt_and_restart_router: Pausing %d seconds.", pause )
   }
   time.Sleep ( time.Duration(pause) * time.Second )
 
@@ -621,7 +621,7 @@ func halt_client ( wg * sync.WaitGroup, c * client.Client ) {
   defer wg.Done()
   err := c.Halt ( )
   if err != nil && err.Error() != "process self-terminated." {
-    upl ( "Client %s halting error: %s", module_name, c.Name, err.Error() )
+    ume ( "Client |%s| halting error: %s", c.Name, err.Error() )
   }
 }
 
@@ -657,7 +657,7 @@ func ( rn * Router_Network ) Halt ( ) {
 
 func ( rn * Router_Network ) Display_routers ( ) {
   for index, r := range rn.routers {
-    upl ( "router %d: %s %d %s", module_name, index, r.Name(), r.Pid(), r.State() )
+    umi ( rn.verbose, "router %d: %s %d %s", index, r.Name(), r.Pid(), r.State() )
   }
 }
 
@@ -669,11 +669,11 @@ func ( rn * Router_Network ) Halt_first_edge ( ) error {
     if "edge" == r.Type() {
       if r.State() == "running" {
         if rn.verbose {
-          upl ( "Halt : halting router |%s|", module_name, r.Name() )
+          umi ( rn.verbose, "halting router |%s|", r.Name() )
         }
         err := r.Halt ( )
         if err != nil {
-          upl ( "Halt_first_edge : error halting router %s : %s", module_name, r.Name(), err.Error() )
+          umi ( rn.verbose, "error halting router |%s| : |%s|\n", r.Name(), err.Error() )
         }
         return err
       }

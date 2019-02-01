@@ -6,8 +6,13 @@ import (
   "sort"
   "strings"
 
+  "utils"
   "lisp"
 )
+
+
+var ume     = utils.M_error
+var umi     = utils.M_info
 
 
 
@@ -26,11 +31,11 @@ func verbose ( context * Context, command_line * lisp.List ) {
   } else if val == "off" {
     context.verbose = false
   } else {
-    m_error ( "verbose: unknown value: |%s|", val )
+    ume ( "verbose: unknown value: |%s|", val )
   }
 
   context.network.Verbose ( context.verbose )
-  m_info ( context, "verbose: set to |%t|", context.verbose )
+  umi ( context.verbose, "verbose: set to |%t|", context.verbose )
 }
 
 
@@ -47,11 +52,11 @@ func echo ( context * Context, command_line * lisp.List ) {
   } else if val == "off" {
     context.echo = false
   } else {
-    m_error ( "echo: unknown value: |%s|", val )
+    ume ( "echo: unknown value: |%s|", val )
     return
   }
 
-  m_info ( context, "echo: set to |%s|", val )
+  umi ( context.verbose, "echo: set to |%s|", val )
 }
 
 
@@ -68,10 +73,10 @@ func prompt ( context * Context, command_line * lisp.List ) {
   } else if val == "off" {
     context.prompt = false
   } else {
-    m_error ( "prompt: unknown value: |%s|", val )
+    ume ( "prompt: unknown value: |%s|", val )
   }
 
-  m_info ( context, "prompt: set to |%s|", val )
+  umi ( context.verbose, "prompt: set to |%s|", val )
 }
 
 
@@ -99,11 +104,11 @@ func edges ( context * Context, command_line * lisp.List ) {
     edge_name = fmt.Sprintf ( "edge_%04d", context.edge_count )
     context.network.Add_edge ( edge_name, version_name )
     context.network.Connect_router ( edge_name, router_name )
-    m_info ( context, 
-             "edges: added edge %s with version %s to router %s", 
-             edge_name, 
-             version_name, 
-             router_name )
+    umi ( context.verbose, 
+          "edges: added edge %s with version %s to router %s", 
+          edge_name, 
+          version_name, 
+          router_name )
   }
 }
 
@@ -123,31 +128,31 @@ func paths ( context * Context, command_line * lisp.List ) {
   trouble := 0
 
   if dispatch_path.string_value == "" {
-    m_error ( "paths: dispatch path missing." )
+    ume ( "paths: dispatch path missing." )
     trouble ++
   }
   if _, err := os.Stat ( dispatch_path.string_value ); os.IsNotExist ( err ) {
-    m_error ( "paths: dispatch path does not exist: |%s|.", dispatch_path.string_value )
+    ume ( "paths: dispatch path does not exist: |%s|.", dispatch_path.string_value )
     trouble ++
   }
 
 
   if proton_path.string_value == "" {
-    m_error ( "paths: proton path missing." )
+    ume ( "paths: proton path missing." )
     trouble ++
   }
   if _, err := os.Stat ( proton_path.string_value ); os.IsNotExist ( err ) {
-    m_error ( "paths: proton path does not exist: |%s|.", proton_path.string_value )
+    ume ( "paths: proton path does not exist: |%s|.", proton_path.string_value )
     trouble ++
   }
 
 
   if mercury_path.string_value == "" {
-    m_error ( "paths: mercury path missing." )
+    ume ( "paths: mercury path missing." )
     trouble ++
   }
   if _, err := os.Stat ( mercury_path.string_value ); os.IsNotExist ( err ) {
-    m_error ( "paths: mercury path does not exist: |%s|.", mercury_path.string_value )
+    ume ( "paths: mercury path does not exist: |%s|.", mercury_path.string_value )
     trouble ++
   }
 
@@ -167,13 +172,13 @@ func paths ( context * Context, command_line * lisp.List ) {
   // If the user wants to define other versions they may do so with the 
   //'dispatch_version' command, but they are not forced to do so.
   context.default_dispatch_version = context.dispatch_install_root
-  m_info ( context,
-           "paths: default dispatch version set to |%s|.", 
-           context.default_dispatch_version )
+  umi ( context.verbose,
+        "paths: default dispatch version set to |%s|.", 
+        context.default_dispatch_version )
 
-  m_info ( context, "paths: dispatch_path : |%s|", context.dispatch_install_root )
-  m_info ( context, "paths: proton_path   : |%s|", context.proton_install_root   )
-  m_info ( context, "paths: mercury_path  : |%s|", context.mercury_root  )
+  umi ( context.verbose, "paths: dispatch_path : |%s|", context.dispatch_install_root )
+  umi ( context.verbose, "paths: proton_path   : |%s|", context.proton_install_root   )
+  umi ( context.verbose, "paths: mercury_path  : |%s|", context.mercury_root  )
 
   // Now that paths are set, the network can be created.
   create_network ( context )
@@ -249,11 +254,11 @@ func send ( context * Context, command_line * lisp.List ) {
                                  final_addr,
                                  throttle )
 
-    m_info ( context,
-             "send: added sender |%s| with addr |%s| to router |%s|.", 
-             sender_name,
-             final_addr,
-             router_name )
+    umi ( context.verbose,
+          "send: added sender |%s| with addr |%s| to router |%s|.", 
+          sender_name,
+          final_addr,
+          router_name )
 
     router_index ++
     if router_index >= len(target_router_list) {
@@ -330,11 +335,11 @@ func recv ( context * Context, command_line * lisp.List ) {
                                    router_name,
                                    final_addr )
 
-    m_info ( context,
-             "recv: added |%s| with addr |%s| to router |%s|.", 
-             recv_name,
-             final_addr,
-             router_name )
+    umi ( context.verbose,
+          "recv: added |%s| with addr |%s| to router |%s|.", 
+          recv_name,
+          final_addr,
+          router_name )
 
     router_index ++
     if router_index >= len(target_router_list) {
@@ -351,28 +356,28 @@ func recv ( context * Context, command_line * lisp.List ) {
 // parses the command lline its own way.
 func dispatch_version ( context * Context, command_line * lisp.List ) {
 
-  m_info ( context, "version command is under construction." )
+  umi ( context.verbose, "version command is under construction." )
   return
 
   version_name, err := command_line.Get_atom ( 1 )
   if err != nil {
-    m_error ( "dispatch_version: error on version name: %s", err.Error() )
+    ume ( "dispatch_version: error on version name: %s", err.Error() )
     return
   }
 
   path, err := command_line.Get_atom ( 2 )
   if err != nil {
-    m_error ( "dispatch_version: error on path: %s", err.Error() )
+    ume ( "dispatch_version: error on path: %s", err.Error() )
     return
   }
 
   if _, err := os.Stat ( path ); os.IsNotExist ( err ) {
-    m_error ( "dispatch_version: %s version path does not exist: |%s|.", version_name, path )
+    ume ( "dispatch_version: %s version path does not exist: |%s|.", version_name, path )
     return
   }
 
   // TODO store these at app level -- not in network.  context.network.Add_dispatch_version ( version_name, path )
-  m_info ( context, "dispatch_version: added version %s with path %s", version_name, path )
+  umi ( context.verbose, "dispatch_version: added version %s with path %s", version_name, path )
 }
 
 
@@ -397,7 +402,7 @@ func routers ( context  * Context, command_line * lisp.List ) {
     router_name = get_next_interior_router_name ( context )
     context.network.Add_router ( router_name, version )
     temp_names = append ( temp_names, router_name )
-    m_info ( context, "routers: added router |%s| with version |%s|.", router_name, version )
+    umi ( context.verbose, "routers: added router |%s| with version |%s|.", router_name, version )
   }
 }
 
@@ -410,16 +415,16 @@ func connect ( context  * Context, command_line * lisp.List ) {
   to_router, _   := command_line.Get_atom ( 2 )
 
   if from_router == "" || to_router == "" {
-    m_error ( "connect: from and to routers must both be specified." )
+    ume ( "connect: from and to routers must both be specified." )
     return
   }
 
   context.network.Connect_router ( from_router, to_router )
   
-  m_info ( context, 
-           "connect: connected router |%s| to router |%s|.", 
-           from_router, 
-           to_router )
+  umi ( context.verbose, 
+        "connect: connected router |%s| to router |%s|.", 
+        from_router, 
+        to_router )
 }
 
 
@@ -433,7 +438,7 @@ func inc ( context  * Context, command_line * lisp.List ) {
   file_name := cmd.unlabelable_string.string_value
 
   if file_name == "" {
-    m_error ( "inc: I need a file name." )
+    ume ( "inc: I need a file name." )
     return
   }
 
@@ -463,7 +468,7 @@ func linear ( context  * Context, command_line * lisp.List ) {
     router_name = get_next_interior_router_name ( context )
     context.network.Add_router ( router_name, version )
     temp_names = append ( temp_names, router_name )
-    m_info ( context, "linear: added router |%s| with version |%s|.", router_name, version )
+    umi ( context.verbose, "linear: added router |%s| with version |%s|.", router_name, version )
   }
 
   // And connect them.
@@ -472,7 +477,7 @@ func linear ( context  * Context, command_line * lisp.List ) {
       pitcher := name
       catcher := temp_names [ index + 1 ]
       context.network.Connect_router ( pitcher, catcher )
-      m_info ( context, "linear: connected router |%s| to router |%s|", pitcher, catcher )
+      umi ( context.verbose, "linear: connected router |%s| to router |%s|", pitcher, catcher )
     }
   }
 }
@@ -499,7 +504,7 @@ func mesh ( context  * Context, command_line * lisp.List ) {
     router_name = get_next_interior_router_name ( context )
     context.network.Add_router ( router_name, version )
     temp_names = append ( temp_names, router_name )
-    m_info ( context, "mesh: added router |%s| with version |%s|.", router_name, version )
+    umi ( context.verbose, "mesh: added router |%s| with version |%s|.", router_name, version )
   }
 
   // And connect them.
@@ -510,7 +515,7 @@ func mesh ( context  * Context, command_line * lisp.List ) {
         catcher = temp_names[j]
         context.network.Connect_router ( pitcher, catcher )
         if context.verbose {
-          m_info ( context, "mesh: connected router |%s| to router |%s|", pitcher, catcher )
+          umi ( context.verbose, "mesh: connected router |%s| to router |%s|", pitcher, catcher )
         }
       }
     }
@@ -539,7 +544,7 @@ func teds_diamond ( context  * Context, command_line * lisp.List ) {
     router_name = get_next_interior_router_name ( context )
     context.network.Add_router ( router_name, version )
     temp_names = append ( temp_names, router_name )
-    m_info ( context, "teds_diamond: added router |%s| with version |%s|.", router_name, version )
+    umi ( context.verbose, "teds_diamond: added router |%s| with version |%s|.", router_name, version )
   }
 
   // And connect them.
@@ -550,7 +555,7 @@ func teds_diamond ( context  * Context, command_line * lisp.List ) {
         catcher = temp_names[j]
         context.network.Connect_router ( pitcher, catcher )
         if context.verbose {
-          m_info ( context, "teds_diamond: connected router |%s| to router |%s|", pitcher, catcher )
+          umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", pitcher, catcher )
         }
       }
     }
@@ -559,24 +564,24 @@ func teds_diamond ( context  * Context, command_line * lisp.List ) {
   // Now make the two outliers.
   outlier := get_next_interior_router_name ( context )
   context.network.Add_router ( outlier, version )
-  m_info ( context, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
+  umi ( context.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
   catcher = temp_names[0]
   context.network.Connect_router ( outlier, catcher )
-  m_info ( context, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
   catcher = temp_names[1]
   context.network.Connect_router ( outlier, catcher )
-  m_info ( context, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
 
 
   outlier = get_next_interior_router_name ( context )
   context.network.Add_router ( outlier, version )
-  m_info ( context, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
+  umi ( context.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
   catcher = temp_names[2]
   context.network.Connect_router ( outlier, catcher )
-  m_info ( context, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
   catcher = temp_names[3]
   context.network.Connect_router ( outlier, catcher )
-  m_info ( context, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
 }
 
 
@@ -588,7 +593,7 @@ func run ( context  * Context, command_line * lisp.List ) {
   context.network.Run  ( )
 
   context.network_running = true
-  m_info ( context, "run: network is running." )
+  umi ( context.verbose, "run: network is running." )
 }
 
 
@@ -599,7 +604,7 @@ func quit ( context * Context, command_line * lisp.List ) {
   if context.network_running {
     context.network.Halt ( )
   }
-  m_info ( context, "Mercury quitting." )
+  umi ( context.verbose, "Mercury quitting." )
   os.Exit ( 0 )
 }
 
@@ -673,11 +678,11 @@ func kill ( context * Context, command_line * lisp.List ) {
   router_name := cmd.unlabelable_string.string_value
 
   if err := context.network.Halt_router ( router_name ); err != nil {
-    m_error ( "kill: no such router |%s|", router_name )
+    ume ( "kill: no such router |%s|", router_name )
     return
   }
 
-  m_info ( context, "kill: killing router |%s|", router_name )
+  umi ( context.verbose, "kill: killing router |%s|", router_name )
 }
 
 
@@ -687,7 +692,7 @@ func kill ( context * Context, command_line * lisp.List ) {
 func kill_and_restart ( context * Context, command_line * lisp.List ) {
 
   if ! context.network.Running {
-    m_error ( "kill_and_restart: the network is not running." )
+    ume ( "kill_and_restart: the network is not running." )
     return
   }
 
@@ -698,7 +703,7 @@ func kill_and_restart ( context * Context, command_line * lisp.List ) {
   pause       := cmd.unlabelable_int.int_value
 
   if err := context.network.Halt_and_restart_router ( router_name, pause ); err != nil {
-    m_error ( "kill_and_restart: no such router |%s|", router_name )
+    ume ( "kill_and_restart: no such router |%s|", router_name )
     return
   }
 }

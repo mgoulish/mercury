@@ -6,12 +6,10 @@ import (
          "os"
          "strings"
          "strconv"
-         "utils"
        )
 
 
 var fp          = fmt.Fprintf
-var upl         = utils.Print_log
 var module_name = "router"
 
 

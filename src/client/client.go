@@ -42,7 +42,6 @@ import ( "fmt"
          "os/exec"
          "strings"
          "time"
-         "utils"
          "strconv"
        )
 
@@ -51,7 +50,6 @@ import ( "fmt"
 
 
 var fp          = fmt.Fprintf
-var upl         = utils.Print_log
 var module_name = "client"
 
 
@@ -181,8 +179,11 @@ func ( c * Client ) Is_running ( ) ( bool ) {
 
 func ( c * Client ) Halt ( ) error {
 
+  // Let's not treat this as an error. Just as the user 
+  // can freely "run" the network even if parts of it are
+  // already running -- let's allow them to halt it even 
+  // if parts are already halted.
   if c.State == halted {
-    upl ( "Attempt to re-halt client %s", module_name, c.Name )
     return nil
   }
 

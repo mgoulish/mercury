@@ -16,8 +16,9 @@ import (
 
 
 
-var fp = fmt.Fprintf
-var mercury = '\u263F'
+var fp  = fmt.Fprintf
+var ume = utils.M_error
+var umi = utils.M_info
 
 
 type command_fn func ( * Context, * lisp.List )
@@ -115,29 +116,6 @@ type Context struct {
 
 
 
-func m_info ( context * Context, format string, args ...interface{}) {
-  if ! context.verbose {
-    return
-  }
-  new_format := fmt.Sprintf ( "    %c info: %s\n", mercury, format )
-  fp ( os.Stdout, new_format, args ... )
-}
-
-
-
-
-
-func m_error ( format string, args ...interface{}) {
-  new_format := fmt.Sprintf ( "    %c error: %s", mercury, format + "\n" )
-  fp ( os.Stdout, "\n------------------------------------------------\n" )
-  fp ( os.Stdout, new_format, args ... )
-  fp ( os.Stdout,   "------------------------------------------------\n\n" )
-}
-
-
-
-
-
 func ( context * Context ) add_command ( name      string, 
                                          fn        command_fn,
                                          help      string ) ( * command ) {
@@ -170,22 +148,22 @@ func (c * command) add_arg ( name          string,
   if unlabelable {
     if data_type == "string" {
       if c.unlabelable_string != nil {
-        m_error ( "command |%s| already has an unlabelable string arg: |%s|", 
-                  c.name, 
-                  c.unlabelable_string.name )
+        ume ( "command |%s| already has an unlabelable string arg: |%s|", 
+              c.name, 
+              c.unlabelable_string.name )
         return
       }
       c.unlabelable_string = a
     } else if data_type == "int" {
       if c.unlabelable_int != nil {
-        m_error ( "command |%s| already has an unlabelable int arg: |%s|",
-                  c.name,
-                  c.unlabelable_int.name )
+        ume ( "command |%s| already has an unlabelable int arg: |%s|",
+              c.name,
+              c.unlabelable_int.name )
         return
       }
       c.unlabelable_int = a
     } else {
-      m_error ( "add_arg: unknown arg data type: |%s|", data_type )
+      ume ( "add_arg: unknown arg data type: |%s|", data_type )
       return
     }
   }
@@ -245,12 +223,12 @@ func create_network ( context * Context ) {
   utils.Find_or_create_dir ( context.log_path )
   // Don't try to create the client path. That's an executable, not a directory.
 
-  m_info ( context, "create_network: result_path : |%s|", context.result_path )
-  m_info ( context, "create_network: config_path : |%s|", context.config_path )
-  m_info ( context, "create_network: log_path    : |%s|", context.log_path )
-  m_info ( context, "create_network: client_path : |%s|", context.client_path )
-  m_info ( context, "create_network: result_path : |%s|", context.result_path )
-  m_info ( context, "create_network: router_path : |%s|", context.router_path )
+  umi ( context.verbose, "create_network: result_path : |%s|", context.result_path )
+  umi ( context.verbose, "create_network: config_path : |%s|", context.config_path )
+  umi ( context.verbose, "create_network: log_path    : |%s|", context.log_path )
+  umi ( context.verbose, "create_network: client_path : |%s|", context.client_path )
+  umi ( context.verbose, "create_network: result_path : |%s|", context.result_path )
+  umi ( context.verbose, "create_network: router_path : |%s|", context.router_path )
 
   context.network = rn.New_Router_Network ( "mercury_router_network",
                                             context.n_worker_threads,
@@ -307,11 +285,11 @@ func get_version_name ( context  * Context, input_name string ) ( string, error 
   }
 
   if output_name == "" {
-    m_error ( "get_version_name: there are no dispatch versions defined. Use command dispatch_version.")
+    ume ( "get_version_name: there are no dispatch versions defined. Use command dispatch_version.")
     return "", errors.New ( "No defined versions." )
   }
 
-  m_info ( context, "dispatch version for this command set to %s", output_name )
+  umi ( context.verbose, "dispatch version for this command set to %s", output_name )
 
   return output_name, nil
 }
@@ -331,7 +309,7 @@ func main() {
 
   cwd, err := os.Getwd()
   if err != nil {
-    m_error ( "Can't get cwd path for program name %s", os.Args[0] )
+    ume ( "Can't get cwd path for program name %s", os.Args[0] )
   }
   
   var context Context
