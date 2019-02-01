@@ -22,7 +22,8 @@
      This should build the C Proactor-based client that we will be
      using. You should see a new executable file called c_proactor_client .
 
-  4. Now ./r should start mercury. You should see a little mercury
+  4. Now go to the mercury/mercury directory. In there, ./r should start 
+     the interactive mercury program. You should see a little mercury
      prompt. ( Similar to the astrological symbol for Venus, except 
      with a hat on it. )  Like this:  ☿ 
 
