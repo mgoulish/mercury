@@ -66,6 +66,10 @@ help send
 # And make a connection to our current network.
 # (Or it won't show up, since the console is connected 
 # to router A...)
+# 
+# In the console, go to the topology tab to see a 
+# moving picture of the network that we are running.
+#
 #------------------------------------------------------
 linear 4
 connect E B
@@ -73,7 +77,7 @@ run
 
 #
 #------------------------------------------------------
-# Now letr's add a sender and receiver on this network
+# Now let's add a sender and receiver on this network
 # and give them both a new non-default address.
 #------------------------------------------------------
 send D address foo
