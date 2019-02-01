@@ -199,6 +199,15 @@ func New_Router ( name                        string,
 
 
 
+
+func ( r * Router ) Verbose ( val bool ) {
+  r.verbose = val
+}
+
+
+
+
+
 func ( r * Router ) Edges ( ) ( [] string ) {
   return r.connect_to_me_edge
 }
@@ -525,8 +534,10 @@ func ( r * Router ) Check_memory ( ) {
   and runs the router as a separate process.
 */
 func ( r * Router ) Run ( ) error {
-
-  if r.state > initialized {
+  if r.state == running {
+    if r.verbose {
+      upl ( "Attempt to re-run running router |%s|.\n", module_name, r.name )
+    }
     return nil
   }
 
@@ -535,10 +546,6 @@ func ( r * Router ) Run ( ) error {
     do_resource_measurement = true
   } else {
     do_resource_measurement = false
-  }
-
-  if r.verbose {
-    fp ( os.Stderr, "router.Run router %s\n", r.name )
   }
 
   DISPATCH_LIBRARY_PATH := r.dispatch_install_root + "/lib"
@@ -578,6 +585,10 @@ func ( r * Router ) Run ( ) error {
   r.pid = r.cmd.Process.Pid
   setup_dir := r.result_path + "/setup/" + r.name
   utils.Find_or_create_dir ( setup_dir )
+
+  if r.verbose {
+    upl ( "Router |%s| has started with pid %d .\n", module_name, r.name, r.pid )
+  }
 
   if do_resource_measurement {
     r.resource_usage_dir = r.result_path + "/resources/" + strconv.Itoa(r.cmd.Process.Pid)
@@ -672,7 +683,6 @@ func ( r * Router ) resource_measurement_ticker ( ) {
   an error code.
 */
 func ( r * Router ) Halt ( ) error {
-
   if r.verbose {
     fp ( os.Stdout, "halting router |%s|\n", r.name )
   }
@@ -700,6 +710,9 @@ func ( r * Router ) Halt ( ) error {
       done <- r.cmd.Wait ( )
   } ( )
 
+  // In any case, the router is now halted.
+  r.state = halted
+
   select {
     /*
       This is the expected case.
@@ -707,7 +720,7 @@ func ( r * Router ) Halt ( ) error {
       This means that the process is still running normally when we kill it.
     */
     case <-time.After ( 250 * time.Millisecond ) :
-      r.state = halted
+
       if err := r.cmd.Process.Kill(); err != nil {
         return errors.New ( "failed to kill process: " + err.Error() )
       }
@@ -718,6 +731,12 @@ func ( r * Router ) Halt ( ) error {
         defer f.Close()
         fp ( f, "\n\n\nDIFFED QDSTAT OUTPUT for router %s --------------------- \n", r.name )
         diffed_output.Print_nonzero ( f )
+      }
+
+      // This is the good case. It was not already dead when 
+      // we came here, and we successfully halted it.
+      if r.verbose {
+        upl ( "router |%s| halted.\n", module_name, r.name )
       }
       return nil
 

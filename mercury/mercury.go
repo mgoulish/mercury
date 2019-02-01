@@ -669,6 +669,23 @@ func main() {
                 "Which router to kill." )
 
 
+  // kill_and_restart command -------------------------------------------------------
+  cmd = context.add_command ( "kill_and_restart",
+                              kill_and_restart,
+                              "Kill and restart a router, after a pause." )
+  cmd.add_arg ( "router",
+                true,   // unlabelable
+                "string",
+                "",
+                "Which router to kill and restart." )
+
+  cmd.add_arg ( "pause",
+                true,   // unlabelable
+                "int",
+                "10",
+                "How long to pause, in seconds, after killing and before restarting." )
+
+
 
 
   /*--------------------------------------------

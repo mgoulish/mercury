@@ -18,31 +18,6 @@
  */
 
 
-/*
-  Package router_network controls a network of dispatch routers.
-
-  Theory of Operation
-  --------------------------------
-
-  1. create the network.
-
-  2. add routers to it. There are separate commands for 
-     adding interior or edge routers. You just make up a 
-     name.
-
-  3. connect some routers to other routers. You just 
-     give the names of the routers to be connected.
-
-  4. Initialize the network. This causes all the config
-     files to be written.
-
-  5. Start the network.
-
-  6. Talk to the routers in various ways. Right now, the
-     only way is by calling Check_Links().
-
-  7/ Halt the network.
-*/
 package router_network
 
 import ( "errors"
@@ -64,12 +39,11 @@ var module_name = "router_network"
 
 
 
-/*
-  Represents Dispatch Router network state and
-  conatins the vector of routers.
-*/
+// Represents Dispatch Router network state and
+// conatins the vector of routers.
 type Router_Network struct {
-  Name                        string
+  Name                           string
+  Running                        bool
 
   worker_threads                 int
   result_path                    string
@@ -91,11 +65,9 @@ type Router_Network struct {
 
 
 
-/*
-  Create a new router network.
-  Tell it how many worker threads each router should have,
-  and provide lots of paths.
-*/
+// Create a new router network.
+// Tell it how many worker threads each router should have,
+// and provide lots of paths.
 func New_Router_Network ( name                           string,
                           worker_threads                 int,
                           result_path                    string,
@@ -241,6 +213,17 @@ func ( rn * Router_Network ) add_router ( name        string,
                            rn.verbose,
                            rn.resource_measurement_frequency )
   rn.routers = append ( rn.routers, r )
+}
+
+
+
+
+
+func ( rn * Router_Network ) Verbose ( val bool ) {
+  rn.verbose = val
+  for _, r := range rn.routers {
+    r.Verbose ( val )
+  }
 }
 
 
@@ -458,6 +441,8 @@ func ( rn * Router_Network ) Run ( ) {
     }
     upl ( "Done starting clients.", module_name )
   }
+
+  rn.Running = true
 }
 
 
@@ -597,7 +582,28 @@ func (rn * Router_Network) Halt_router ( router_name string ) ( error ) {
 
 
 
-func (rn * Router_Network) Get_edge_list ( ) ( edge_list [] string){
+func (rn * Router_Network) Halt_and_restart_router ( router_name string, pause int ) ( error ) {
+  r := rn.get_router_by_name ( router_name )
+  if r == nil {
+    return errors.New ( "No such router." )
+  }
+
+  r.Halt()
+  if rn.verbose {
+    upl ( "Halt_and_restart_router: Pausing %d seconds.", module_name, pause )
+  }
+  time.Sleep ( time.Duration(pause) * time.Second )
+
+  r.Run ( )
+
+  return nil
+}
+
+
+
+
+
+func (rn * Router_Network) Get_edge_list ( ) ( edge_list [] string) {
   for _, r := range rn.routers {
     if r.Type() == "edge" {
       edge_list = append ( edge_list, r.Name() )
@@ -643,6 +649,7 @@ func ( rn * Router_Network ) Halt ( ) {
   }
 
   wg.Wait()
+  rn.Running = false
 }
 
 

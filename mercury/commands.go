@@ -29,7 +29,8 @@ func verbose ( context * Context, command_line * lisp.List ) {
     m_error ( "verbose: unknown value: |%s|", val )
   }
 
-  m_info ( context, "verbose: set to |%s|", val )
+  context.network.Verbose ( context.verbose )
+  m_info ( context, "verbose: set to |%t|", context.verbose )
 }
 
 
@@ -683,10 +684,24 @@ func kill ( context * Context, command_line * lisp.List ) {
 
 
 
+func kill_and_restart ( context * Context, command_line * lisp.List ) {
 
+  if ! context.network.Running {
+    m_error ( "kill_and_restart: the network is not running." )
+    return
+  }
 
+  cmd := context.commands [ "kill_and_restart" ]
+  parse_command_line ( context, cmd, command_line )
 
+  router_name := cmd.unlabelable_string.string_value
+  pause       := cmd.unlabelable_int.int_value
 
+  if err := context.network.Halt_and_restart_router ( router_name, pause ); err != nil {
+    m_error ( "kill_and_restart: no such router |%s|", router_name )
+    return
+  }
+}
 
 
 
