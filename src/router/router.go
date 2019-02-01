@@ -565,6 +565,8 @@ func ( r * Router ) Run ( ) error {
 
   args_list := strings.Fields ( args )
 
+  umi ( r.verbose, "router executable: |%s|", r.executable_path )
+
   // Start the router process and get its pid for the result directory name.
   // After the Start() call, the router process is running detached.
   r.cmd = exec.Command ( r.executable_path,  args_list... )
