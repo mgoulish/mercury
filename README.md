@@ -23,4 +23,6 @@
      with a hat on it. )  Like this:  ☿ 
 
   4. At the ☿ prompt, type inc demo_1 <enter>.  This should start 
-     running a script, one line at a time.
+     running a script, one line at a time. This demo will make a 
+     simple network and run it, and make a couple clients and run 
+     them.  
