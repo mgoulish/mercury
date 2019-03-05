@@ -23,8 +23,6 @@ package router_network
 import ( "errors"
          "fmt"
          "os"
-         "os/exec"
-         "strings"
          "sync"
          "time"
          "utils"
@@ -41,26 +39,129 @@ var umi         = utils.M_info
 
 
 
-// Represents Dispatch Router network state and
-// conatins the vector of routers.
-type Router_Network struct {
+
+type Version struct {
+  Name            string
+
+  dispatch_root   string
+  proton_root     string
+
+  Router_path     string
+  Pythonpath      string
+  Ld_library_path string
+  Console_path    string
+  Include_path    string
+}
+
+
+
+
+
+func check_path ( name string, path string ) {
+  if ! utils.Path_exists ( path ) {
+    ume ( "Path |%s| does not exist at |%s|\n", name, path )
+    os.Exit ( 1 )
+  }
+}
+
+
+
+
+
+/*===================================================================
+
+  The purpose of the two Version constructors is to allow you to 
+  construct a Version the easy way -- with just two install paths --
+  or the hard way, by supplying all paths yourself. 
+
+  This is because some environments are not set up as my code 
+  expects them to be, and you may need the flexibility of the 
+  explicit paths method.
+
+  You call these indirectly, by calling one of 
+    Add_version_with_roots(), or
+    Add_version_with_paths().
+    
+-===================================================================*/
+
+func new_version_with_roots ( name          string,
+                              dispatch_root string,
+                              proton_root   string ) * Version {
+
+  v := & Version { Name          : name,
+                   dispatch_root : dispatch_root,
+                   proton_root   : proton_root } 
+
+  v.Router_path = dispatch_root + "/sbin/qdrouterd"
+
+  // Calculate LD_LIBRARY_PATH for this version.
+  DISPATCH_LIBRARY_PATH := v.dispatch_root + "/lib"
+  PROTON_LIBRARY_PATH   := v.proton_root   + "/lib64"
+  v.Ld_library_path      = DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
+
+  // Calculate PYTHONPATH for this version.
+  DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
+  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
+  PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH   + "/proton/bindings/python"
+
+  v.Pythonpath          =  DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_LIBRARY_PATH +":"+ PROTON_PYTHONPATH
+  v.Console_path        =  v.dispatch_root + "/share/qpid-dispatch/console/stand-alone"
+  v.Include_path        =  v.dispatch_root + "/lib/qpid-dispatch/python"
+
+  check_path ( "dispatch_root", v.dispatch_root )
+  check_path ( "proton_root",   v.proton_root )
+  check_path ( "Router_path",   v.Router_path )
+  check_path ( "Console_path",  v.Console_path )
+  check_path ( "Include_path",  v.Include_path )
+
+  return v
+}
+
+
+
+
+
+func new_version_with_paths ( name            string,
+                              router_path     string,
+                              pythonpath      string,
+                              ld_library_path string ) * Version {
+
+  v := & Version { Name            : name,
+                   Router_path     : router_path,
+                   Pythonpath      : pythonpath,
+                   Ld_library_path : ld_library_path }
+
+  // In this constructor, the two 'roots' 
+  // are left nil. They will never be used.
+  return v
+}
+
+
+
+
+
+type Router_network struct {
   Name                           string
   Running                        bool
 
-  worker_threads                 int
   result_path                    string
-  executable_path                string
-  config_path                    string
   log_path                       string
-  client_path                    string
-  dispatch_root                  string
-  proton_root                    string
-  qdstat_path                    string
-  verbose                        bool
-  resource_measurement_frequency int
 
-  routers                        [] * router.Router
-  clients                        [] * client.Client
+  /*
+    The Network, rather than the Version has
+    the client path, because the client comes
+    from the Mercury install, not from the Dispatch
+    or Proton installs, which are contained in Version.
+  */
+  client_path                    string
+
+  Versions                  [] * Version
+  Default_version              * Version
+
+  verbose                        bool
+
+  routers                   [] * router.Router
+  clients                   [] * client.Client
 }
 
 
@@ -70,38 +171,47 @@ type Router_Network struct {
 // Create a new router network.
 // Tell it how many worker threads each router should have,
 // and provide lots of paths.
-func New_Router_Network ( name                           string,
-                          worker_threads                 int,
-                          result_path                    string,
-                          executable_path                string,
-                          config_path                    string,
-                          log_path                       string,
-                          client_path                    string,
-                          dispatch_root                  string,
-                          proton_root                    string,
-                          verbose                        bool,
-                          resource_measurement_frequency int ) * Router_Network {
-  var rn * Router_Network
+func New_router_network ( name string ) * Router_network {
+  var rn * Router_network
 
-  rn = & Router_Network { Name                           : name,
-                          worker_threads                 : worker_threads,
-                          result_path                    : result_path,
-                          executable_path                : executable_path,
-                          config_path                    : config_path,
-                          log_path                       : log_path,
-                          client_path                    : client_path,
-                          dispatch_root                  : dispatch_root,
-                          proton_root                    : proton_root,
-                          qdstat_path                    : dispatch_root + "/bin/qdstat",
-                          verbose                        : verbose,
-                          resource_measurement_frequency : resource_measurement_frequency }
+  rn = & Router_network { Name : name }
 
   return rn
 }
 
 
 
-func ( rn * Router_Network ) N_routers ( ) ( int ) {
+
+
+func ( rn * Router_network ) Add_version_with_roots ( name          string,
+                                                      proton_root   string,
+                                                      dispatch_root string ) {
+
+  version := new_version_with_roots ( name, dispatch_root, proton_root )
+  rn.Versions = append ( rn.Versions, version )
+  if 1 == len ( rn.Versions ) {
+    rn.Default_version = version
+  }
+}
+
+
+
+
+
+func ( rn * Router_network ) Add_version_with_paths ( name            string,
+                                                      router_path     string,
+                                                      pythonpath      string,
+                                                      ld_library_path string ) {
+
+  version := new_version_with_paths ( name, router_path, pythonpath, ld_library_path )
+  rn.Versions = append ( rn.Versions, version )
+}
+
+
+
+
+
+func ( rn * Router_network ) Get_n_routers ( ) ( int ) {
   return len ( rn.routers )
 }
 
@@ -109,7 +219,7 @@ func ( rn * Router_Network ) N_routers ( ) ( int ) {
 
 
 
-func ( rn * Router_Network ) N_interior_routers ( ) ( int ) {
+func ( rn * Router_network ) Get_n_interior_routers ( ) ( int ) {
   count := 0
   for _, r := range rn.routers {
     if r.Type() == "interior" {
@@ -123,7 +233,20 @@ func ( rn * Router_Network ) N_interior_routers ( ) ( int ) {
 
 
 
-func ( rn * Router_Network ) Get_router_edges ( router_name string ) ( [] string ) {
+func ( rn * Router_network ) Get_version_from_name ( target_name string ) ( * Version ) {
+  for _, v := range rn.Versions {
+    if v.Name == target_name {
+      return v
+    }
+  }
+  return nil
+}
+
+
+
+
+
+func ( rn * Router_network ) Get_router_edges ( router_name string ) ( [] string ) {
   rtr := rn.get_router_by_name ( router_name )
   if rtr == nil {
     fp ( os.Stdout, "    network.Get_router_edges error: can't find router |%s|\n", router_name )
@@ -137,30 +260,7 @@ func ( rn * Router_Network ) Get_router_edges ( router_name string ) ( [] string
 
 
 
-func ( rn * Router_Network ) Print ( ) {
-  fp ( os.Stdout, "network                          |%s|\n", rn.Name )
-  fp ( os.Stdout, "  worker_threads                  %d\n",  rn.worker_threads )
-  fp ( os.Stdout, "  result_path                    |%s|\n", rn.result_path )
-  fp ( os.Stdout, "  executable_path                |%s|\n", rn.executable_path )
-  fp ( os.Stdout, "  config_path                    |%s|\n", rn.config_path )
-  fp ( os.Stdout, "  log_path                       |%s|\n", rn.log_path )
-  fp ( os.Stdout, "  client_path                    |%s|\n", rn.client_path )
-  fp ( os.Stdout, "  dispatch_root                  |%s|\n", rn.dispatch_root )
-  fp ( os.Stdout, "  proton_root                    |%s|\n", rn.proton_root )
-  fp ( os.Stdout, "  verbose                         %t\n",  rn.verbose )
-  fp ( os.Stdout, "  resource_measurement_frequency  %d\n",  rn.resource_measurement_frequency )
-  fp ( os.Stdout, "\n" )
-
-  for _, r := range rn.routers {
-    r.Print ( )
-  }
-}
-
-
-
-
-
-func ( rn * Router_Network ) Print_console_ports ( ) {
+func ( rn * Router_network ) Print_console_ports ( ) {
   for _, r := range rn.routers {
     r.Print_console_port ( )
   }
@@ -170,20 +270,17 @@ func ( rn * Router_Network ) Print_console_ports ( ) {
 
 
 
-
-func ( rn * Router_Network ) Check_memory_all () {
-  for _, r := range rn.routers {
-    rn.Check_memory ( r.Name() )
-  }
-}
-
-
-
-
-
-func ( rn * Router_Network ) add_router ( name        string, 
-                                          router_type string, 
-                                          version     string ) {
+func ( rn * Router_network ) add_router ( name         string, 
+                                          router_type  string, 
+                                          version_name string,
+                                          config_path  string,
+                                          log_path     string ) {
+/*
+  Some paths are related to the current session. They get passed
+  in here directly as args. The others are related to the version
+  of the router code we are using, and they come in as part of the
+  version structure.
+*/
   var console_port string
   if name == "A" {
     console_port = "5673"
@@ -195,25 +292,27 @@ func ( rn * Router_Network ) add_router ( name        string,
   router_port, _  := utils.Available_port ( )
   edge_port, _    := utils.Available_port ( )
 
+  version := rn.Get_version_from_name ( version_name )
 
-  executable_path := version + "/sbin/qdrouterd"
+  // TODO -- pass this down from on high
+  worker_threads := 4
 
   r := router.New_Router ( name,
-                           version,
+                           version.Name,
                            router_type,
-                           rn.worker_threads,
-                           rn.result_path,
-                           executable_path,
-                           rn.config_path,
-                           rn.log_path,
-                           rn.dispatch_root,
-                           rn.proton_root,
+                           worker_threads,
+                           version.Router_path,
+                           config_path,
+                           log_path,
+                           version.Include_path,
+                           version.Console_path,
+                           version.Ld_library_path,
+                           version.Pythonpath,
                            client_port,
                            console_port,
                            router_port,
                            edge_port,
-                           rn.verbose,
-                           rn.resource_measurement_frequency )
+                           rn.verbose )
   rn.routers = append ( rn.routers, r )
 }
 
@@ -221,7 +320,7 @@ func ( rn * Router_Network ) add_router ( name        string,
 
 
 
-func ( rn * Router_Network ) Verbose ( val bool ) {
+func ( rn * Router_network ) Verbose ( val bool ) {
   rn.verbose = val
   for _, r := range rn.routers {
     r.Verbose ( val )
@@ -237,8 +336,16 @@ func ( rn * Router_Network ) Verbose ( val bool ) {
 // started. In that case, you must call Init() and Run() again.
 // Routers that have already been initialized and started will not 
 // be affected.
-func ( rn * Router_Network ) Add_router ( name string, version string ) {
-  rn.add_router ( name, "interior", version )
+func ( rn * Router_network ) Add_router ( name         string, 
+                                          version_name string,
+                                          config_path  string,
+                                          log_path     string ) {
+
+  rn.add_router ( name, 
+                  "interior", 
+                  version_name, 
+                  config_path, 
+                  log_path )
 }
 
 
@@ -249,19 +356,27 @@ func ( rn * Router_Network ) Add_router ( name string, version string ) {
   Similar to Add_Router(), but adds an edge instead of an interior
   router.
 */
-func ( rn * Router_Network ) Add_edge ( name string, version string ) {
-  rn.add_router ( name, "edge", version )
+func ( rn * Router_network ) Add_edge ( name         string, 
+                                        version_name string,
+                                        config_path  string,
+                                        log_path     string ) {
+  rn.add_router ( name, 
+                  "edge", 
+                  version_name,
+                  config_path, 
+                  log_path )
 }
 
 
 
 
-func ( rn * Router_Network ) Add_receiver ( name               string, 
+func ( rn * Router_network ) Add_receiver ( name               string, 
                                             n_messages         int, 
                                             max_message_length int, 
                                             router_name        string, 
                                             address            string ) {
 
+  /*
   throttle := "0" // Receivers do not get throttled.
   r := rn.get_router_by_name ( router_name )
 
@@ -278,13 +393,14 @@ func ( rn * Router_Network ) Add_receiver ( name               string,
                                 address,
                                 throttle )
   rn.clients = append ( rn.clients, client )
+  */
 }
 
 
 
 
 
-func ( rn * Router_Network ) Add_sender ( name               string, 
+func ( rn * Router_network ) Add_sender ( name               string, 
                                           n_messages         int, 
                                           max_message_length int, 
                                           router_name        string, 
@@ -297,7 +413,7 @@ func ( rn * Router_Network ) Add_sender ( name               string,
 
 
 
-func ( rn * Router_Network ) Add_client ( name               string, 
+func ( rn * Router_network ) Add_client ( name               string, 
                                           sender             bool, 
                                           n_messages         int, 
                                           max_message_length int, 
@@ -305,6 +421,7 @@ func ( rn * Router_Network ) Add_client ( name               string,
                                           address            string, 
                                           throttle           string ) {
 
+  /*
   var operation string
   if sender {
     operation = "send"
@@ -333,13 +450,14 @@ func ( rn * Router_Network ) Add_client ( name               string,
                                 address,
                                 throttle )
   rn.clients = append ( rn.clients, client )
+  */
 }
 
 
 
 
 
-func ( rn * Router_Network ) Add_n_senders ( n int, n_messages int, max_message_length int, router_name string, address string, throttle string ) {
+func ( rn * Router_network ) Add_n_senders ( n int, n_messages int, max_message_length int, router_name string, address string, throttle string ) {
   for i := 1; i <= n; i ++ {
     name := fmt.Sprintf ( "sender_%03d", i )
     rn.Add_client ( name, true, n_messages, max_message_length, router_name, address, throttle )
@@ -350,7 +468,7 @@ func ( rn * Router_Network ) Add_n_senders ( n int, n_messages int, max_message_
 
 
 
-func ( rn * Router_Network ) Halt_a_sender ( ) {
+func ( rn * Router_network ) Halt_a_sender ( ) {
   for _, c := range rn.clients {
     if c.Is_running() && c.Operation == "send" {
       c.Halt ( )
@@ -369,7 +487,7 @@ func ( rn * Router_Network ) Halt_a_sender ( ) {
   connect to the appropriate port of the second router.
   You cannot connect to an edge router.
 */
-func ( rn * Router_Network ) Connect_router ( router_1_name string, router_2_name string ) {
+func ( rn * Router_network ) Connect_router ( router_1_name string, router_2_name string ) {
   router_1 := rn.get_router_by_name ( router_1_name )
   router_2 := rn.get_router_by_name ( router_2_name )
 
@@ -400,7 +518,7 @@ func ( rn * Router_Network ) Connect_router ( router_1_name string, router_2_nam
   And uninitialized routers will be initialized, i.e. their config
   files will be created, so they will be ready to start.
 */
-func ( rn * Router_Network ) Init ( ) {
+func ( rn * Router_network ) Init ( ) {
   for _, router := range rn.routers {
     router.Init ( )
   }
@@ -413,7 +531,7 @@ func ( rn * Router_Network ) Init ( ) {
 /*
   Start all routers in the network that are not already started.
 */
-func ( rn * Router_Network ) Run ( ) {
+func ( rn * Router_network ) Run ( ) {
 
   router_run_count := 0
 
@@ -449,107 +567,9 @@ func ( rn * Router_Network ) Run ( ) {
 
 
 
-func ( rn * Router_Network ) Client_port ( target_router_name string ) ( client_port string ) {
+func ( rn * Router_network ) Client_port ( target_router_name string ) ( client_port string ) {
   r := rn.get_router_by_name ( target_router_name )
   return r.Client_port ( )
-}
-
-
-
-
-
-func ( rn * Router_Network ) Check_memory ( router_name string ) error {
-  // set up env ----------------------------------------------
-  PROTON_INSTALL_DIR    := rn.proton_root
-  DISPATCH_INSTALL_DIR  := rn.dispatch_root
-
-  DISPATCH_LIBRARY_PATH := DISPATCH_INSTALL_DIR + "/lib"
-  PROTON_LIBRARY_PATH   := PROTON_INSTALL_DIR   + "/lib64"
-  LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
-
-  DISPATCH_PYTHONPATH   := DISPATCH_INSTALL_DIR + "/lib/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := DISPATCH_INSTALL_DIR + "/lib/python2.7/site-packages"
-  PROTON_PYTHON_PATH    := PROTON_INSTALL_DIR   + "/lib64/proton/bindings/python"
-  PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_PYTHON_PATH
-
-  os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
-  os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
-  // done set up env -----------------------------------------
-
-
-  router := rn.get_router_by_name ( router_name )
-  args := "-m -b 0.0.0.0:" + router.Client_port ( )
-  args_list := strings.Fields ( args )
-  cmd := exec.Command ( rn.qdstat_path,  args_list... )
-  out, _ := cmd.Output()
-
-  fp ( os.Stderr, "\nMemory Report for router |%s| -------------\n%s\n\n\n", router_name, out )
-
-  return nil
-}
-
-
-
-
-
-/*
-  Call the qdstat tool on the named router, and confirm that all 
-  of its endpoint links are up and running. 
-  This is meant to let you check on an interior router to confirm 
-  that all its attached edge routers are still connected.
-*/
-func ( rn * Router_Network ) Check_links ( router_name string ) error {
-  // set up env ----------------------------------------------
-  PROTON_INSTALL_DIR    := rn.proton_root
-  DISPATCH_INSTALL_DIR  := rn.dispatch_root
-
-  DISPATCH_LIBRARY_PATH := DISPATCH_INSTALL_DIR + "/lib64"
-  PROTON_LIBRARY_PATH   := PROTON_INSTALL_DIR   + "/lib64"
-  LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
-
-  DISPATCH_PYTHONPATH   := DISPATCH_INSTALL_DIR + "/lib/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := DISPATCH_INSTALL_DIR + "/lib/python2.7/site-packages"
-  PROTON_PYTHON_PATH    := PROTON_INSTALL_DIR   + "/lib64/proton/bindings/python"
-  PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_PYTHON_PATH
-
-  os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
-  os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
-  // done set up env -----------------------------------------
-
-  router := rn.get_router_by_name ( router_name )
-  args := "-l -b 0.0.0.0:" + router.Client_port ( )
-  args_list := strings.Fields ( args )
-  cmd := exec.Command ( rn.qdstat_path,  args_list... )
-  out, _ := cmd.Output()
-  lines := strings.Split ( string(out), "\n" )
-  bad_links := 0
-
-  for _, line := range lines {
-    fields := strings.Fields ( line )
-    if ( len(fields) >= 1 ) {
-      if fields[0] == "endpoint" {
-        enabled := 0
-        up      := 0
-        for _, field := range fields {
-          if field == "enabled" {
-            enabled = 1
-          }
-          if field == "up" {
-            up = 1
-          }
-        }
-        if enabled + up < 2 {
-          bad_links ++
-        }
-      }
-    }
-  }
-
-  if bad_links > 0 {
-    return errors.New ( "endpoint link down" )
-  }
-
-  return nil
 }
 
 
@@ -568,7 +588,7 @@ func halt_router ( wg * sync.WaitGroup, r * router.Router ) {
 
 
 
-func (rn * Router_Network) Halt_router ( router_name string ) ( error ) {
+func (rn * Router_network) Halt_router ( router_name string ) ( error ) {
   r := rn.get_router_by_name ( router_name )
   if r == nil {
     return errors.New ( "No such router." )
@@ -582,7 +602,7 @@ func (rn * Router_Network) Halt_router ( router_name string ) ( error ) {
 
 
 
-func (rn * Router_Network) Halt_and_restart_router ( router_name string, pause int ) ( error ) {
+func (rn * Router_network) Halt_and_restart_router ( router_name string, pause int ) ( error ) {
   r := rn.get_router_by_name ( router_name )
   if r == nil {
     return errors.New ( "No such router." )
@@ -603,7 +623,7 @@ func (rn * Router_Network) Halt_and_restart_router ( router_name string, pause i
 
 
 
-func (rn * Router_Network) Get_edge_list ( ) ( edge_list [] string) {
+func (rn * Router_network) Get_edge_list ( ) ( edge_list [] string) {
   for _, r := range rn.routers {
     if r.Type() == "edge" {
       edge_list = append ( edge_list, r.Name() )
@@ -633,7 +653,7 @@ func halt_client ( wg * sync.WaitGroup, c * client.Client ) {
   It takes a while to halt each router, so use a workgroup of
   goroutines to do them all in parallel.
 */
-func ( rn * Router_Network ) Halt ( ) {
+func ( rn * Router_network ) Halt ( ) {
   var wg sync.WaitGroup
 
   for _, c := range rn.clients {
@@ -655,7 +675,7 @@ func ( rn * Router_Network ) Halt ( ) {
 
 
 
-func ( rn * Router_Network ) Display_routers ( ) {
+func ( rn * Router_network ) Display_routers ( ) {
   for index, r := range rn.routers {
     umi ( rn.verbose, "router %d: %s %d %s", index, r.Name(), r.Pid(), r.State() )
   }
@@ -663,7 +683,7 @@ func ( rn * Router_Network ) Display_routers ( ) {
 
 
 
-func ( rn * Router_Network ) Halt_first_edge ( ) error {
+func ( rn * Router_network ) Halt_first_edge ( ) error {
   
   for _, r := range rn.routers {
     if "edge" == r.Type() {
@@ -680,14 +700,14 @@ func ( rn * Router_Network ) Halt_first_edge ( ) error {
     }
   }
 
-  return errors.New ( "Router_Network.Halt_first_edge error : Could not find an edge router to halt." )
+  return errors.New ( "Router_network.Halt_first_edge error : Could not find an edge router to halt." )
 }
 
 
 
 
 
-func ( rn * Router_Network ) get_router_by_name ( target_name string ) * router.Router {
+func ( rn * Router_network ) get_router_by_name ( target_name string ) * router.Router {
   for _, router := range rn.routers {
     if router.Name() == target_name {
       return router
@@ -701,7 +721,7 @@ func ( rn * Router_Network ) get_router_by_name ( target_name string ) * router.
 
 
 
-func ( rn * Router_Network ) How_many_interior_routers ( ) ( int ) {
+func ( rn * Router_network ) How_many_interior_routers ( ) ( int ) {
   count := 0
 
   for _, r := range rn.routers {
@@ -717,7 +737,7 @@ func ( rn * Router_Network ) How_many_interior_routers ( ) ( int ) {
 
 
 
-func ( rn * Router_Network ) Get_nth_interior_router_name ( index int ) ( string ) {
+func ( rn * Router_network ) Get_nth_interior_router_name ( index int ) ( string ) {
   count := 0
 
   for _, r := range rn.routers {

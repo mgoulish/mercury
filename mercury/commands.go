@@ -5,8 +5,9 @@ import (
   "os"
   "sort"
   "strings"
+  "math/rand"
 
-  "lisp"
+     "lisp"
 )
 
 
@@ -17,76 +18,85 @@ import (
 ======================================================================*/
 
 
-func verbose ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "verbose" ]
-  parse_command_line ( context, cmd, command_line )
-
-  val := cmd.unlabelable_string.string_value
-  if val == "on" {
-    context.verbose = true
-  } else if val == "off" {
-    context.verbose = false
-  } else {
-    ume ( "verbose: unknown value: |%s|", val )
-  }
-
-  context.network.Verbose ( context.verbose )
-  umi ( context.verbose, "verbose: set to |%t|", context.verbose )
+func usage ( merc * Merc, command_name string ) {
+  fp ( os.Stdout, "    usage for command |%s|\n", command_name )
 }
 
 
 
 
 
-func echo ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "echo" ]
-  parse_command_line ( context, cmd, command_line )
+func verbose ( merc * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "verbose" ]
+  parse_command_line ( merc, cmd, command_line )
 
   val := cmd.unlabelable_string.string_value
   if val == "on" {
-    context.echo = true
+    merc.verbose = true
   } else if val == "off" {
-    context.echo = false
+    merc.verbose = false
+  } else {
+    ume ( "verbose: unknown value: |%s|", val )
+  }
+
+  merc.network.Verbose ( merc.verbose )
+  umi ( merc.verbose, "verbose: set to |%t|", merc.verbose )
+}
+
+
+
+
+
+func echo ( merc * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "echo" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  val := cmd.unlabelable_string.string_value
+  if val == "on" {
+    merc.echo = true
+  } else if val == "off" {
+    merc.echo = false
   } else {
     ume ( "echo: unknown value: |%s|", val )
     return
   }
 
-  umi ( context.verbose, "echo: set to |%s|", val )
+  umi ( merc.verbose, "echo: set to |%s|", val )
 }
 
 
 
 
 
-func prompt ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "prompt" ]
-  parse_command_line ( context, cmd, command_line )
+func prompt ( merc * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "prompt" ]
+  parse_command_line ( merc, cmd, command_line )
 
   val := cmd.unlabelable_string.string_value
   if val == "on" {
-    context.prompt = true
+    merc.prompt = true
   } else if val == "off" {
-    context.prompt = false
+    merc.prompt = false
   } else {
     ume ( "prompt: unknown value: |%s|", val )
   }
 
-  umi ( context.verbose, "prompt: set to |%s|", val )
+  umi ( merc.verbose, "prompt: set to |%s|", val )
 }
 
 
 
 
 
-func edges ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "edges" ]
-  parse_command_line ( context, cmd, command_line )
+func edges ( merc * Merc, command_line * lisp.List ) {
+  /*
+  cmd := merc.commands [ "edges" ]
+  parse_command_line ( merc, cmd, command_line )
 
   router_name := cmd.unlabelable_string.string_value
   count       := cmd.unlabelable_int.int_value
 
-  version_name := context.default_dispatch_version
+  version_name := merc.default_dispatch_version
   version_arg  := cmd.argmap [ "version" ]
   if version_arg.explicit {
     // The user entered a value.
@@ -96,97 +106,58 @@ func edges ( context * Context, command_line * lisp.List ) {
   // Make the edges.
   var edge_name string
   for i := 0; i < count; i ++ {
-    context.edge_count ++
-    edge_name = fmt.Sprintf ( "edge_%04d", context.edge_count )
-    context.network.Add_edge ( edge_name, version_name )
-    context.network.Connect_router ( edge_name, router_name )
-    umi ( context.verbose, 
+    merc.edge_count ++
+    edge_name = fmt.Sprintf ( "edge_%04d", merc.edge_count )
+    merc.network.Add_edge ( edge_name, version_name )
+    merc.network.Connect_router ( edge_name, router_name )
+    umi ( merc.verbose, 
           "edges: added edge %s with version %s to router %s", 
           edge_name, 
           version_name, 
           router_name )
   }
+  */
 }
 
 
 
 
 
-func paths ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "paths" ]
-  parse_command_line ( context, cmd, command_line )
+func seed ( merc * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "seed" ]
+  parse_command_line ( merc, cmd, command_line )
 
-  dispatch_path := cmd.argmap [ "dispatch" ]
-  proton_path   := cmd.argmap [ "proton" ]
-  mercury_path  := cmd.argmap [ "mercury" ]
-
-
-  trouble := 0
-
-  if dispatch_path.string_value == "" {
-    ume ( "paths: dispatch path missing." )
-    trouble ++
-  }
-  if _, err := os.Stat ( dispatch_path.string_value ); os.IsNotExist ( err ) {
-    ume ( "paths: dispatch path does not exist: |%s|.", dispatch_path.string_value )
-    trouble ++
-  }
+  value := cmd.unlabelable_int.int_value
+  rand.Seed ( int64 ( value ) )
+}
 
 
-  if proton_path.string_value == "" {
-    ume ( "paths: proton path missing." )
-    trouble ++
-  }
-  if _, err := os.Stat ( proton_path.string_value ); os.IsNotExist ( err ) {
-    ume ( "paths: proton path does not exist: |%s|.", proton_path.string_value )
-    trouble ++
-  }
 
 
-  if mercury_path.string_value == "" {
-    ume ( "paths: mercury path missing." )
-    trouble ++
-  }
-  if _, err := os.Stat ( mercury_path.string_value ); os.IsNotExist ( err ) {
-    ume ( "paths: mercury path does not exist: |%s|.", mercury_path.string_value )
-    trouble ++
-  }
 
-  // If this is an interactive session, allow the user
-  // to try again. If it's a script, it will die in a
-  // little bit, but at least they'll know why.
-  if trouble > 0 {
+func version_roots ( merc * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "version_roots" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  name     := cmd.argmap [ "name" ]     . string_value
+  proton   := cmd.argmap [ "proton" ]   . string_value
+  dispatch := cmd.argmap [ "dispatch" ] . string_value
+
+  if name == "" || proton == "" || dispatch == "" {
+    help_for_command ( merc, cmd )
     return
   }
 
-
-  context.dispatch_install_root = dispatch_path.string_value
-  context.proton_install_root   = proton_path.string_value
-  context.mercury_root          = mercury_path.string_value
-
-  // The dispatch path defined in this command will be the default version.
-  // If the user wants to define other versions they may do so with the 
-  //'dispatch_version' command, but they are not forced to do so.
-  context.default_dispatch_version = context.dispatch_install_root
-  umi ( context.verbose,
-        "paths: default dispatch version set to |%s|.", 
-        context.default_dispatch_version )
-
-  umi ( context.verbose, "paths: dispatch_path : |%s|", context.dispatch_install_root )
-  umi ( context.verbose, "paths: proton_path   : |%s|", context.proton_install_root   )
-  umi ( context.verbose, "paths: mercury_path  : |%s|", context.mercury_root  )
-
-  // Now that paths are set, the network can be created.
-  create_network ( context )
+  merc.network.Add_version_with_roots ( name, proton, dispatch )
 }
 
 
 
 
 
-func send ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "send" ]
-  parse_command_line ( context, cmd, command_line )
+func send ( merc * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "send" ]
+  parse_command_line ( merc, cmd, command_line )
 
   // The user may specify target routers two different ways:
   // with the 'router' arg, which specifies a single interior
@@ -205,7 +176,7 @@ func send ( context * Context, command_line * lisp.List ) {
 
   var edge_list [] string
   if router_with_edges != "" {
-    edge_list = context.network.Get_router_edges ( router_with_edges )
+    edge_list = merc.network.Get_router_edges ( router_with_edges )
   }
   target_router_list = append ( target_router_list, edge_list ... )
 
@@ -233,8 +204,8 @@ func send ( context * Context, command_line * lisp.List ) {
 
   router_index := 0
   for i := 0; i < count; i ++ {
-    context.sender_count ++
-    sender_name := fmt.Sprintf ( "send_%04d", context.sender_count )
+    merc.sender_count ++
+    sender_name := fmt.Sprintf ( "send_%04d", merc.sender_count )
 
     if variable_address {
       final_addr = fmt.Sprintf ( address, start_at )
@@ -243,14 +214,14 @@ func send ( context * Context, command_line * lisp.List ) {
 
     router_name = target_router_list[router_index]
 
-    context.network.Add_sender ( sender_name,
+    merc.network.Add_sender ( sender_name,
                                  n_messages,
                                  max_message_length,
                                  router_name,
                                  final_addr,
                                  throttle )
 
-    umi ( context.verbose,
+    umi ( merc.verbose,
           "send: added sender |%s| with addr |%s| to router |%s|.", 
           sender_name,
           final_addr,
@@ -267,9 +238,9 @@ func send ( context * Context, command_line * lisp.List ) {
 
 
 
-func recv ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "recv" ]
-  parse_command_line ( context, cmd, command_line )
+func recv ( merc * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "recv" ]
+  parse_command_line ( merc, cmd, command_line )
 
   // The user may specify target routers two different ways:
   // with the 'router' arg, which specifies a single interior
@@ -288,7 +259,7 @@ func recv ( context * Context, command_line * lisp.List ) {
 
   var edge_list [] string
   if router_with_edges != "" {
-    edge_list = context.network.Get_router_edges ( router_with_edges )
+    edge_list = merc.network.Get_router_edges ( router_with_edges )
   }
   target_router_list = append ( target_router_list, edge_list ... )
 
@@ -315,8 +286,8 @@ func recv ( context * Context, command_line * lisp.List ) {
 
   router_index := 0
   for i := 0; i < count; i ++ {
-    context.receiver_count ++
-    recv_name := fmt.Sprintf ( "recv_%04d", context.receiver_count )
+    merc.receiver_count ++
+    recv_name := fmt.Sprintf ( "recv_%04d", merc.receiver_count )
 
     if variable_address {
       final_addr = fmt.Sprintf ( address, start_at )
@@ -325,13 +296,13 @@ func recv ( context * Context, command_line * lisp.List ) {
 
     router_name := target_router_list[router_index]
 
-    context.network.Add_receiver ( recv_name,
+    merc.network.Add_receiver ( recv_name,
                                    n_messages,
                                    max_message_length,
                                    router_name,
                                    final_addr )
 
-    umi ( context.verbose,
+    umi ( merc.verbose,
           "recv: added |%s| with addr |%s| to router |%s|.", 
           recv_name,
           final_addr,
@@ -350,9 +321,9 @@ func recv ( context * Context, command_line * lisp.List ) {
 
 // This command has its own special magic syntax, so it 
 // parses the command lline its own way.
-func dispatch_version ( context * Context, command_line * lisp.List ) {
+func dispatch_version ( merc * Merc, command_line * lisp.List ) {
 
-  umi ( context.verbose, "version command is under construction." )
+  umi ( merc.verbose, "version command is under construction." )
   return
 
   version_name, err := command_line.Get_atom ( 1 )
@@ -372,33 +343,42 @@ func dispatch_version ( context * Context, command_line * lisp.List ) {
     return
   }
 
-  // TODO store these at app level -- not in network.  context.network.Add_dispatch_version ( version_name, path )
-  umi ( context.verbose, "dispatch_version: added version %s with path %s", version_name, path )
+  umi ( merc.verbose, "dispatch_version: added version %s with path %s", version_name, path )
 }
 
 
 
 
 
-func routers ( context  * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "routers" ]
-  parse_command_line ( context, cmd, command_line )
+func routers ( merc  * Merc, command_line * lisp.List ) {
+  if len(merc.network.Versions) < 1 {
+    ume ( "routers: You must define at least one version before creating routers." )
+    return
+  }
+
+  cmd := merc.commands [ "routers" ]
+  parse_command_line ( merc, cmd, command_line )
 
   count   := cmd.unlabelable_int.int_value
-  version := cmd.unlabelable_string.string_value
+  version_name := cmd.unlabelable_string.string_value
 
-  if version == "" {
-    version = context.default_dispatch_version
+  // If no version name was supplied, use default.
+  if version_name == "" {
+    version_name = merc.network.Default_version.Name
   }
 
   // Make the requested routers.
   var router_name string
-  var temp_names [] string
   for i := 0; i < count; i ++ {
-    router_name = get_next_interior_router_name ( context )
-    context.network.Add_router ( router_name, version )
-    temp_names = append ( temp_names, router_name )
-    umi ( context.verbose, "routers: added router |%s| with version |%s|.", router_name, version )
+    router_name = get_next_interior_router_name ( merc )
+    merc.network.Add_router ( router_name, 
+                              version_name, 
+                              merc.session.config_path,
+                              merc.session.log_path )
+    umi ( merc.verbose, 
+          "routers: added router |%s| with version |%s|.", 
+          router_name, 
+          version_name )
   }
 }
 
@@ -406,7 +386,7 @@ func routers ( context  * Context, command_line * lisp.List ) {
 
 
 
-func connect ( context  * Context, command_line * lisp.List ) {
+func connect ( merc  * Merc, command_line * lisp.List ) {
   from_router, _ := command_line.Get_atom ( 1 )
   to_router, _   := command_line.Get_atom ( 2 )
 
@@ -415,9 +395,9 @@ func connect ( context  * Context, command_line * lisp.List ) {
     return
   }
 
-  context.network.Connect_router ( from_router, to_router )
+  merc.network.Connect_router ( from_router, to_router )
   
-  umi ( context.verbose, 
+  umi ( merc.verbose, 
         "connect: connected router |%s| to router |%s|.", 
         from_router, 
         to_router )
@@ -427,9 +407,9 @@ func connect ( context  * Context, command_line * lisp.List ) {
 
 
 
-func inc ( context  * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "inc" ]
-  parse_command_line ( context, cmd, command_line )
+func inc ( merc  * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "inc" ]
+  parse_command_line ( merc, cmd, command_line )
 
   file_name := cmd.unlabelable_string.string_value
 
@@ -438,22 +418,29 @@ func inc ( context  * Context, command_line * lisp.List ) {
     return
   }
 
-  read_file ( context, file_name )
+  if merc.verbose {
+    umi ( merc.verbose,
+          "inc: |%s|", 
+          file_name )
+  }
+
+  read_file ( merc, file_name )
 }
 
 
 
 
 
-func linear ( context  * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "linear" ]
-  parse_command_line ( context, cmd, command_line )
+func linear ( merc  * Merc, command_line * lisp.List ) {
+  /*
+  cmd := merc.commands [ "linear" ]
+  parse_command_line ( merc, cmd, command_line )
 
   count   := cmd.unlabelable_int.int_value
   version := cmd.unlabelable_string.string_value
 
   if version == "" {
-    version = context.default_dispatch_version
+    version = merc.default_dispatch_version
   }
 
 
@@ -461,10 +448,10 @@ func linear ( context  * Context, command_line * lisp.List ) {
   var router_name string
   var temp_names [] string
   for i := 0; i < count; i ++ {
-    router_name = get_next_interior_router_name ( context )
-    context.network.Add_router ( router_name, version )
+    router_name = get_next_interior_router_name ( merc )
+    merc.network.Add_router ( router_name, version )
     temp_names = append ( temp_names, router_name )
-    umi ( context.verbose, "linear: added router |%s| with version |%s|.", router_name, version )
+    umi ( merc.verbose, "linear: added router |%s| with version |%s|.", router_name, version )
   }
 
   // And connect them.
@@ -472,35 +459,37 @@ func linear ( context  * Context, command_line * lisp.List ) {
     if index < len(temp_names) - 1 {
       pitcher := name
       catcher := temp_names [ index + 1 ]
-      context.network.Connect_router ( pitcher, catcher )
-      umi ( context.verbose, "linear: connected router |%s| to router |%s|", pitcher, catcher )
+      merc.network.Connect_router ( pitcher, catcher )
+      umi ( merc.verbose, "linear: connected router |%s| to router |%s|", pitcher, catcher )
     }
   }
+  */
 }
 
 
 
 
 
-func mesh ( context  * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "mesh" ]
-  parse_command_line ( context, cmd, command_line )
+func mesh ( merc  * Merc, command_line * lisp.List ) {
+  /*
+  cmd := merc.commands [ "mesh" ]
+  parse_command_line ( merc, cmd, command_line )
 
   count   := cmd.unlabelable_int.int_value
   version := cmd.unlabelable_string.string_value
 
   if version == "" {
-    version = context.default_dispatch_version
+    version = merc.default_dispatch_version
   }
 
   // Make the requested routers.
   var router_name string
   var temp_names [] string
   for i := 0; i < count; i ++ {
-    router_name = get_next_interior_router_name ( context )
-    context.network.Add_router ( router_name, version )
+    router_name = get_next_interior_router_name ( merc )
+    merc.network.Add_router ( router_name, version )
     temp_names = append ( temp_names, router_name )
-    umi ( context.verbose, "mesh: added router |%s| with version |%s|.", router_name, version )
+    umi ( merc.verbose, "mesh: added router |%s| with version |%s|.", router_name, version )
   }
 
   // And connect them.
@@ -509,38 +498,40 @@ func mesh ( context  * Context, command_line * lisp.List ) {
     if index < len(temp_names) - 1 {
       for j := index + 1; j < len(temp_names); j ++ {
         catcher = temp_names[j]
-        context.network.Connect_router ( pitcher, catcher )
-        if context.verbose {
-          umi ( context.verbose, "mesh: connected router |%s| to router |%s|", pitcher, catcher )
+        merc.network.Connect_router ( pitcher, catcher )
+        if merc.verbose {
+          umi ( merc.verbose, "mesh: connected router |%s| to router |%s|", pitcher, catcher )
         }
       }
     }
   }
+  */
 }
 
 
 
 
 
-func teds_diamond ( context  * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "teds_diamond" ]
-  parse_command_line ( context, cmd, command_line )
+func teds_diamond ( merc  * Merc, command_line * lisp.List ) {
+  /*
+  cmd := merc.commands [ "teds_diamond" ]
+  parse_command_line ( merc, cmd, command_line )
 
   count   := 4
   version := cmd.unlabelable_string.string_value
 
   if version == "" {
-    version = context.default_dispatch_version
+    version = merc.default_dispatch_version
   }
 
   // Make the requested routers.
   var router_name string
   var temp_names [] string
   for i := 0; i < count; i ++ {
-    router_name = get_next_interior_router_name ( context )
-    context.network.Add_router ( router_name, version )
+    router_name = get_next_interior_router_name ( merc )
+    merc.network.Add_router ( router_name, version )
     temp_names = append ( temp_names, router_name )
-    umi ( context.verbose, "teds_diamond: added router |%s| with version |%s|.", router_name, version )
+    umi ( merc.verbose, "teds_diamond: added router |%s| with version |%s|.", router_name, version )
   }
 
   // And connect them.
@@ -549,58 +540,59 @@ func teds_diamond ( context  * Context, command_line * lisp.List ) {
     if index < len(temp_names) - 1 {
       for j := index + 1; j < len(temp_names); j ++ {
         catcher = temp_names[j]
-        context.network.Connect_router ( pitcher, catcher )
-        if context.verbose {
-          umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", pitcher, catcher )
+        merc.network.Connect_router ( pitcher, catcher )
+        if merc.verbose {
+          umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", pitcher, catcher )
         }
       }
     }
   }
 
   // Now make the two outliers.
-  outlier := get_next_interior_router_name ( context )
-  context.network.Add_router ( outlier, version )
-  umi ( context.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
+  outlier := get_next_interior_router_name ( merc )
+  merc.network.Add_router ( outlier, version )
+  umi ( merc.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
   catcher = temp_names[0]
-  context.network.Connect_router ( outlier, catcher )
-  umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  merc.network.Connect_router ( outlier, catcher )
+  umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
   catcher = temp_names[1]
-  context.network.Connect_router ( outlier, catcher )
-  umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  merc.network.Connect_router ( outlier, catcher )
+  umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
 
 
-  outlier = get_next_interior_router_name ( context )
-  context.network.Add_router ( outlier, version )
-  umi ( context.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
+  outlier = get_next_interior_router_name ( merc )
+  merc.network.Add_router ( outlier, version )
+  umi ( merc.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
   catcher = temp_names[2]
-  context.network.Connect_router ( outlier, catcher )
-  umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  merc.network.Connect_router ( outlier, catcher )
+  umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
   catcher = temp_names[3]
-  context.network.Connect_router ( outlier, catcher )
-  umi ( context.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  merc.network.Connect_router ( outlier, catcher )
+  umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
+  */
 }
 
 
 
 
 
-func run ( context  * Context, command_line * lisp.List ) {
-  context.network.Init ( )
-  context.network.Run  ( )
+func run ( merc  * Merc, command_line * lisp.List ) {
+  merc.network.Init ( )
+  merc.network.Run  ( )
 
-  context.network_running = true
-  umi ( context.verbose, "run: network is running." )
+  merc.network_running = true
+  umi ( merc.verbose, "run: network is running." )
 }
 
 
 
 
 
-func quit ( context * Context, command_line * lisp.List ) {
-  if context.network_running {
-    context.network.Halt ( )
+func quit ( merc * Merc, command_line * lisp.List ) {
+  if merc.network_running {
+    merc.network.Halt ( )
   }
-  umi ( context.verbose, "Mercury quitting." )
+  umi ( merc.verbose, "Mercury quitting." )
   os.Exit ( 0 )
 }
 
@@ -608,16 +600,16 @@ func quit ( context * Context, command_line * lisp.List ) {
 
 
 
-func console_ports ( context * Context, command_line * lisp.List ) {
-  context.network.Print_console_ports ( )
+func console_ports ( merc * Merc, command_line * lisp.List ) {
+  merc.network.Print_console_ports ( )
 }
 
 
 
 
 
-func is_a_command_name ( context * Context, name string ) (bool) {
-  for _, cmd := range ( context.commands ) {
+func is_a_command_name ( merc * Merc, name string ) (bool) {
+  for _, cmd := range ( merc.commands ) {
     if name == cmd.name {
       return true
     }
@@ -629,7 +621,7 @@ func is_a_command_name ( context * Context, name string ) (bool) {
 
 
 
-func help_for_cmd ( context * Context, cmd * command ) {
+func help_for_command ( merc * Merc, cmd * command ) {
   fp ( os.Stdout, "\n    %s : %s\n", cmd.name, cmd.help )
 
   longest_arg_name := 0
@@ -667,38 +659,38 @@ func help_for_cmd ( context * Context, cmd * command ) {
 
 
 
-func kill ( context * Context, command_line * lisp.List ) {
-  cmd := context.commands [ "kill" ]
-  parse_command_line ( context, cmd, command_line )
+func kill ( merc * Merc, command_line * lisp.List ) {
+  cmd := merc.commands [ "kill" ]
+  parse_command_line ( merc, cmd, command_line )
 
   router_name := cmd.unlabelable_string.string_value
 
-  if err := context.network.Halt_router ( router_name ); err != nil {
+  if err := merc.network.Halt_router ( router_name ); err != nil {
     ume ( "kill: no such router |%s|", router_name )
     return
   }
 
-  umi ( context.verbose, "kill: killing router |%s|", router_name )
+  umi ( merc.verbose, "kill: killing router |%s|", router_name )
 }
 
 
 
 
 
-func kill_and_restart ( context * Context, command_line * lisp.List ) {
+func kill_and_restart ( merc * Merc, command_line * lisp.List ) {
 
-  if ! context.network.Running {
+  if ! merc.network.Running {
     ume ( "kill_and_restart: the network is not running." )
     return
   }
 
-  cmd := context.commands [ "kill_and_restart" ]
-  parse_command_line ( context, cmd, command_line )
+  cmd := merc.commands [ "kill_and_restart" ]
+  parse_command_line ( merc, cmd, command_line )
 
   router_name := cmd.unlabelable_string.string_value
   pause       := cmd.unlabelable_int.int_value
 
-  if err := context.network.Halt_and_restart_router ( router_name, pause ); err != nil {
+  if err := merc.network.Halt_and_restart_router ( router_name, pause ); err != nil {
     ume ( "kill_and_restart: no such router |%s|", router_name )
     return
   }
@@ -708,12 +700,12 @@ func kill_and_restart ( context * Context, command_line * lisp.List ) {
 
 
 
-func help ( context * Context, command_line * lisp.List ) {
+func help ( merc * Merc, command_line * lisp.List ) {
   // Get a sorted list of command names, 
   // and find the longest one.
   longest_command_name := 0
   cmd_names := make ( []string, 0 )
-  for _, cmd := range context.commands {
+  for _, cmd := range merc.commands {
     cmd_names = append ( cmd_names, cmd.name )
     if len(cmd.name) > longest_command_name {
       longest_command_name = len(cmd.name)
@@ -723,19 +715,19 @@ func help ( context * Context, command_line * lisp.List ) {
 
   // If there is an arg on the command line, the 
   // user is asking for help with a specific command
-  if len(command_line.Elements) > 1 {
+  if command_line != nil && len(command_line.Elements) > 1 {
     requested_command, _ := command_line.Get_atom ( 1 )
-    if is_a_command_name ( context, requested_command ) {
-      cmd := context.commands [ requested_command ]
-      help_for_cmd ( context, cmd )
+    if is_a_command_name ( merc, requested_command ) {
+      cmd := merc.commands [ requested_command ]
+      help_for_command ( merc, cmd )
     } else {
       // The user did not enter a command name.
       // Maybe it is the first few letters of a command?
       // Give him the first one that matches.
       for _, cmd_name := range cmd_names {
         if strings.HasPrefix ( cmd_name, requested_command ) {
-          cmd := context.commands [ cmd_name ]
-          help_for_cmd ( context, cmd ) 
+          cmd := merc.commands [ cmd_name ]
+          help_for_command ( merc, cmd ) 
         }
       }
     }
@@ -743,7 +735,7 @@ func help ( context * Context, command_line * lisp.List ) {
     // No arg on command line. The user 
     // wants all commands. Get the names.
     for _, name := range cmd_names {
-      cmd      := context.commands [ name ]
+      cmd      := merc.commands [ name ]
       pad_size := longest_command_name - len(name)
       pad      := strings.Repeat(" ", pad_size)
       fp ( os.Stdout, "    %s%s : %s\n", name, pad, cmd.help )

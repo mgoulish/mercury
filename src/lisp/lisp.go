@@ -257,6 +257,11 @@ func ( l * List ) Print ( indent int ) {
 
 
 
+func ( l * List ) Length ( ) ( int ) {
+  return len ( l.Elements )
+}
+
+
 
 
 func Parse_from_string ( fields [] string ) ( int, * List ) {

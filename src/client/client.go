@@ -148,14 +148,14 @@ func ( c * Client ) Run ( ) {
   os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
   os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
 
-  //fp ( os.Stderr, "CLIENT export LD_LIBRARY_PATH=" + LD_LIBRARY_PATH + "\n" )
-  //fp ( os.Stderr, "CLIENT export PYTHONPATH=" + PYTHONPATH + "\n" )
+  fp ( os.Stderr, "MDEBUG CLIENT export LD_LIBRARY_PATH=" + LD_LIBRARY_PATH + "\n" )
+  fp ( os.Stderr, "MDEBUG CLIENT export PYTHONPATH=" + PYTHONPATH + "\n" )
 
   args := " --name " + c.Name + " --operation " + c.Operation + " --id " + c.Id + " --port " + c.Port + " --log " + c.log_path +"/"+ c.Name + " --messages " + strconv.Itoa(c.n_messages) + " --max_message_length " + strconv.Itoa(c.max_message_length) + " --address " + c.address + " --throttle " + c.throttle
   args_list := strings.Fields ( args )
   c.cmd = exec.Command ( c.Path,  args_list... )
 
-  //fp ( os.Stderr, "CLIENT command: |%s %s|\n", c.Path, args )
+  fp ( os.Stderr, "MDEBUG CLIENT command: |%s %s|\n", c.Path, args )
 
   // Start the client command. After the call to Start(),
   // the client is running detached.

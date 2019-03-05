@@ -8,7 +8,7 @@ inc paths
 
 verbose on
 echo    on
-prompt  on
+#prompt  on
 # The prompt command is what makes it wait after every command.
 
 

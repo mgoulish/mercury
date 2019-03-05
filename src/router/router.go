@@ -40,11 +40,9 @@ import ( "errors"
          "fmt"
          "os"
          "os/exec"
-         "strconv"
          "strings"
          "time"
          "utils"
-         qdo "qdstat_output"
        )
 
 
@@ -102,13 +100,14 @@ type Router struct {
   version                        string
   router_type                    string
   worker_threads                 int
-  result_path                    string
   executable_path                string
   config_path                    string
   log_path                       string
   config_file_path               string
-  dispatch_install_root          string
-  proton_install_root            string
+  ld_library_path                string
+  pythonpath                     string
+  include_path                   string
+  console_path                   string
   client_port                    string
   console_port                   string
   router_port                    string
@@ -121,17 +120,9 @@ type Router struct {
   i_connect_to_ports            [] string
   i_connect_to_names            [] string
 
+  // Names of routers that connect to me.
   connect_to_me_interior        [] string
   connect_to_me_edge            [] string
-
-  resource_usage_dir             string
-  mem_usage_file_name            string
-  cpu_usage_file_name            string
-  resource_measurement_frequency int
-  resource_ticker              * time.Ticker
-
-  qdstat_outputs            [] * qdo.Qdstat_output
-  qdstat_output_filename         string
 }
 
 
@@ -154,46 +145,36 @@ func New_Router ( name                        string,
                   version                     string,
                   router_type                 string,
                   worker_threads              int,
-                  result_path                 string,
                   executable_path             string,
                   config_path                 string,
                   log_path                    string,
-                  dispatch_install_root       string,
-                  proton_install_root         string,
+                  include_path                string,
+                  console_path                string,
+                  ld_library_path             string,
+                  pythonpath                  string,
                   client_port                 string,
                   console_port                string,
                   router_port                 string,
                   edge_port                   string,
-                  verbose                     bool,
-                  usage_measurement_frequency int ) * Router {
+                  verbose                     bool ) * Router {
   var r * Router
 
-  r = & Router { name                           : name, 
-                 version                        : version,
-                 router_type                    : router_type,
-                 worker_threads                 : worker_threads,
-                 result_path                    : result_path,
-                 executable_path                : executable_path,
-                 config_path                    : config_path,
-                 log_path                       : log_path,
-                 dispatch_install_root          : dispatch_install_root,
-                 proton_install_root            : proton_install_root,
-                 client_port                    : client_port,
-                 console_port                   : console_port,
-                 router_port                    : router_port,
-                 edge_port                      : edge_port,
-                 verbose                        : verbose,
-                 resource_measurement_frequency : usage_measurement_frequency }
-
-  r.qdstat_output_filename = r.result_path + "/qdstat_output_" + r.name
-
-  if ! utils.Path_exists ( executable_path ) {
-
-    fp ( os.Stdout, 
-         "    router error: executable path |%s| does not exist.\n", 
-         executable_path )
-    os.Exit ( 1 )
-  }
+  r = & Router { name            : name, 
+                 version         : version,
+                 router_type     : router_type,
+                 worker_threads  : worker_threads,
+                 executable_path : executable_path,
+                 config_path     : config_path,
+                 log_path        : log_path,
+                 include_path    : include_path,
+                 console_path    : console_path,
+                 ld_library_path : ld_library_path,
+                 pythonpath      : pythonpath,
+                 client_port     : client_port,
+                 console_port    : console_port,
+                 router_port     : router_port,
+                 edge_port       : edge_port,
+                 verbose         : verbose }
 
   return r
 }
@@ -417,8 +398,6 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "}\n")
 
   // The Console Listener -----------------
-  console_dir := r.dispatch_install_root + "/share/qpid-dispatch/console/stand-alone"
-
   fp ( f, "listener {\n" )
   fp ( f, "  role               : normal\n")
   fp ( f, "  host               : 0.0.0.0\n")
@@ -428,7 +407,7 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  saslMechanisms     : ANONYMOUS\n")
   fp ( f, "  authenticatePeer   : no\n")
   fp ( f, "  http               : true\n")
-  fp ( f, "  httpRoot           : %s\n", console_dir)
+  fp ( f, "  httpRoot           : %s\n", r.console_path)
   fp ( f, "}\n")
 
   // The Router Listener -----------------
@@ -487,47 +466,6 @@ func ( r * Router ) write_config_file ( ) error {
 
 
 
-func ( r * Router ) Check_memory ( ) {
-
-  qdstat_path := r.dispatch_install_root + "/bin/qdstat"
-
-  DISPATCH_LIBRARY_PATH := r.dispatch_install_root + "/lib"
-  PROTON_LIBRARY_PATH   := r.proton_install_root   + "/lib64"
-  LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
-
-  DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
-
-  PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH + "/proton/bindings/python"
-
-  PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_LIBRARY_PATH +":"+ PROTON_PYTHONPATH
-
-  // Set up the environment for the router process.
-  os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
-  os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
-  // done set up env -----------------------------------------
-
-  args := "-m -b 0.0.0.0:" + r.Client_port ( )
-  args_list := strings.Fields ( args )
-
-  cmd := exec.Command ( qdstat_path,  args_list... )
-  out, _ := cmd.Output()
-
-  // At this point the router has run and stopped,
-  // and all qdstat outputs that happened during the 
-  // run are stored in an internal router variable:
-  // "r.qdstat_outputs".
-  r.qdstat_output_filename = r.result_path + "/qdstat_output_" + r.name
-  f, _ := os.OpenFile ( r.qdstat_output_filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660);
-  defer f.Close()
-  fmt.Fprintf ( f, "output %d -----------------------\n%s\n\n", len(r.qdstat_outputs), out )
-  r.qdstat_outputs = append ( r.qdstat_outputs, qdo.New_qdstat_output ( string(out) ) )
-}
-
-
-
-
-
 /*
   Call this only after calling Init() on the router.
   This fn sets up the router's environment variables, 
@@ -539,28 +477,13 @@ func ( r * Router ) Run ( ) error {
     return nil
   }
 
-  var do_resource_measurement bool
-  if r.resource_measurement_frequency > 0 {
-    do_resource_measurement = true
-  } else {
-    do_resource_measurement = false
-  }
-
-  DISPATCH_LIBRARY_PATH := r.dispatch_install_root + "/lib"
-  PROTON_LIBRARY_PATH   := r.proton_install_root   + "/lib64"
-  LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
-
-  DISPATCH_PYTHONPATH   := r.dispatch_install_root + "/lib/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := r.dispatch_install_root + "/lib/python2.7/site-packages"
-  PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2
-
   // Set up the environment for the router process.
-  os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
-  os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
-  include := " -I " + r.dispatch_install_root + "/lib/qpid-dispatch/python"
+  os.Setenv ( "LD_LIBRARY_PATH", r.ld_library_path )
+  os.Setenv ( "PYTHONPATH"     , r.pythonpath )
+  umi ( r.verbose, "router: LD_LIBRARY_PATH: |%s|", r.ld_library_path )
+  umi ( r.verbose, "router: PYTHONPATH:      |%s|", r.pythonpath )
 
-
-  router_args     := " --config " + r.config_file_path + include
+  router_args     := " --config " + r.config_file_path + " -I " + r.include_path
   args            := router_args
 
   args_list := strings.Fields ( args )
@@ -583,44 +506,28 @@ func ( r * Router ) Run ( ) error {
   }
 
   r.pid = r.cmd.Process.Pid
-  setup_dir := r.result_path + "/setup/" + r.name
-  utils.Find_or_create_dir ( setup_dir )
 
   umi ( r.verbose, "Router |%s| has started with pid %d .", r.name, r.pid )
 
-  if do_resource_measurement {
-    r.resource_usage_dir = r.result_path + "/resources/" + strconv.Itoa(r.cmd.Process.Pid)
-    utils.Find_or_create_dir ( r.resource_usage_dir )
-    r.mem_usage_file_name = r.resource_usage_dir + "/mem"
-    r.cpu_usage_file_name = r.resource_usage_dir + "/cpu"
-  }
-
-  // Write the environment variables to the setup directory.
+  // Write the environment variables to the config directory.
   // This helps the user to reproduce this test, if desired.
-  env_file_name := setup_dir + "/environment_variables"
+  env_file_name := r.config_path + "/environment_variables"
   env_file, err := os.Create ( env_file_name )
   utils.Check ( err )
   defer env_file.Close ( )
-  env_string := "export LD_LIBRARY_PATH=" + LD_LIBRARY_PATH + "\n"
+  env_string := "export LD_LIBRARY_PATH=" + r.ld_library_path + "\n"
   env_file.WriteString ( env_string )
-  env_string  = "export PYTHONPATH=" + PYTHONPATH + "\n"
+  env_string  = "export PYTHONPATH=" + r.pythonpath + "\n"
   env_file.WriteString ( env_string )
 
   // Write the command line to the results directory.
   // This helps the user to reproduce this test, if desired.
-  command_file_name := setup_dir + "/command_line"
+  command_file_name := r.config_path + "/command_line"
   command_file, err := os.Create ( command_file_name )
   utils.Check ( err )
   defer command_file.Close ( )
   command_string := r.executable_path + " " + args
   command_file.WriteString ( command_string + "\n" )
-
-  // Start the resource usage ticker.
-  if do_resource_measurement {
-    ticker_time := time.Second * time.Duration ( r.resource_measurement_frequency )
-    r.resource_ticker = time.NewTicker ( ticker_time )
-    go r.resource_measurement_ticker ( )
-  }
 
   return nil
 }
@@ -661,17 +568,6 @@ func ( r * Router ) State ( ) ( string ) {
 
 
 
-func ( r * Router ) resource_measurement_ticker ( ) {
-  for range r.resource_ticker.C {
-    r.record_resource_usage ( )
-    r.Check_memory ( )
-  }
-}
-
-
-
-
-
 /*
   Halt the router.
   If it has already halted on its own, that is returned
@@ -688,10 +584,6 @@ func ( r * Router ) Halt ( ) error {
   if r.state == halted {
     ume ( "Attempt to re-halt router |%s|.", r.name )
     return nil
-  }
-
-  if r.resource_ticker != nil {
-    r.resource_ticker.Stop()
   }
 
   // Set up a channel that will return a 
@@ -720,14 +612,6 @@ func ( r * Router ) Halt ( ) error {
       if err := r.cmd.Process.Kill(); err != nil {
         return errors.New ( "failed to kill process: " + err.Error() )
       }
-      if len(r.qdstat_outputs) > 0 {
-        last_index := len(r.qdstat_outputs) - 1  
-        diffed_output := r.qdstat_outputs[last_index].Diff ( r.qdstat_outputs[0] )
-        f, _ := os.OpenFile ( r.qdstat_output_filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0660);
-        defer f.Close()
-        fp ( f, "\n\n\nDIFFED QDSTAT OUTPUT for router %s --------------------- \n", r.name )
-        diffed_output.Print_nonzero ( f )
-      }
 
       // This is the good case. It was not already dead when 
       // we came here, and we successfully halted it.
@@ -754,26 +638,6 @@ func ( r * Router ) Halt ( ) error {
 
 func ( r * Router ) Pid ( ) ( int )  {
   return int ( r.cmd.Process.Pid )
-}
-
-
-
-
-
-func ( r * Router ) record_resource_usage ( ) {
-  // memory ----------------------------
-  rss := utils.Memory_usage ( r.cmd.Process.Pid )
-  mem_usage_file, err := os.OpenFile ( r.mem_usage_file_name, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0600 )
-  utils.Check ( err )
-  defer mem_usage_file.Close ( )
-  mem_usage_file.WriteString ( utils.Timestamp() + " " + strconv.Itoa ( rss ) + "\n" )
-
-  // cpu ----------------------------
-  cpu_usage_file, err := os.OpenFile ( r.cpu_usage_file_name, os.O_APPEND | os.O_CREATE | os.O_WRONLY, 0600 )
-  utils.Check ( err )
-  defer cpu_usage_file.Close ( )
-  cpu_usage := utils.Cpu_usage ( r.cmd.Process.Pid )
-  cpu_usage_file.WriteString ( utils.Timestamp() + " " + strconv.Itoa ( cpu_usage ) + "\n" )
 }
 
 

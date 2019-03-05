@@ -24,10 +24,7 @@
 #       in this file.
 
 
-export MERCURY_ROOT=${HOME}/mercury
-export DISPATCH_INSTALL_ROOT=${HOME}/latest/install/dispatch
 export PROTON_INSTALL_ROOT=${HOME}/latest/install/proton
-
   
 PROJECT=c_proactor_client
 echo Making $PROJECT =================================================

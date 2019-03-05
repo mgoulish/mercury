@@ -6,8 +6,7 @@ import (
   "os"
   "regexp"
   "time"
-  "math/rand"
-  "errors"
+  // "errors"
 
   "utils"
   rn "router_network"
@@ -21,7 +20,56 @@ var ume = utils.M_error
 var umi = utils.M_info
 
 
-type command_fn func ( * Context, * lisp.List )
+
+
+// Normally, when the user starts up Mercury, a new session
+// is created. It has its own directory, under which is
+// captured all information necessary to reproduce what 
+// happened during this session.
+type Session struct {
+  // The name of the session will determine the paths.
+  // It will be unique, as long as you don't start another
+  // session within the same minute of the same day.
+  name          string
+
+  // Where the config files and environment variables and
+  // start commands of he routers and clients are stored.
+  config_path   string      
+
+  // Where the log files of routers and clients for this 
+  // session are stored.
+  log_path      string       
+}
+
+
+
+
+
+func new_session ( ) ( * Session ) {
+  cwd, err := os.Getwd()
+  if err != nil {
+    ume ( "Can't get cwd path for program name %s", os.Args[0] )
+    os.Exit ( 1 )
+  }
+
+  name := cwd + "/sessions/session_" + time.Now().Format ( "2006_01_02_1504" )
+  s := & Session { name        : name,
+                   config_path : name + "/config",
+                   log_path    : name + "/log_path" }
+
+  utils.Find_or_create_dir ( s.config_path )
+  utils.Find_or_create_dir ( s.log_path )
+
+  return s
+}
+
+
+
+
+// When the user calls a command from the command line,
+// this is the type of function that actually does the
+// work.
+type command_fn func ( * Merc, * lisp.List )
 
 
 //---------------------------------------------------
@@ -70,17 +118,16 @@ type command struct {
 
 
 
-type Context struct {
-  session_name               string
+// Mercury Context
+type Merc struct {
+  session                  * Session
 
-  dispatch_install_root      string
-  proton_install_root        string
-  mercury_root               string
-  result_path                string
-  router_path                string
-  config_path                string
-  log_path                   string
-  client_path                string
+  // Paths
+  //------------------------
+  // If you enter these paths directly, whatever you tell 
+  // me will overwrite what is already here, even if
+  // nonempty. Paths that I *calculate*, OTOH, will never
+  // overwrite nonempty values here.
 
   verbose                    bool
   echo                       bool
@@ -88,7 +135,7 @@ type Context struct {
 
   n_worker_threads           int
 
-  network                  * rn.Router_Network
+  network                  * rn.Router_network
   network_running            bool
   receiver_count             int
   sender_count               int
@@ -99,11 +146,9 @@ type Context struct {
   first_nonwhitespace_rgx  * regexp.Regexp
   line_rgx                 * regexp.Regexp
   
-  default_dispatch_version   string
-  versions                   map [ string ] string
-
-  // This should probably change to commands, not fns.
   commands                   map [ string ] * command
+  versions              [] * rn.Version
+  default_version          * rn.Version
 }
 
 
@@ -117,15 +162,30 @@ type Context struct {
 
 
 
-func ( context * Context ) add_command ( name      string, 
-                                         fn        command_fn,
-                                         help      string ) ( * command ) {
+func ( merc * Merc ) add_version ( v * rn.Version ) {
+  merc.versions = append ( merc.versions, v )
+  if len(merc.versions) == 1 { 
+    umi ( merc.verbose, "add_version: There is now 1 version.\n" )
+    merc.default_version = v
+    umi ( merc.verbose, "add_version: default version is |%s|\n", merc.default_version.Name )
+  } else {
+    umi ( merc.verbose, "add_version: There are now %d versions.\n", len(merc.versions) )
+  }
+}
+
+
+
+
+
+func ( merc * Merc ) add_command ( name  string, 
+                                   fn    command_fn,
+                                   help  string ) ( * command ) {
   cmd := & command { name : name,
                      fn   : fn,
                      help : help }
   cmd.argmap = make ( map [ string ] * arg_descriptor, 0 )
 
-  context.commands [ name ] = cmd
+  merc.commands [ name ] = cmd
   return cmd
 }
 
@@ -176,7 +236,7 @@ func (c * command) add_arg ( name          string,
 
 
 
-func call_command ( context * Context, command_line * lisp.List ) {
+func call_command ( merc * Merc, command_line * lisp.List ) {
   cmd_name, err := command_line.Get_atom ( 0 ) 
   if err != nil {
     fp ( os.Stdout, "\n--------------------------------------\n" )
@@ -185,71 +245,71 @@ func call_command ( context * Context, command_line * lisp.List ) {
     return
   }
 
-  cmd := context.commands [ cmd_name ]
+  cmd := merc.commands [ cmd_name ]
   if cmd == nil {
     fp ( os.Stdout, "\n--------------------------------------\n" )
     fp ( os.Stdout, "    %c error: no such command: |%s|\n", mercury, cmd_name )
     fp ( os.Stdout, "--------------------------------------\n\n" )
+    help ( merc, nil )
     return
   }
 
-  cmd.fn ( context, command_line )
+  cmd.fn ( merc, command_line )
 }
 
 
 
 
 
-func init_context ( context * Context ) {
-  context.verbose                        = false
-  context.network_running                = false
-  context.n_worker_threads               = 4
+func new_merc ( ) ( merc * Merc ) {
+  merc = & Merc { verbose          : false,
+                  network_running  : false,
+                  n_worker_threads : 4,
+                  line_rgx         : regexp.MustCompile(`\s+`),
+                  first_nonwhitespace_rgx : regexp.MustCompile(`\S`) }
+  merc.network = rn.New_router_network ( "network" )
+  return merc
 }
 
 
 
 
 
-func create_network ( context * Context ) {
+func create_network ( merc * Merc ) {
 
-  context.router_path   = context.dispatch_install_root + "/sbin/qdrouterd"
-  context.client_path   = context.mercury_root + "/clients/c_proactor_client"
+  // merc.router_path   = merc.dispatch_install_root + "/sbin/qdrouterd"
+  // merc.client_path   = merc.mercury_root + "/clients/c_proactor_client"
 
-  context.result_path   = context.session_name + "/" + "results"
-  context.config_path   = context.session_name + "/" + "config"
-  context.log_path      = context.session_name + "/" + "log"
+  // merc.result_path   = merc.session_name + "/" + "results"
+  // merc.config_path   = merc.session_name + "/" + "config"
+  // merc.log_path      = merc.session_name + "/" + "log"
 
-  utils.Find_or_create_dir ( context.result_path )
-  utils.Find_or_create_dir ( context.config_path )
-  utils.Find_or_create_dir ( context.log_path )
+  // utils.Find_or_create_dir ( merc.result_path )
+  // utils.Find_or_create_dir ( merc.config_path )
+  // utils.Find_or_create_dir ( merc.log_path )
   // Don't try to create the client path. That's an executable, not a directory.
 
-  umi ( context.verbose, "create_network: result_path : |%s|", context.result_path )
-  umi ( context.verbose, "create_network: config_path : |%s|", context.config_path )
-  umi ( context.verbose, "create_network: log_path    : |%s|", context.log_path )
-  umi ( context.verbose, "create_network: client_path : |%s|", context.client_path )
-  umi ( context.verbose, "create_network: result_path : |%s|", context.result_path )
-  umi ( context.verbose, "create_network: router_path : |%s|", context.router_path )
+  // umi ( merc.verbose, "create_network: result_path : |%s|", merc.result_path )
+  // umi ( merc.verbose, "create_network: config_path : |%s|", merc.config_path )
+  // umi ( merc.verbose, "create_network: log_path    : |%s|", merc.log_path )
+  // umi ( merc.verbose, "create_network: client_path : |%s|", merc.client_path )
+  // umi ( merc.verbose, "create_network: result_path : |%s|", merc.result_path )
+  // umi ( merc.verbose, "create_network: router_path : |%s|", merc.router_path )
 
-  context.network = rn.New_Router_Network ( "mercury_router_network",
-                                            context.n_worker_threads,
-                                            context.result_path,
-                                            context.router_path,
-                                            context.config_path,
-                                            context.log_path,
-                                            context.client_path,
-                                            context.dispatch_install_root,
-                                            context.proton_install_root,
-                                            context.verbose,
-                                            0 )
+  /*
+  merc.network = rn.New_Router_Network ( "mercury_router_network",
+                                          merc.n_worker_threads,
+                                          merc.verbose,
+                                          0 )
+  */
 }
 
 
 
 
 
-func get_next_interior_router_name ( context * Context ) ( string ) {
-  routers_so_far := context.network.N_interior_routers()
+func get_next_interior_router_name ( merc * Merc ) ( string ) {
+  routers_so_far := merc.network.Get_n_interior_routers()
   name := fmt.Sprintf ( "%c", 'A' + byte(routers_so_far) )
   return name
 }
@@ -258,8 +318,8 @@ func get_next_interior_router_name ( context * Context ) ( string ) {
 
 
 
-func this_is_an_interior_router_name ( context * Context, name string ) ( bool ) {
-  routers_so_far := context.network.N_interior_routers()
+func this_is_an_interior_router_name ( merc * Merc, name string ) ( bool ) {
+  routers_so_far := merc.network.Get_n_interior_routers()
   byte_array := []byte(name)
   router_name_byte := byte_array[0] 
 
@@ -277,70 +337,51 @@ func this_is_an_interior_router_name ( context * Context, name string ) ( bool )
 
 
 
-func get_version_name ( context  * Context, input_name string ) ( string, error ) {
-
-  var output_name string
-
-  if input_name == "" {
-    output_name = context.default_dispatch_version
-  }
-
-  if output_name == "" {
-    ume ( "get_version_name: there are no dispatch versions defined. Use command dispatch_version.")
-    return "", errors.New ( "No defined versions." )
-  }
-
-  umi ( context.verbose, "dispatch version for this command set to %s", output_name )
-
-  return output_name, nil
-}
-
-
-
-
-
 /*=====================================================================
   Main
 ======================================================================*/
 
 
-func main() {
+func main ( ) {
 
-  rand.Seed ( int64 ( os.Getpid()) )
+  merc := new_merc ( )
 
-  cwd, err := os.Getwd()
-  if err != nil {
-    ume ( "Can't get cwd path for program name %s", os.Args[0] )
-  }
-  
-  var context Context
-  init_context ( & context )
-
-  context.session_name = cwd + "/sessions/session_" + time.Now().Format ( "2006_01_02_1504" )
-  utils.Find_or_create_dir ( context.session_name )
-
-  context.mercury_log_name = context.session_name + "/mercury_log"
-  context.mercury_log_file, _ = os.Create ( context.mercury_log_name )
-  defer context.mercury_log_file.Close()
-
-  context.line_rgx                = regexp.MustCompile(`\s+`)
-  context.first_nonwhitespace_rgx = regexp.MustCompile(`\S`)
+  // Put this outside of new_merc because in future we 
+  // might want the choice of loading a session, based
+  // on command line arg.
+  merc.session = new_session()
+  fp ( os.Stdout, " session name: |%s|\n", merc.session.name )
+  utils.Find_or_create_dir ( merc.session.name )
+  merc.mercury_log_name = merc.session.name + "/mercury_log"
+  merc.mercury_log_file, _ = os.Create ( merc.mercury_log_name )
+  defer merc.mercury_log_file.Close()
 
   /*===========================================
     Make commands. 
   ============================================*/
 
-  context.commands = make ( map[string] * command, 0 )
+  merc.commands = make ( map[string] * command, 0 )
 
 
 
   ten_MILLION := "10000000"
 
 
+  // seed command -------------------------------------------------------
+  cmd := merc.add_command ( "seed",
+                             seed,
+                            "Seed the random number generator." )
+  cmd.add_arg ( "value",
+                true,        // unlabelable
+                "int",
+                "0",
+                "Seed value for the random number generator." )
+
+
   // verbose command -------------------------------------------------------
-  cmd := context.add_command ( "verbose",
-                               verbose,
-                               "Turn verbosity 'on' or 'off'." )
+  cmd = merc.add_command ( "verbose",
+                            verbose,
+                           "Turn verbosity 'on' or 'off'." )
   cmd.add_arg ( "state",
                 true,        // unlabelable
                 "string",
@@ -349,7 +390,7 @@ func main() {
 
 
   // echo command -------------------------------------------------------
-  cmd = context.add_command ( "echo",
+  cmd = merc.add_command ( "echo",
                                echo,
                                "Echo all non-blank command lines." )
   cmd.add_arg ( "state",
@@ -360,7 +401,7 @@ func main() {
 
 
   // prompt command -------------------------------------------------------
-  cmd = context.add_command ( "prompt",
+  cmd = merc.add_command ( "prompt",
                                prompt,
                                "Prompt after every command before continuing." )
   cmd.add_arg ( "state",
@@ -370,38 +411,37 @@ func main() {
                 "'on' or 'off" )
 
 
-  // paths command -------------------------------------------------------
-  cmd = context.add_command ( "paths",
-                              paths,
-                              "Define dispatch, proton, and mercury paths." )
+  // version_roots -------------------------------------------------------
+  cmd = merc.add_command ( "version_roots",
+                           version_roots,
+                           "Define a code-version by providing root dirs from which paths are calculated." )
+  cmd.add_arg ( "name",
+                false,        // not unlabelable
+                "string",
+                "",
+                "Name of this version." )
+
   cmd.add_arg ( "dispatch",
                 false,        // not unlabelable
                 "string",
-                "/usr/local",
-                "Dispatch install directory. This will be default dispatch version." )
+                "",
+                "Dispatch install directory." )
 
   cmd.add_arg ( "proton",
                 false,        // not unlabelable
                 "string",
-                "/usr/local",
-                "Proton install directory." )
-
-  cmd.add_arg ( "mercury",
-                false,        // not unlabelable
-                "string",
                 "",
-                "Mercury top level directory." )
-
+                "Proton install directory." )
 
 
   // dispatch_version command -------------------------------------------------------
-  cmd = context.add_command ( "dispatch_version",
+  cmd = merc.add_command ( "dispatch_version",
                               dispatch_version,
                               "Define different version of the dispatch code. Arg 1 is version name, arg 2 is path." )
 
 
   // routers command -------------------------------------------------------
-  cmd = context.add_command ( "routers",
+  cmd = merc.add_command ( "routers",
                               routers,
                               "Create new routers." )
   cmd.add_arg ( "count",
@@ -418,14 +458,14 @@ func main() {
 
 
   // connect command -------------------------------------------------------
-  cmd = context.add_command ( "connect",
+  cmd = merc.add_command ( "connect",
                               connect,
                               "Connect two routers." )
   // The connect command uses its own command line processing.
 
 
   // linear command -------------------------------------------------------
-  cmd = context.add_command ( "linear",
+  cmd = merc.add_command ( "linear",
                               linear,
                               "Create a linear router network." )
   cmd.add_arg ( "count",
@@ -442,7 +482,7 @@ func main() {
 
 
   // mesh command -------------------------------------------------------
-  cmd = context.add_command ( "mesh",
+  cmd = merc.add_command ( "mesh",
                               mesh,
                               "Create a fully-connected router network." )
   cmd.add_arg ( "count",
@@ -459,7 +499,7 @@ func main() {
 
 
   // teds_diamond command -------------------------------------------------------
-  cmd = context.add_command ( "teds_diamond",
+  cmd = merc.add_command ( "teds_diamond",
                               teds_diamond,
                               "Create a fully-connected router network, with two outliers." )
   cmd.add_arg ( "version",
@@ -470,7 +510,7 @@ func main() {
 
 
   // edges command -------------------------------------------------------
-  cmd = context.add_command ( "edges",
+  cmd = merc.add_command ( "edges",
                               edges,
                               "Create edge router on a given interior router." )
   cmd.add_arg ( "count",
@@ -493,7 +533,7 @@ func main() {
 
 
   // send command -------------------------------------------------------
-  cmd = context.add_command ( "send",
+  cmd = merc.add_command ( "send",
                               send,
                               "Create message-sending clients." )
 
@@ -552,7 +592,7 @@ func main() {
 
 
   // recv command -------------------------------------------------------
-  cmd = context.add_command ( "recv",
+  cmd = merc.add_command ( "recv",
                               recv,
                               "Create message-receiving clients." )
   cmd.add_arg ( "router",
@@ -601,25 +641,25 @@ func main() {
 
 
   // run command -------------------------------------------------------
-  cmd = context.add_command ( "run",
+  cmd = merc.add_command ( "run",
                               run,
                               "Start the network of routers and clients." )
 
 
   // quit command -------------------------------------------------------
-  cmd = context.add_command ( "quit",
+  cmd = merc.add_command ( "quit",
                               quit,
                               "Shut down the network and halt Mercury." )
 
 
   // console_ports command -------------------------------------------------------
-  cmd = context.add_command ( "console_ports",
+  cmd = merc.add_command ( "console_ports",
                               console_ports,
                               "Show the console ports for all routers." )
 
 
   // inc command -------------------------------------------------------
-  cmd = context.add_command ( "inc",
+  cmd = merc.add_command ( "inc",
                               inc,
                               "Include the named file into the command stream." )
   cmd.add_arg ( "file",
@@ -632,13 +672,13 @@ func main() {
 
 
   // help command -------------------------------------------------------
-  cmd = context.add_command ( "help",
+  cmd = merc.add_command ( "help",
                               help,
                               "List all commands, or give help on a specific command." )
 
 
   // kill command -------------------------------------------------------
-  cmd = context.add_command ( "kill",
+  cmd = merc.add_command ( "kill",
                               kill,
                               "Kill a router." )
   cmd.add_arg ( "router",
@@ -649,7 +689,7 @@ func main() {
 
 
   // kill_and_restart command -------------------------------------------------------
-  cmd = context.add_command ( "kill_and_restart",
+  cmd = merc.add_command ( "kill_and_restart",
                               kill_and_restart,
                               "Kill and restart a router, after a pause." )
   cmd.add_arg ( "router",
@@ -666,12 +706,11 @@ func main() {
 
 
 
-
   /*--------------------------------------------
     Process files named on command line.
   --------------------------------------------*/
   for i := 1; i < len(os.Args); i ++ {
-    read_file ( & context, os.Args[i] )
+    read_file ( merc, os.Args[i] )
   }
 
   /*--------------------------------------------
@@ -682,7 +721,7 @@ func main() {
   for {
     fp ( os.Stdout, "%c ", mercury )  // prompt
     line, _ := reader.ReadString ( '\n' )
-    process_line ( & context, line )
+    process_line ( merc, line )
   }
 }
 

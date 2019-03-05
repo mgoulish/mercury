@@ -17,7 +17,7 @@ var mercury = '\u263F'
 
 
 
-func read_file ( context * Context, file_name string ) {
+func read_file ( merc * Merc, file_name string ) {
 
   file, err := os.Open ( file_name )
   if err != nil {
@@ -28,7 +28,7 @@ func read_file ( context * Context, file_name string ) {
   scanner := bufio.NewScanner ( file )
 
   for scanner.Scan() {
-    process_line ( context, scanner.Text() )
+    process_line ( merc, scanner.Text() )
   }
 
   if err := scanner.Err(); err != nil {
@@ -42,19 +42,25 @@ func read_file ( context * Context, file_name string ) {
 
 // Process command lines that are coming in either from
 // a file or from the command line.
-func process_line ( context * Context, line string ) {
+func process_line ( merc * Merc, line string ) {
 
-  first_nonwhitespace := context.first_nonwhitespace_rgx.FindString ( line )
+  first_nonwhitespace := merc.first_nonwhitespace_rgx.FindString ( line )
   if first_nonwhitespace == "" {
     // If the line is just empty, don't do anything with it.
     return
   }
 
-  if context.echo {
+  if merc.echo {
     fp ( os.Stdout, "%c echo: %s\n", mercury, line )
   }
 
-  fmt.Fprintf ( context.mercury_log_file, "%s\n", line )
+  // Line preprocessing.
+  if strings.Contains ( line, "PID" ) {
+    pid_str := strconv.Itoa(os.Getpid())
+    line = strings.Replace ( line, "PID", pid_str, -1 )
+  }
+
+  fmt.Fprintf ( merc.mercury_log_file, "%s\n", line )
 
   if first_nonwhitespace == "#" {
     // This line is a comment.
@@ -63,14 +69,14 @@ func process_line ( context * Context, line string ) {
 
   // Clean up the line
   line = strings.Replace ( line, "\n", "", -1 )
-  line = context.line_rgx.ReplaceAllString ( line, " " )
+  line = merc.line_rgx.ReplaceAllString ( line, " " )
   fields := lisp.Listify ( line )
   _, list := lisp.Parse_from_string ( fields )
 
-  call_command ( context, list )
+  call_command ( merc, list )
 
 
-  if context.prompt {
+  if merc.prompt {
     prompt_reader := bufio.NewReader ( os.Stdin )
     fp ( os.Stdout, "%c: hit enter to continue.\n", mercury )
     prompt_reader.ReadString ( '\n' )
@@ -83,7 +89,7 @@ func process_line ( context * Context, line string ) {
 
 // This gets called by the individual commands, if they 
 // want standardized command-line processing. Some don't.
-func parse_command_line ( context *      Context, 
+func parse_command_line ( merc *      Merc, 
                           cmd          * command, 
                           command_line * lisp.List ) {
 

@@ -24,6 +24,7 @@ package utils
 import ( "fmt"
          "os"
          "os/exec"
+         "os/user"
          "net"
          "strings"
          "strconv"
@@ -41,6 +42,15 @@ func Check ( err error ) {
   if err != nil {
     panic ( err )
   }
+}
+
+
+
+
+
+func Get_homedir ( ) ( string ) {
+  usr, _ := user.Current()
+  return usr.HomeDir
 }
 
 
