@@ -7,7 +7,7 @@ import (
   "strings"
   "math/rand"
 
-     "lisp"
+  "lisp"
 )
 
 
@@ -432,16 +432,17 @@ func inc ( merc  * Merc, command_line * lisp.List ) {
 
 
 func linear ( merc  * Merc, command_line * lisp.List ) {
-  /*
   cmd := merc.commands [ "linear" ]
   parse_command_line ( merc, cmd, command_line )
 
-  count   := cmd.unlabelable_int.int_value
-  version := cmd.unlabelable_string.string_value
+  count             := cmd.unlabelable_int.int_value
+  requested_version := cmd.unlabelable_string.string_value
 
-  if version == "" {
-    version = merc.default_dispatch_version
-  }
+  var version string
+
+  if requested_version == "" {
+    version = merc.network.Default_version.Name
+  } 
 
 
   // Make the requested routers.
@@ -449,7 +450,17 @@ func linear ( merc  * Merc, command_line * lisp.List ) {
   var temp_names [] string
   for i := 0; i < count; i ++ {
     router_name = get_next_interior_router_name ( merc )
-    merc.network.Add_router ( router_name, version )
+
+    if requested_version == "random" {
+      n_versions   := len(merc.network.Versions)
+      random_index := rand.Intn ( n_versions )
+      version = merc.network.Versions[random_index].Name
+    }
+
+    merc.network.Add_router ( router_name, 
+                              version,
+                              merc.session.config_path,
+                              merc.session.log_path )
     temp_names = append ( temp_names, router_name )
     umi ( merc.verbose, "linear: added router |%s| with version |%s|.", router_name, version )
   }
@@ -463,7 +474,6 @@ func linear ( merc  * Merc, command_line * lisp.List ) {
       umi ( merc.verbose, "linear: connected router |%s| to router |%s|", pitcher, catcher )
     }
   }
-  */
 }
 
 

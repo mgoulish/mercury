@@ -2,18 +2,16 @@
 # test_1
 ##########################################################
 
+seed PID
+
 verbose
 
 inc versions
 
-routers 1
-
-routers 1 version later 
-
-connect A B
+linear 5 version random
 
 send A n_messages 100
-recv B n_messages 100
+recv E n_messages 100
 
 
 

@@ -480,8 +480,6 @@ func ( r * Router ) Run ( ) error {
   // Set up the environment for the router process.
   os.Setenv ( "LD_LIBRARY_PATH", r.ld_library_path )
   os.Setenv ( "PYTHONPATH"     , r.pythonpath )
-  umi ( r.verbose, "router: LD_LIBRARY_PATH: |%s|", r.ld_library_path )
-  umi ( r.verbose, "router: PYTHONPATH:      |%s|", r.pythonpath )
 
   router_args     := " --config " + r.config_file_path + " -I " + r.include_path
   args            := router_args
