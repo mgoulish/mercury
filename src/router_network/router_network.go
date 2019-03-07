@@ -22,12 +22,15 @@ package router_network
 
 import ( "errors"
          "fmt"
+         "io/ioutil"
          "os"
+         "strings"
          "sync"
          "time"
-         "utils"
-         "router"
+
          "client"
+         "router"
+         "utils"
        )
 
 
@@ -57,10 +60,12 @@ type Version struct {
 
 
 
-func check_path ( name string, path string ) {
+func check_path ( name string, path string, must_exist bool ) {
   if ! utils.Path_exists ( path ) {
-    ume ( "Path |%s| does not exist at |%s|\n", name, path )
-    os.Exit ( 1 )
+    ume ( "Path |%s| does not exist at |%s|", name, path )
+    if must_exist {
+      os.Exit ( 1 )
+    }
   }
 }
 
@@ -108,11 +113,11 @@ func new_version_with_roots ( name          string,
   v.Console_path        =  v.dispatch_root + "/share/qpid-dispatch/console/stand-alone"
   v.Include_path        =  v.dispatch_root + "/lib/qpid-dispatch/python"
 
-  check_path ( "dispatch_root", v.dispatch_root )
-  check_path ( "proton_root",   v.proton_root )
-  check_path ( "Router_path",   v.Router_path )
-  check_path ( "Console_path",  v.Console_path )
-  check_path ( "Include_path",  v.Include_path )
+  check_path ( "dispatch_root", v.dispatch_root, true )
+  check_path ( "proton_root",   v.proton_root,   true )
+  check_path ( "Router_path",   v.Router_path,   true )
+  check_path ( "Include_path",  v.Include_path,  true )
+  check_path ( "Console_path",  v.Console_path,  false )
 
   return v
 }
@@ -162,6 +167,11 @@ type Router_network struct {
 
   routers                   [] * router.Router
   clients                   [] * client.Client
+
+  ticker_frequency               int
+  client_ticker                * time.Ticker
+  client_status_files       []   string
+  completed_clients              int
 }
 
 
@@ -171,10 +181,21 @@ type Router_network struct {
 // Create a new router network.
 // Tell it how many worker threads each router should have,
 // and provide lots of paths.
-func New_router_network ( name string ) * Router_network {
-  var rn * Router_network
+func New_router_network ( name         string,
+                          mercury_root string,
+                          log_path     string ) * Router_network {
+  fp ( os.Stdout, " New_router_network |%s|   |%s|\n", name, mercury_root )
 
-  rn = & Router_network { Name : name }
+  rn := & Router_network { Name     : name,
+                           log_path : log_path }
+
+  rn.client_path = mercury_root + "/clients/c_proactor_client" 
+  if ! utils.Path_exists ( rn.client_path  ) {
+    ume ( "network error; client path |%s| does not exist.", rn.client_path )
+    os.Exit ( 1 )
+  }
+
+  rn.ticker_frequency = 10
 
   return rn
 }
@@ -376,24 +397,15 @@ func ( rn * Router_network ) Add_receiver ( name               string,
                                             router_name        string, 
                                             address            string ) {
 
-  /*
   throttle := "0" // Receivers do not get throttled.
-  r := rn.get_router_by_name ( router_name )
 
-  client := client.New_client ( name,
-                                "receive",
-                                name,
-                                r.Client_port ( ),
-                                rn.client_path,
-                                rn.log_path,
-                                rn.dispatch_root,
-                                rn.proton_root,
-                                n_messages,
-                                max_message_length,
-                                address,
-                                throttle )
-  rn.clients = append ( rn.clients, client )
-  */
+  rn.Add_client ( name, 
+                  false, 
+                  n_messages, 
+                  max_message_length, 
+                  router_name, 
+                  address, 
+                  throttle )
 }
 
 
@@ -406,7 +418,13 @@ func ( rn * Router_network ) Add_sender ( name               string,
                                           router_name        string, 
                                           address            string, 
                                           throttle           string ) {
-  rn.Add_client ( name, true, n_messages, max_message_length, router_name, address, throttle )
+  rn.Add_client ( name, 
+                  true, 
+                  n_messages, 
+                  max_message_length, 
+                  router_name, 
+                  address, 
+                  throttle )
 }
 
 
@@ -421,7 +439,6 @@ func ( rn * Router_network ) Add_client ( name               string,
                                           address            string, 
                                           throttle           string ) {
 
-  /*
   var operation string
   if sender {
     operation = "send"
@@ -433,34 +450,52 @@ func ( rn * Router_network ) Add_client ( name               string,
   r := rn.get_router_by_name ( router_name )
 
   if r == nil {
-    fp ( os.Stdout, "    router_network error: no such router |%s|\n", router_name )
-    os.Exit ( 1 )
+    ume ( "Network: Add_client: no such router: |%s|", router_name )
+    return
   }
+
+  // Clients just use the default versio.
+  ld_library_path := rn.Default_version.Ld_library_path
+  pythonpath      := rn.Default_version.Pythonpath
+
+  status_file := rn.log_path + "/" + name
+
+  rn.client_status_files = append ( rn.client_status_files, status_file )
 
   client := client.New_client ( name,
                                 operation,
-                                name,
                                 r.Client_port ( ),
                                 rn.client_path,
-                                rn.log_path,
-                                rn.dispatch_root,
-                                rn.proton_root,
+                                ld_library_path,
+                                pythonpath,
+                                status_file,
                                 n_messages,
                                 max_message_length,
                                 address,
-                                throttle )
+                                throttle,
+                                rn.verbose )
   rn.clients = append ( rn.clients, client )
-  */
 }
 
 
 
 
 
-func ( rn * Router_network ) Add_n_senders ( n int, n_messages int, max_message_length int, router_name string, address string, throttle string ) {
+func ( rn * Router_network ) Add_n_senders ( n                  int, 
+                                             n_messages         int, 
+                                             max_message_length int, 
+                                             router_name        string, 
+                                             address            string, 
+                                             throttle           string ) {
   for i := 1; i <= n; i ++ {
     name := fmt.Sprintf ( "sender_%03d", i )
-    rn.Add_client ( name, true, n_messages, max_message_length, router_name, address, throttle )
+    rn.Add_client ( name, 
+                    true, 
+                    n_messages, 
+                    max_message_length, 
+                    router_name, 
+                    address, 
+                    throttle )
   }
 }
 
@@ -522,6 +557,8 @@ func ( rn * Router_network ) Init ( ) {
   for _, router := range rn.routers {
     router.Init ( )
   }
+  
+  umi ( rn.verbose, "Network is initialized." )
 }
 
 
@@ -542,10 +579,15 @@ func ( rn * Router_network ) Run ( ) {
     }
   }
 
+  // Start the ticker for the client status checker.
+  ticker_time      := time.Second * time.Duration ( rn.ticker_frequency )
+  rn.client_ticker  = time.NewTicker ( ticker_time )
+  go rn.client_status_check ( )
+
   if len(rn.clients) > 0 {
 
     if router_run_count > 0 {
-      nap_time := 10
+      nap_time := 5
       if rn.verbose {
         fp ( os.Stdout, 
              "network info: sleeping %d seconds to wait for network stabilization.\n", 
@@ -560,7 +602,21 @@ func ( rn * Router_network ) Run ( ) {
     }
   }
 
+
   rn.Running = true
+}
+
+
+
+
+
+func ( rn * Router_network ) client_status_check ( ) {
+  for range rn.client_ticker.C {
+    for index, file_name := range rn.client_status_files {
+      client := rn.clients [ index ]
+      rn.read_client_status_file ( client.Name, file_name )
+    }
+  }
 }
 
 
@@ -749,6 +805,44 @@ func ( rn * Router_network ) Get_nth_interior_router_name ( index int ) ( string
     }
   }
   return ""
+}
+
+
+
+
+
+func ( rn * Router_network ) read_client_status_file ( client_name, file_name string ) {
+  buf, err := ioutil.ReadFile ( file_name )
+  if err != nil {
+    ume ( "read_client_status_file: can't read file |%s| error: |%s|", file_name, err.Error() )
+    return
+  }
+  lines := strings.Split ( string(buf), "\n" )
+
+  // Find the last line in the file that is not empty.
+  var line string
+  for index := len ( lines ) - 1; index >= 0; index -- {
+    line = lines [ index ]
+    if len(line) > 0 {
+      break
+    }
+  }
+
+  reader := strings.NewReader ( line )
+  var ( timestamp, first_word string )
+  _, err = fmt.Fscanf ( reader, "%s%s", & timestamp, & first_word )
+  if err != nil {
+    ume ( "read_client_status_file: error reading last line: |%s|", err.Error() )
+    return
+  }
+  if first_word == "complete" {
+    rn.completed_clients ++
+    umi ( true, "network: client |%s| has successfully completed.", client_name )
+  }
+  
+  if rn.completed_clients >= len ( rn.clients ) {
+    rn.client_ticker.Stop()
+  }
 }
 
 

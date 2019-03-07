@@ -297,10 +297,10 @@ func recv ( merc * Merc, command_line * lisp.List ) {
     router_name := target_router_list[router_index]
 
     merc.network.Add_receiver ( recv_name,
-                                   n_messages,
-                                   max_message_length,
-                                   router_name,
-                                   final_addr )
+                                n_messages,
+                                max_message_length,
+                                router_name,
+                                final_addr )
 
     umi ( merc.verbose,
           "recv: added |%s| with addr |%s| to router |%s|.", 

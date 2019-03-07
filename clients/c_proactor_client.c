@@ -24,8 +24,6 @@
 #include <unistd.h>
 
 
-
-
 static
 double
 get_timestamp ( void )
@@ -83,13 +81,6 @@ context_t,
 
 
 
-
-
-
-
-
-
-
 int
 rand_int ( int one_past_max )
 {
@@ -107,7 +98,7 @@ log ( context_p context, char const * format, ... )
   if ( ! context->log_file )
     return;
 
-  fprintf ( context->log_file, "%.6f : ", get_timestamp() );
+  fprintf ( context->log_file, "%.6f  ", get_timestamp() );
   va_list ap;
   va_start ( ap, format );
   vfprintf ( context->log_file, format, ap );
@@ -142,7 +133,7 @@ encode_outgoing_message ( context_p context )
 
   if ( err == PN_OVERFLOW ) 
   {
-    log ( context, "error: overflowed outgoing_buffer_size == %d\n", context->outgoing_buffer_size );
+    log ( context, "error : overflowed outgoing_buffer_size == %d\n", context->outgoing_buffer_size );
     exit ( 1 );
   } 
   else
@@ -172,7 +163,7 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 
   if ( incoming_size >= context->max_receive_length )
   {
-    log ( context, "incoming message too big: %d.\n", incoming_size );
+    log ( context, "error incoming message too big: %d.\n", incoming_size );
     exit ( 1 );
   }
 
@@ -244,9 +235,9 @@ send_message ( context_p context )
   context->messages_sent ++;
   pn_link_advance ( link );
   context->total_bytes_sent += outgoing_size;
-  if ( ! (context->messages_sent % 10) )
+  if ( ! (context->messages_sent % 1000) )
   {
-    log ( context, "STATUS sent %d\n", context->messages_sent );
+    log ( context, "sent %d\n", context->messages_sent );
   }
 }
 
@@ -283,7 +274,6 @@ process_event ( context_p context, pn_event_t * event )
         sprintf ( link_name, "%d_send_%05d", getpid(), context->link_count );
         context->link_count ++;
         context->links[0] = pn_sender (  event_session, link_name );
-        log ( context, "sender setting path |%s|\n", context->path );
         pn_terminus_set_address ( pn_link_target(context->links[0]), context->path );
         pn_link_set_snd_settle_mode ( context->links[0], PN_SND_UNSETTLED );
         pn_link_set_rcv_settle_mode ( context->links[0], PN_RCV_FIRST );
@@ -294,7 +284,6 @@ process_event ( context_p context, pn_event_t * event )
         sprintf ( link_name, "%d_recv_%05d", getpid(), context->link_count );
         context->link_count ++;
         context->links[0] = pn_receiver( event_session, link_name );
-        log ( context, "receiver setting path |%s|\n", context->path );
         pn_terminus_set_address ( pn_link_source(context->links[0]), context->path );
       }
 
@@ -325,7 +314,7 @@ process_event ( context_p context, pn_event_t * event )
       if ( pn_link_is_receiver ( event_link ) )
       {
         pn_link_flow ( event_link, context->credit_window );
-        log ( context, "receiver sent flow of %d\n", context->credit_window );
+        // log ( context, "receiver sent flow of %d\n", context->credit_window );
       }
     break;
 
@@ -374,11 +363,6 @@ process_event ( context_p context, pn_event_t * event )
         {
           while ( pn_link_credit ( event_link ) > 0 && context->messages_sent < context->messages )
             send_message ( context );
-          
-          log ( context, 
-                "sender finished sending. Credit == %d, sent == %d\n", 
-                pn_link_credit ( event_link ), 
-                context->messages_sent );
         }
       }
     }
@@ -420,7 +404,7 @@ process_event ( context_p context, pn_event_t * event )
         if ( context->received >= context->next_received_report )
         {
           log ( context,
-                "STATUS received %d\n",
+                "received %d\n",
                 context->received
               );
           context->next_received_report += 100;
@@ -448,24 +432,20 @@ process_event ( context_p context, pn_event_t * event )
 
 
     case PN_CONNECTION_REMOTE_CLOSE :
-      log ( context, "PN_CONNECTION_REMOTE_CLOSE\n" );
       pn_connection_close ( pn_event_connection( event ) );
     break;
 
     case PN_SESSION_REMOTE_CLOSE :
-      log ( context, "PN_SESSION_REMOTE_CLOSE\n" );
       pn_session_close ( pn_event_session( event ) );
     break;
 
 
     case PN_LINK_REMOTE_CLOSE :
-      log ( context, "PN_LINK_REMOTE_CLOSE\n" );
       pn_link_close ( pn_event_link( event ) );
     break;
 
 
     case PN_PROACTOR_INACTIVE:
-      log ( context, "PN_PROACTOR_INACTIVE\n" );
       return false;
 
     default:
@@ -561,22 +541,6 @@ init_context ( context_p context, int argc, char ** argv )
       {
         memset  ( context->name, 0, MAX_NAME );
         strncpy ( context->name, NEXT_ARG, MAX_NAME );
-      }
-
-      i ++;
-    }
-    // id ----------------------------------------------
-    else
-    if ( ! strcmp ( "--id", argv[i] ) )
-    {
-      if ( ! strcmp ( NEXT_ARG, "PID" ) )
-      {
-        sprintf ( context->id, "client_%d", getpid() );
-      }
-      else
-      {
-        memset  ( context->id, 0, MAX_NAME );
-        strncpy ( context->id, NEXT_ARG, MAX_NAME );
       }
 
       i ++;
@@ -684,7 +648,7 @@ main ( int argc, char ** argv )
   if ( context.sending ) 
   {
     log ( & context, 
-          "info sent %d messages %ld bytes\n", 
+          "complete --  sent %d messages %ld bytes\n", 
           context.messages_sent, 
           context.total_bytes_sent 
         );
@@ -692,7 +656,7 @@ main ( int argc, char ** argv )
   else
   {
     log ( & context, 
-          "info received %d messages %ld bytes\n", 
+          "complete -- received %d messages %ld bytes\n", 
           context.received,
           context.total_bytes_received
         );

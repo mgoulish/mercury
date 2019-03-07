@@ -8,6 +8,14 @@ inc versions
 
 routers 1
 
-run
+routers 1 version later 
+
+connect A B
+
+send A n_messages 100
+recv B n_messages 100
+
+
+
 
 

@@ -43,6 +43,8 @@ import ( "fmt"
          "strings"
          "time"
          "strconv"
+
+         "utils"
        )
 
 
@@ -51,6 +53,9 @@ import ( "fmt"
 
 var fp          = fmt.Fprintf
 var module_name = "client"
+var ume         = utils.M_error
+var umi         = utils.M_info
+
 
 
 
@@ -67,24 +72,27 @@ const (
 
 
 type Client struct {
-  Name                  string
-  Operation             string
-  Id                    string
-  Port                  string
-  Path                  string
-  log_path              string
+  Name                 string
+  Operation            string
+  Port                 string
 
-  dispatch_install_root string
-  proton_install_root   string
+  Path                 string
+  ld_library_path      string
+  pythonpath           string
+  log_file             string
 
-  n_messages            int
+  n_messages           int
 
-  cmd                 * exec.Cmd
-  State                 Client_state
-  max_message_length    int
-  address               string
+  cmd                * exec.Cmd
+  State                Client_state
+  max_message_length   int
+  address              string
 
-  throttle              string
+  throttle             string
+
+  verbose              bool
+
+  status_file_name     string
 }
 
 
@@ -93,31 +101,36 @@ type Client struct {
 
 func New_client ( name                  string,
                   operation             string,
-                  id                    string,
                   port                  string,
                   path                  string,
-                  log_path              string,
-                  dispatch_install_root string,
-                  proton_install_root   string,
+                  ld_library_path       string,
+                  pythonpath            string,
+                  log_file              string,
                   n_messages            int,
                   max_message_length    int, 
                   address               string,
-                  throttle              string ) ( * Client )  { 
+                  throttle              string,
+                  verbose               bool ) ( * Client )  { 
   var c * Client
 
   c = & Client { Name                  : name,
                  Operation             : operation,
-                 Id                    : id,
                  Port                  : port,
                  Path                  : path,
-                 log_path              : log_path,
+                 ld_library_path       : ld_library_path,
+                 pythonpath            : pythonpath,
+                 log_file              : log_file,
                  State                 : initialized,
-                 dispatch_install_root : dispatch_install_root,
-                 proton_install_root   : proton_install_root,
                  n_messages            : n_messages,
                  max_message_length    : max_message_length,
                  address               : address,
-                 throttle              : throttle }
+                 throttle              : throttle,
+                 verbose               : verbose }
+
+  if ! utils.Path_exists ( path ) {
+    ume ( "client: executable path |%s| isn't there.", c.Path )
+    return nil
+  }
 
   return c
 }
@@ -128,41 +141,32 @@ func New_client ( name                  string,
 
 func ( c * Client ) Run ( ) {
 
+  // Don't warn in this case. It's normal behavior
+  // to tell everything to run -- even those clients
+  // that are already running.
   if c.State >= running {
     return
   }
 
-  DISPATCH_LIBRARY_PATH := c.dispatch_install_root + "/lib"
-  PROTON_LIBRARY_PATH   := c.proton_install_root   + "/lib64"
-  LD_LIBRARY_PATH       := DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
-
-  DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
-
-  PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH + "/proton/bindings/python"
-
-  PYTHONPATH            := DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_LIBRARY_PATH +":"+ PROTON_PYTHONPATH
-
-
   // Set up the environment for the router process.
-  os.Setenv ( "LD_LIBRARY_PATH", LD_LIBRARY_PATH )
-  os.Setenv ( "PYTHONPATH"     , PYTHONPATH )
+  os.Setenv ( "LD_LIBRARY_PATH", c.ld_library_path )
+  os.Setenv ( "PYTHONPATH"     , c.pythonpath )
 
-  fp ( os.Stderr, "MDEBUG CLIENT export LD_LIBRARY_PATH=" + LD_LIBRARY_PATH + "\n" )
-  fp ( os.Stderr, "MDEBUG CLIENT export PYTHONPATH=" + PYTHONPATH + "\n" )
-
-  args := " --name " + c.Name + " --operation " + c.Operation + " --id " + c.Id + " --port " + c.Port + " --log " + c.log_path +"/"+ c.Name + " --messages " + strconv.Itoa(c.n_messages) + " --max_message_length " + strconv.Itoa(c.max_message_length) + " --address " + c.address + " --throttle " + c.throttle
+  args := " --name " + c.Name + " --operation " + c.Operation + " --port " + c.Port + " --log " + c.log_file + " --messages " + strconv.Itoa(c.n_messages) + " --max_message_length " + strconv.Itoa(c.max_message_length) + " --address " + c.address + " --throttle " + c.throttle 
   args_list := strings.Fields ( args )
   c.cmd = exec.Command ( c.Path,  args_list... )
-
-  fp ( os.Stderr, "MDEBUG CLIENT command: |%s %s|\n", c.Path, args )
 
   // Start the client command. After the call to Start(),
   // the client is running detached.
   //fp ( os.Stderr, "running client |%s|\n", c.Name )
-  c.cmd.Start()
+  err := c.cmd.Start()
+  if err != nil {
+    ume ( "client |%s| start-up error: |%s|", c.Name, err.Error() )
+    return
+  }
 
   c.State = running
+  umi ( c.verbose, "client |%s| is running with pid %d.", c.Name, c.cmd.Process.Pid )
 }
 
 

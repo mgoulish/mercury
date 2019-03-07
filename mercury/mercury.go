@@ -55,7 +55,7 @@ func new_session ( ) ( * Session ) {
   name := cwd + "/sessions/session_" + time.Now().Format ( "2006_01_02_1504" )
   s := & Session { name        : name,
                    config_path : name + "/config",
-                   log_path    : name + "/log_path" }
+                   log_path    : name + "/logs" }
 
   utils.Find_or_create_dir ( s.config_path )
   utils.Find_or_create_dir ( s.log_path )
@@ -267,7 +267,6 @@ func new_merc ( ) ( merc * Merc ) {
                   n_worker_threads : 4,
                   line_rgx         : regexp.MustCompile(`\s+`),
                   first_nonwhitespace_rgx : regexp.MustCompile(`\S`) }
-  merc.network = rn.New_router_network ( "network" )
   return merc
 }
 
@@ -344,6 +343,8 @@ func this_is_an_interior_router_name ( merc * Merc, name string ) ( bool ) {
 
 func main ( ) {
 
+  mercury_root := os.Getenv ( "MERCURY_ROOT" )
+
   merc := new_merc ( )
 
   // Put this outside of new_merc because in future we 
@@ -356,12 +357,15 @@ func main ( ) {
   merc.mercury_log_file, _ = os.Create ( merc.mercury_log_name )
   defer merc.mercury_log_file.Close()
 
+  merc.network = rn.New_router_network ( "network", 
+                                         mercury_root,
+                                         merc.session.log_path )
+
   /*===========================================
     Make commands. 
   ============================================*/
 
   merc.commands = make ( map[string] * command, 0 )
-
 
 
   ten_MILLION := "10000000"
@@ -460,7 +464,7 @@ func main ( ) {
   // connect command -------------------------------------------------------
   cmd = merc.add_command ( "connect",
                               connect,
-                              "Connect two routers." )
+                              "Connect two routers. Example: connect A B" )
   // The connect command uses its own command line processing.
 
 
