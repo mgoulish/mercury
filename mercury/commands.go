@@ -431,7 +431,17 @@ func inc ( merc  * Merc, command_line * lisp.List ) {
 
 
 
-func linear ( merc  * Merc, command_line * lisp.List ) {
+func (merc * Merc) random_version_name ( ) (string) {
+  n_versions   := len(merc.network.Versions)
+  random_index := rand.Intn ( n_versions )
+  return merc.network.Versions[random_index].Name
+}
+
+
+
+
+
+func linear ( merc * Merc, command_line * lisp.List ) {
   cmd := merc.commands [ "linear" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -439,11 +449,9 @@ func linear ( merc  * Merc, command_line * lisp.List ) {
   requested_version := cmd.unlabelable_string.string_value
 
   var version string
-
   if requested_version == "" {
     version = merc.network.Default_version.Name
   } 
-
 
   // Make the requested routers.
   var router_name string
@@ -452,9 +460,7 @@ func linear ( merc  * Merc, command_line * lisp.List ) {
     router_name = get_next_interior_router_name ( merc )
 
     if requested_version == "random" {
-      n_versions   := len(merc.network.Versions)
-      random_index := rand.Intn ( n_versions )
-      version = merc.network.Versions[random_index].Name
+      version = merc.random_version_name()
     }
 
     merc.network.Add_router ( router_name, 
@@ -481,15 +487,15 @@ func linear ( merc  * Merc, command_line * lisp.List ) {
 
 
 func mesh ( merc  * Merc, command_line * lisp.List ) {
-  /*
   cmd := merc.commands [ "mesh" ]
   parse_command_line ( merc, cmd, command_line )
 
-  count   := cmd.unlabelable_int.int_value
-  version := cmd.unlabelable_string.string_value
+  count             := cmd.unlabelable_int.int_value
+  requested_version := cmd.unlabelable_string.string_value
 
-  if version == "" {
-    version = merc.default_dispatch_version
+  var version string
+  if requested_version == "" {
+    version = merc.network.Default_version.Name
   }
 
   // Make the requested routers.
@@ -497,7 +503,13 @@ func mesh ( merc  * Merc, command_line * lisp.List ) {
   var temp_names [] string
   for i := 0; i < count; i ++ {
     router_name = get_next_interior_router_name ( merc )
-    merc.network.Add_router ( router_name, version )
+    if requested_version == "random" {
+      version = merc.random_version_name()
+    }
+    merc.network.Add_router ( router_name, 
+                              version,
+                              merc.session.config_path,
+                              merc.session.log_path )
     temp_names = append ( temp_names, router_name )
     umi ( merc.verbose, "mesh: added router |%s| with version |%s|.", router_name, version )
   }
@@ -515,7 +527,6 @@ func mesh ( merc  * Merc, command_line * lisp.List ) {
       }
     }
   }
-  */
 }
 
 
@@ -523,15 +534,15 @@ func mesh ( merc  * Merc, command_line * lisp.List ) {
 
 
 func teds_diamond ( merc  * Merc, command_line * lisp.List ) {
-  /*
   cmd := merc.commands [ "teds_diamond" ]
   parse_command_line ( merc, cmd, command_line )
 
-  count   := 4
-  version := cmd.unlabelable_string.string_value
+  count             := 4
+  requested_version := cmd.unlabelable_string.string_value
 
-  if version == "" {
-    version = merc.default_dispatch_version
+  var version string
+  if requested_version == "" {
+    version = merc.network.Default_version.Name
   }
 
   // Make the requested routers.
@@ -539,7 +550,13 @@ func teds_diamond ( merc  * Merc, command_line * lisp.List ) {
   var temp_names [] string
   for i := 0; i < count; i ++ {
     router_name = get_next_interior_router_name ( merc )
-    merc.network.Add_router ( router_name, version )
+    if requested_version == "random" {
+      version = merc.random_version_name()
+    }
+    merc.network.Add_router ( router_name, 
+                              version,
+                              merc.session.config_path,
+                              merc.session.log_path )
     temp_names = append ( temp_names, router_name )
     umi ( merc.verbose, "teds_diamond: added router |%s| with version |%s|.", router_name, version )
   }
@@ -560,9 +577,16 @@ func teds_diamond ( merc  * Merc, command_line * lisp.List ) {
 
   // Now make the two outliers.
   outlier := get_next_interior_router_name ( merc )
-  merc.network.Add_router ( outlier, version )
+  if requested_version == "random" {
+    version = merc.random_version_name()
+  }
+  merc.network.Add_router ( outlier, 
+                            version,
+                            merc.session.config_path,
+                            merc.session.log_path )
   umi ( merc.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
   catcher = temp_names[0]
+  fp ( os.Stdout, "MDEBUG : outlier |%s|   catcher |%s|\n", outlier, catcher )
   merc.network.Connect_router ( outlier, catcher )
   umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
   catcher = temp_names[1]
@@ -571,7 +595,13 @@ func teds_diamond ( merc  * Merc, command_line * lisp.List ) {
 
 
   outlier = get_next_interior_router_name ( merc )
-  merc.network.Add_router ( outlier, version )
+  if requested_version == "random" {
+    version = merc.random_version_name()
+  }
+  merc.network.Add_router ( outlier, 
+                            version,
+                            merc.session.config_path,
+                            merc.session.log_path )
   umi ( merc.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
   catcher = temp_names[2]
   merc.network.Connect_router ( outlier, catcher )
@@ -579,7 +609,6 @@ func teds_diamond ( merc  * Merc, command_line * lisp.List ) {
   catcher = temp_names[3]
   merc.network.Connect_router ( outlier, catcher )
   umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
-  */
 }
 
 

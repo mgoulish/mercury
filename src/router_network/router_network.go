@@ -770,6 +770,12 @@ func ( rn * Router_network ) get_router_by_name ( target_name string ) * router.
     }
   }
 
+  ume ( "get_router_by_name: no such router |%s|", target_name )
+  fp ( os.Stdout, "    routers are:\n" )
+  for _, router := range rn.routers {
+    fp ( os.Stdout, "      %s\n", router.Name() )
+  }
+  os.Exit ( 1 )
   return nil
 }
 

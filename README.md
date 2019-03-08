@@ -13,6 +13,18 @@
   The directory from which to run Mercury is also called mercury.  So it's mercury/mercury.  And the run-script that I use is 'r'.
   In that script you will see that it sets an environment variable MERCURY_ROOT to ${HPME}/mercury. If you install mercury someplace other than your home directory, change this variable as appropriate.
 
+  Here, as an example, is the startup script that I use:
+
+            #! /usr/bin/bash
+
+            export MERCURY_ROOT=${HOME}/mercury
+            export GOPATH=${MERCURY_ROOT}
+
+            # go run ./*.go  ./test_3
+
+  The last arg on the command line in the above startup script is the filename of the script for Mercury to run.
+
+
 
 
 ###Getting Help
@@ -83,6 +95,25 @@
 
 
 
+### Sessions
+
+  Each time Mercury starts up, it defines a new session. The name of the session is  "session_YEAR_MONTH_DAY_HOURMINUTE", for example: session_2019_03_08_0336".  A directory is made with that name as a subdirectory of mercury/mercury/sessions, and all information from that session is stored in there.
+
+  To replay a session, you just use the mercury log file name on the command line as the script for Mercury to run.
+  For example (see example of whole startup script, above) :
+
+    go run ./*.go  ~/mercury/mercury/sessions/session_2019_03_08_0659/mercury_log
+
+  And it will replay your session.  The only thing is, that sessin-recording will have a 'quit' command at the end that you might want to delete first.
+
+
+
+
+###Client Status Reporting
+
+  When the network creates clients it gives each one of them their own individual log file in the directory SESSION/logs .  When the network starts running, a ticker is started that expires every 10 seconds. Every time it expires, a goroutine in the network code checks each clients status as written in the log files. 
+
+  Right now the only notification you get in Mercury is when the client 'completes' -- i.e. it has sent or received all the messages it was expecting to send or receive.
 
 
 
