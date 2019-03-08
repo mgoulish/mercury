@@ -1,0 +1,24 @@
+##########################################################
+# test_1
+##########################################################
+
+seed PID
+
+verbose
+
+inc versions
+
+linear 3 version random
+
+#-----------------------------------------------
+# Make 100 senders and 100 receivers at 
+# opposite ends of the linear network.
+# Try out the address-counting-up feature.
+#-----------------------------------------------
+send A count 100 address my_address_%d
+recv C count 100 address my_address_%d
+
+
+
+
+
