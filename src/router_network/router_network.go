@@ -184,7 +184,6 @@ type Router_network struct {
 func New_router_network ( name         string,
                           mercury_root string,
                           log_path     string ) * Router_network {
-  fp ( os.Stdout, " New_router_network |%s|   |%s|\n", name, mercury_root )
 
   rn := & Router_network { Name     : name,
                            log_path : log_path }

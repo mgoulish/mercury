@@ -520,7 +520,7 @@ func main ( ) {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                ten_MILLION,
+                "100",
                 "How many messages to send." )
 
   cmd.add_arg ( "max_message_length",
