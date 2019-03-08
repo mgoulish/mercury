@@ -122,13 +122,6 @@ type command struct {
 type Merc struct {
   session                  * Session
 
-  // Paths
-  //------------------------
-  // If you enter these paths directly, whatever you tell 
-  // me will overwrite what is already here, even if
-  // nonempty. Paths that I *calculate*, OTOH, will never
-  // overwrite nonempty values here.
-
   verbose                    bool
   echo                       bool
   prompt                     bool
@@ -139,6 +132,10 @@ type Merc struct {
   network_running            bool
   receiver_count             int
   sender_count               int
+
+  // This counts total edges that have been made on any
+  // router anywhere, just so we can give a unique name 
+  // to each.
   edge_count                 int
 
   mercury_log_name           string
@@ -268,39 +265,6 @@ func new_merc ( ) ( merc * Merc ) {
                   line_rgx         : regexp.MustCompile(`\s+`),
                   first_nonwhitespace_rgx : regexp.MustCompile(`\S`) }
   return merc
-}
-
-
-
-
-
-func create_network ( merc * Merc ) {
-
-  // merc.router_path   = merc.dispatch_install_root + "/sbin/qdrouterd"
-  // merc.client_path   = merc.mercury_root + "/clients/c_proactor_client"
-
-  // merc.result_path   = merc.session_name + "/" + "results"
-  // merc.config_path   = merc.session_name + "/" + "config"
-  // merc.log_path      = merc.session_name + "/" + "log"
-
-  // utils.Find_or_create_dir ( merc.result_path )
-  // utils.Find_or_create_dir ( merc.config_path )
-  // utils.Find_or_create_dir ( merc.log_path )
-  // Don't try to create the client path. That's an executable, not a directory.
-
-  // umi ( merc.verbose, "create_network: result_path : |%s|", merc.result_path )
-  // umi ( merc.verbose, "create_network: config_path : |%s|", merc.config_path )
-  // umi ( merc.verbose, "create_network: log_path    : |%s|", merc.log_path )
-  // umi ( merc.verbose, "create_network: client_path : |%s|", merc.client_path )
-  // umi ( merc.verbose, "create_network: result_path : |%s|", merc.result_path )
-  // umi ( merc.verbose, "create_network: router_path : |%s|", merc.router_path )
-
-  /*
-  merc.network = rn.New_Router_Network ( "mercury_router_network",
-                                          merc.n_worker_threads,
-                                          merc.verbose,
-                                          0 )
-  */
 }
 
 

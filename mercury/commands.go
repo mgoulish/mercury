@@ -89,34 +89,37 @@ func prompt ( merc * Merc, command_line * lisp.List ) {
 
 
 func edges ( merc * Merc, command_line * lisp.List ) {
-  /*
   cmd := merc.commands [ "edges" ]
   parse_command_line ( merc, cmd, command_line )
 
-  router_name := cmd.unlabelable_string.string_value
-  count       := cmd.unlabelable_int.int_value
+  router_name       := cmd.unlabelable_string.string_value
+  count             := cmd.unlabelable_int.int_value
+  requested_version := cmd.argmap["version"].string_value
 
-  version_name := merc.default_dispatch_version
-  version_arg  := cmd.argmap [ "version" ]
-  if version_arg.explicit {
-    // The user entered a value.
-    version_name = version_arg.string_value
-  }
+  var version string
+  if requested_version == "" {
+    version = merc.network.Default_version.Name
+  } 
 
   // Make the edges.
   var edge_name string
   for i := 0; i < count; i ++ {
+    if requested_version == "random" {
+      version = merc.random_version_name()
+    }
     merc.edge_count ++
     edge_name = fmt.Sprintf ( "edge_%04d", merc.edge_count )
-    merc.network.Add_edge ( edge_name, version_name )
+    merc.network.Add_edge ( edge_name, 
+                            version,
+                            merc.session.config_path,
+                            merc.session.log_path )
     merc.network.Connect_router ( edge_name, router_name )
     umi ( merc.verbose, 
           "edges: added edge %s with version %s to router %s", 
           edge_name, 
-          version_name, 
+          version, 
           router_name )
   }
-  */
 }
 
 
