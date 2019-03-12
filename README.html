@@ -1,0 +1,182 @@
+<h1>Mercury</h1>
+
+<h2>interactive Golang Testing System for Qpid Dispatch Router</h2>
+
+<p><br/></p>
+
+<h3>Requirements</h3>
+
+<ol>
+<li>the go language on your machine</li>
+<li>installed proton and dispatch router software</li>
+</ol>
+
+
+<p><br/></p>
+
+<h3>The C Client</h3>
+
+<p>The client that I use is written in C to the proactor interface and has been heavily adapted from an original by Alan Conway. It needs to be built before Mercury will be able to do anything useful. Look at the directory mercury/clients, look at the file in there called &ldquo;m&rdquo;, adapt it for your system, and run it so you get an executable.</p>
+
+<p>Having my own client allows me to do things like:</p>
+
+<ol>
+<li>throttle send-speed with the &ldquo;&ndash;throttle&rdquo; argument</li>
+<li>Tell the client to form multiple links with multiple &ldquo;&ndash;address&rdquo; arguments.</li>
+<li>Tell it where to send its log files and so on.</li>
+</ol>
+
+
+<p><br/></p>
+
+<h3>Starting Mercury</h3>
+
+<p>The directory from which to run Mercury is also called mercury.  So it&rsquo;s mercury/mercury.  And the run-script that I use is &lsquo;r&rsquo;.
+In that script you will see that it sets an environment variable MERCURY_ROOT to ${HOME}/mercury. If you install mercury someplace other than your home directory, change this variable as appropriate.</p>
+
+<p>Here, as an example, is the startup script that I use:</p>
+
+<pre><code>#! /usr/bin/bash
+
+export MERCURY_ROOT=${HOME}/mercury
+export GOPATH=${MERCURY_ROOT}
+
+# go run ./*.go  ./test_3
+</code></pre>
+
+<p>The last arg on the command line in the above startup script is the filename of the script for Mercury to run.</p>
+
+<p><br/></p>
+
+<h3>Getting Help</h3>
+
+<p>When Mercury is running, type &lsquo;help&rsquo;, and you will see a list of commands with brief descriptions. If you then type &ldquo;help COMMAND_NAME&rdquo; you will get detailed help for that command, plus its arguments.</p>
+
+<p><br/></p>
+
+<h3>Running the Test Files</h3>
+
+<p>There is a growing collection of tests scripts in the directory  mercury/mercury/tests.  They are designed to illustrate different aspects of Mercury. You can run them by using the &lsquo;r&rsquo; script in mercury/mercury and editing it to have the test script you want on the command line, or you can just start Mercury and type &ldquo;inc tests/05_addresses&rdquo; or whatever.</p>
+
+<p>The test scripts includes one other file with the &lsquo;inc&rsquo; command &ndash; a file called &lsquo;versions&rsquo; which defines two different versions of the router code.</p>
+
+<p>You will also need to change that &lsquo;versions&rsquo; file to point to one or more versions that you have installed on your system, and then change the &lsquo;test&rsquo; file to only use your versions.  (If you only define one version, then it will be the default and will get used whenever you create a new router if you just don&rsquo;t use the &lsquo;version&rsquo; arg in the &lsquo;routers&rsquo; command.</p>
+
+<p><br/></p>
+
+<h3>Debugging Startup</h3>
+
+<p>When Mercury starts up a router, it saves all the information you need to reproduce the same startup by hand. The router config file, the environment variables that are set, and the command line that is used are all saved in MERCURY_ROOT/mercury/sessions/session_TIMESTAMP/config. Router config files have the same names as their routers.</p>
+
+<p>Here is an example:</p>
+
+<pre><code>/home/mick/mercury/mercury/sessions/session\_2019\_03\_05\_2115/config/
+    |-- A.conf
+    |-- B.conf
+    |-- command_line
+    |-- environment_variables
+</code></pre>
+
+<p>If you have a router fail to start, or it starts up and is immediately defunct, use this information to reproduce the same startup by hand, and see what&rsquo;s happening.</p>
+
+<p><br/></p>
+
+<h3>Running a test &lsquo;By Hand&rsquo;</h3>
+
+<p>One nice way to use Mercury is to use it to run a test for you and then see how it did that, so you can run the same setup &lsquo;by hand&rsquo;.  You can look in the session/config directory and see all the environment variables it set and the command lines it used for the routers and the clients.</p>
+
+<p>The command lines for the routers will point to the config files that it created, and those config files have ports that were chosen because they were free at that moment. It is possible that they will <em>no longer</em> be free when you run the test &lsquo;by hand&rsquo; if you have other stuff running on your system. But unlikely.</p>
+
+<p><br/></p>
+
+<h3>Versions</h3>
+
+<p>A &lsquo;version&rsquo; represents a version of the dispatch router + proton code. The idea is that you have as many dispatch+proton installations as you like on your system, you define a Mercury version for each one of them, and then when you create a new router in Mercury you can tell it which version you want that router to use. Mercury will use the executable that corresponds to that version, and make it point to the correct libraries.</p>
+
+<p>You can define a version in one of two different ways</p>
+
+<ol>
+<li><p>You can provide the root directories for the proton and dispatch installation, and let Mercury calculate from them all the paths it needs, or</p></li>
+<li><p>You can directly provide all the paths. This second option is meant for situations where your installation is different somehow from what Mercury expects.</p></li>
+</ol>
+
+
+<p>To define a version with roots, use the &lsquo;version_roots&rsquo; command something like this:  (Here I am defining two different versions.)</p>
+
+<pre><code>version_roots name latest dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton
+version_roots name later  dispatch /home/mick/later/install/dispatch  proton /home/mick/later/install/proton
+</code></pre>
+
+<p>After defining those two versions, you can define a two-router network using those two different versions this way:</p>
+
+<pre><code>routers 1
+routers 1 version later
+</code></pre>
+
+<p>The first &lsquo;routers&rsquo; command does not specify a version, so it will get the default version, which is the first one that you defined.  (In this example, &lsquo;latest&rsquo;. )</p>
+
+<p>The second &lsquo;routers&rsquo; command does specify a version &lsquo;later&rsquo;.
+Both of these commands created 1 router apiece.</p>
+
+<p>Now connect them with the command</p>
+
+<pre><code>connect A B
+</code></pre>
+
+<p>And you have a heterogeneous network!</p>
+
+<p><br/></p>
+
+<h3>Sessions</h3>
+
+<p>Each time Mercury starts up, it defines a new session. The name of the session is  &ldquo;session_YEAR_MONTH_DAY_HOURMINUTE&rdquo;, for example: session_2019_03_08_0336".  A directory is made with that name as a subdirectory of mercury/mercury/sessions, and all information from that session is stored in there.</p>
+
+<p>To replay a session, you just use the mercury log file name on the command line as the script for Mercury to run.
+For example (see example of whole startup script, above) :</p>
+
+<pre><code>go run ./*.go  ~/mercury/mercury/sessions/session_2019_03_08_0659/mercury_log
+</code></pre>
+
+<p>And it will replay your session.  The only thing is, that sessin-recording will have a &lsquo;quit&rsquo; command at the end that you might want to delete first.</p>
+
+<p><br/></p>
+
+<h3>Client Status Reporting</h3>
+
+<p>When the network creates clients it gives each one of them their own individual log file in the directory SESSION/logs .  When the network starts running, a ticker is started that expires every 10 seconds. Every time it expires, a goroutine in the network code checks each clients status as written in the log files.</p>
+
+<p>Right now the only notification you get in Mercury is when the client &lsquo;completes&rsquo; &ndash; i.e. it has sent or received all the messages it was expecting to send or receive.</p>
+
+<p><br/></p>
+
+<h3>Creating many clients with different addresses</h3>
+
+<p>You can quickly create a large number of clients, each with its own address, with a command like this:</p>
+
+<p>send A count 100 address my_address_%d</p>
+
+<p>That will add 100 sender clients to router A, and each one will have its own address. Mercury will notice the &ldquo;%d&rdquo; in the address, and it will replace that string with numbers that start at 1 and count up. So you will get  &ldquo;my_address_1, my_address_2, &hellip; my_address_100&rdquo;.</p>
+
+<p>Then you can do the same thing with receivers:</p>
+
+<p>recv C count 100 address my_address_%d</p>
+
+<p>So now you will have 100 sender-receiver pairs, each connected by a unique address.</p>
+
+<p>If you want the address-numbers to start from some number other than 1, you can control that also:</p>
+
+<p>send B count 100 address my_address_%d  start_at 101</p>
+
+<p><br/></p>
+
+<h3>One-Command Networks</h3>
+
+<p>There are some network topologies that we tend to use a lot, and Mercury gives you a way to create each of these with a single command. Here are some examples to try:</p>
+
+<pre><code>linear 3
+mesh   4
+teds_diamond
+</code></pre>
+
+<p><br/>
+<br/></p>
