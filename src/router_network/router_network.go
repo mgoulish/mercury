@@ -391,6 +391,7 @@ func ( rn * Router_network ) Add_edge ( name         string,
 
 
 func ( rn * Router_network ) Add_receiver ( name               string, 
+                                            config_path        string,
                                             n_messages         int, 
                                             max_message_length int, 
                                             router_name        string, 
@@ -399,6 +400,7 @@ func ( rn * Router_network ) Add_receiver ( name               string,
   throttle := "0" // Receivers do not get throttled.
 
   rn.Add_client ( name, 
+                  config_path,
                   false, 
                   n_messages, 
                   max_message_length, 
@@ -412,12 +414,14 @@ func ( rn * Router_network ) Add_receiver ( name               string,
 
 
 func ( rn * Router_network ) Add_sender ( name               string, 
+                                          config_path        string,
                                           n_messages         int, 
                                           max_message_length int, 
                                           router_name        string, 
                                           address            string, 
                                           throttle           string ) {
   rn.Add_client ( name, 
+                  config_path,
                   true, 
                   n_messages, 
                   max_message_length, 
@@ -431,6 +435,7 @@ func ( rn * Router_network ) Add_sender ( name               string,
 
 
 func ( rn * Router_network ) Add_client ( name               string, 
+                                          config_path        string,
                                           sender             bool, 
                                           n_messages         int, 
                                           max_message_length int, 
@@ -462,6 +467,7 @@ func ( rn * Router_network ) Add_client ( name               string,
   rn.client_status_files = append ( rn.client_status_files, status_file )
 
   client := client.New_client ( name,
+                                config_path,
                                 operation,
                                 r.Client_port ( ),
                                 rn.client_path,
@@ -473,29 +479,8 @@ func ( rn * Router_network ) Add_client ( name               string,
                                 address,
                                 throttle,
                                 rn.verbose )
+
   rn.clients = append ( rn.clients, client )
-}
-
-
-
-
-
-func ( rn * Router_network ) Add_n_senders ( n                  int, 
-                                             n_messages         int, 
-                                             max_message_length int, 
-                                             router_name        string, 
-                                             address            string, 
-                                             throttle           string ) {
-  for i := 1; i <= n; i ++ {
-    name := fmt.Sprintf ( "sender_%03d", i )
-    rn.Add_client ( name, 
-                    true, 
-                    n_messages, 
-                    max_message_length, 
-                    router_name, 
-                    address, 
-                    throttle )
-  }
 }
 
 

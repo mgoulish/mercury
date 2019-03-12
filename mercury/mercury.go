@@ -332,8 +332,6 @@ func main ( ) {
   merc.commands = make ( map[string] * command, 0 )
 
 
-  ten_MILLION := "10000000"
-
 
   // seed command -------------------------------------------------------
   cmd := merc.add_command ( "seed",
@@ -578,7 +576,7 @@ func main ( ) {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                ten_MILLION,
+                "100",
                 "How many messages to send." )
 
   cmd.add_arg ( "edges",

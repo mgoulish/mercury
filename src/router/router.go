@@ -507,7 +507,7 @@ func ( r * Router ) Run ( ) error {
 
   // Write the environment variables to the config directory.
   // This helps the user to reproduce this test, if desired.
-  env_file_name := r.config_path + "/environment_variables"
+  env_file_name := r.config_path + "/" + r.name + "_environment_variables"
   env_file, err := os.Create ( env_file_name )
   utils.Check ( err )
   defer env_file.Close ( )
@@ -518,7 +518,7 @@ func ( r * Router ) Run ( ) error {
 
   // Write the command line to the results directory.
   // This helps the user to reproduce this test, if desired.
-  command_file_name := r.config_path + "/command_line"
+  command_file_name := r.config_path + "/" + r.name + "_command_line"
   command_file, err := os.Create ( command_file_name )
   utils.Check ( err )
   defer command_file.Close ( )

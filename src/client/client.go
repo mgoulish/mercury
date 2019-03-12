@@ -73,6 +73,7 @@ const (
 
 type Client struct {
   Name                 string
+  config_path          string
   Operation            string
   Port                 string
 
@@ -100,6 +101,7 @@ type Client struct {
 
 
 func New_client ( name                  string,
+                  config_path           string,
                   operation             string,
                   port                  string,
                   path                  string,
@@ -114,6 +116,7 @@ func New_client ( name                  string,
   var c * Client
 
   c = & Client { Name                  : name,
+                 config_path           : config_path,
                  Operation             : operation,
                  Port                  : port,
                  Path                  : path,
@@ -131,6 +134,8 @@ func New_client ( name                  string,
     ume ( "client: executable path |%s| isn't there.", c.Path )
     return nil
   }
+
+  utils.Find_or_create_dir ( config_path )
 
   return c
 }
@@ -156,10 +161,28 @@ func ( c * Client ) Run ( ) {
   args_list := strings.Fields ( args )
   c.cmd = exec.Command ( c.Path,  args_list... )
 
+  // Write the command line. -------------------------------
+  command_file_name := c.config_path + "/" + "command_line"
+  command_file, err := os.Create ( command_file_name )
+  utils.Check ( err )
+  defer command_file.Close ( )
+  command_string := c.Path + " " + args
+  command_file.WriteString ( command_string + "\n" )
+
+  // Write the environment variables. ----------------------
+  environment_file_name := c.config_path + "/" + "environment_variables"
+  environment_file, err := os.Create ( environment_file_name )
+  utils.Check ( err )
+  defer environment_file.Close ( )
+  environment_string := "export LD_LIBRARY_PATH=" + c.ld_library_path + "\n" +
+                        "export PYTHONPATH="      + c.pythonpath + "\n"
+  environment_file.WriteString ( environment_string )
+
+
   // Start the client command. After the call to Start(),
   // the client is running detached.
   //fp ( os.Stderr, "running client |%s|\n", c.Name )
-  err := c.cmd.Start()
+  err = c.cmd.Start()
   if err != nil {
     ume ( "client |%s| start-up error: |%s|", c.Name, err.Error() )
     return

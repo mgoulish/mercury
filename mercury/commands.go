@@ -200,7 +200,7 @@ func send ( merc * Merc, command_line * lisp.List ) {
     variable_address = true
   }
 
-  start_at           := cmd.argmap [ "start_at"           ] . int_value
+  addr_number        := cmd.argmap [ "start_at"           ] . int_value
   n_messages         := cmd.argmap [ "n_messages"         ] . int_value
   max_message_length := cmd.argmap [ "max_message_length" ] . int_value
   throttle           := cmd.argmap [ "throttle"           ] . string_value
@@ -211,18 +211,20 @@ func send ( merc * Merc, command_line * lisp.List ) {
     sender_name := fmt.Sprintf ( "send_%04d", merc.sender_count )
 
     if variable_address {
-      final_addr = fmt.Sprintf ( address, start_at )
-      start_at ++
+      final_addr = fmt.Sprintf ( address, addr_number )
+      addr_number ++
     }
 
     router_name = target_router_list[router_index]
+    config_path := merc.session.config_path + "/clients/" + sender_name
 
     merc.network.Add_sender ( sender_name,
-                                 n_messages,
-                                 max_message_length,
-                                 router_name,
-                                 final_addr,
-                                 throttle )
+                              config_path,
+                              n_messages,
+                              max_message_length,
+                              router_name,
+                              final_addr,
+                              throttle )
 
     umi ( merc.verbose,
           "send: added sender |%s| with addr |%s| to router |%s|.", 
@@ -299,7 +301,10 @@ func recv ( merc * Merc, command_line * lisp.List ) {
 
     router_name := target_router_list[router_index]
 
+    config_path := merc.session.config_path + "/clients/" + recv_name
+
     merc.network.Add_receiver ( recv_name,
+                                config_path,
                                 n_messages,
                                 max_message_length,
                                 router_name,

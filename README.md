@@ -8,6 +8,32 @@
 
 
 
+###The C Client
+
+  The client that I use is written in C to the proactor interface and has been heavily adapted from an original by Alan Conway. It needs to be built before Mercury will be able to do anything useful. Look at the directory mercury/clients, look at the file in there called "m", adapt it for your system, and run it so you get an executable.
+
+  Having my own client allows me to do things like:
+    
+    1. throttle send-speed with the "--throttle" argument
+    2. Tell the client to form multiple links with multiple "--address" arguments.
+    3. Tell it where to send its log files and so on.
+
+
+
+###Setting up Versions
+
+  By 'version', I mean installed source trees for the dispatch router and proton. Mercury is a development tool, so its 'versions' capability is meant for multiple source code trees, all in nonstandard places -- for example $HOME/version_1/install/proton   $HOME/version_1/install/dispatch,  $HOME/version_2/install/proton, $HOME/version_2/install/dispatch, and so on.
+
+  Of course you do not *need* multiple verions installed. You can have just one, but you will still need to define it as a version with a command like:
+
+  version_roots name latest dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton
+
+  And if that's the only version you have, you can just forget about this feature. After you define that one, it will be used as the default for all routers.
+
+
+
+
+
 ###Starting Mercury
 
   The directory from which to run Mercury is also called mercury.  So it's mercury/mercury.  And the run-script that I use is 'r'.
@@ -33,10 +59,12 @@
 
 
 
-###Running the Demos
+###Running the Test Files
 
-  The only 'demo' that is tested right now is the small script  mercury/mercury/test -- and it is on the command line in the run-script at 'mercury/mercury/r'.  So it gets run automatically when you type ./r in that directory.
-  The test script includes one other file with the 'inc' command -- a file called 'versions' which defines two different versions of the router code.
+
+  There is a growing collection of tests scripts in the directory  mercury/mercury/tests.  They are designed to illustrate different aspects of Mercury. You can run them by using the 'r' script in mercury/mercury and editing it to have the test script you want on the command line, or you can just start Mercury and type "inc tests/05_addresses" or whatever.
+
+  The test scripts includes one other file with the 'inc' command -- a file called 'versions' which defines two different versions of the router code.
 
   You will also need to change that 'versions' file to point to one or more versions that you have installed on your system, and then change the 'test' file to only use your versions.  (If you only define one version, then it will be the default and will get used whenever you create a new router if you just don't use the 'version' arg in the 'routers' command.
 
@@ -56,6 +84,18 @@
     └── environment_variables
 
   If you have a router fail to start, or it starts up and is immediately defunct, use this information to reproduce the same startup by hand, and see what's happening.
+
+
+
+
+
+###Running a test 'By Hand'
+  
+  One nice way to use Mercury is to use it to run a test for you and then see how it did that, so you can run the same setup 'by hand'.  You can look in the session/config directory and see all the environment variables it set and the command lines it used for the routers and the clients. 
+  
+  The command lines for the routers will point to the config files that it created, and those config files have ports that were chosen because they were free at that moment. It is possible that they will *no longer* be free when you run the test 'by hand' if you have other stuff running on your system. But unlikely.
+
+
 
 
 

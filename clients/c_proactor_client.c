@@ -36,15 +36,30 @@ get_timestamp ( void )
 
 
 
-#define MAX_NAME   1000
-#define MAX_LINKS  1000
+#define MAX_NAME   100
+#define MAX_ADDRS  100
+
+
+typedef
+struct addr_s
+{
+  pn_link_t * link;
+  char      * path;
+  int         messages;
+}
+addr_t,
+* addr_p;
+
+
+
 
 
 typedef 
 struct context_s 
 {
-  pn_link_t       * links [ MAX_LINKS ];
-  pn_link_t       * send_link;
+  addr_t            addrs [ MAX_ADDRS ];
+  int               n_addrs;
+
   int               link_count;
   char              name [ MAX_NAME ];
   int               sending;
@@ -64,10 +79,10 @@ struct context_s
   pn_message_t    * message;
   uint64_t          total_bytes_sent,
                     total_bytes_received;
-  int               messages;
+  int               expected_messages;
+  int               total_expected_messages;
   int               next_received_report;
   size_t            credit_window;
-  char              path [ MAX_NAME ];
   pn_proactor_t   * proactor;
   pn_listener_t   * listener;
   pn_connection_t * connection;
@@ -78,6 +93,20 @@ context_t,
 * context_p;
 
 
+
+
+
+int
+find_addr ( context_p context, pn_link_t * target_link )
+{
+  for ( int i = 0; i < context->n_addrs; i ++ )
+  {
+    if ( target_link == context->addrs[i].link ) 
+      return i;
+  }
+  
+  return -1;
+}
 
 
 
@@ -195,49 +224,48 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 void 
 send_message ( context_p context ) 
 {
-  pn_link_t * link = context->send_link;
-
-  if ( ! link )
+  for ( int i = 0; i < context->n_addrs; i ++ )
   {
-    // No send link yet.
-    return;
-  }
+    pn_link_t * link = context->addrs[i].link;
 
-  /*
-   *   Set messages ID from sent count.
-   */
-  pn_atom_t id_atom;
-  char id_string [ 20 ];
-  sprintf ( id_string, "%d", context->messages_sent );
-  id_atom.type = PN_STRING;
-  id_atom.u.as_bytes = pn_bytes ( strlen(id_string), id_string );
-  pn_message_set_id ( context->message, id_atom );
+    if ( ! link )
+    {
+      // No send link yet.
+      return;
+    }
 
-  /*
-   * Make a random-length messages body, filled with random bytes.
-   */
-  make_random_message ( context );
-  pn_data_t * body = pn_message_body ( context->message );
-  pn_data_clear ( body );
-  pn_data_enter ( body );
-  pn_bytes_t bytes = { context->message_length, context->outgoing_buffer };
-  pn_data_put_string ( body, bytes );
-  pn_data_exit ( body );
-  size_t outgoing_size = encode_outgoing_message ( context );
+   // Set messages ID from sent count.
+    pn_atom_t id_atom;
+    char id_string [ 20 ];
+    sprintf ( id_string, "%d", context->messages_sent );
+    id_atom.type = PN_STRING;
+    id_atom.u.as_bytes = pn_bytes ( strlen(id_string), id_string );
+    pn_message_set_id ( context->message, id_atom );
 
-  pn_delivery ( link, 
-                pn_dtag ( (const char *) & context->messages_sent, sizeof(context->messages_sent) ) 
-              );
-  pn_link_send ( link, 
-                 context->outgoing_buffer, 
-                 outgoing_size 
-               );
-  context->messages_sent ++;
-  pn_link_advance ( link );
-  context->total_bytes_sent += outgoing_size;
-  if ( ! (context->messages_sent % 1000) )
-  {
-    log ( context, "sent %d\n", context->messages_sent );
+
+    make_random_message ( context );
+    pn_data_t * body = pn_message_body ( context->message );
+    pn_data_clear ( body );
+    pn_data_enter ( body );
+    pn_bytes_t bytes = { context->message_length, context->outgoing_buffer };
+    pn_data_put_string ( body, bytes );
+    pn_data_exit ( body );
+    size_t outgoing_size = encode_outgoing_message ( context );
+
+    pn_delivery ( link, 
+                  pn_dtag ( (const char *) & context->messages_sent, sizeof(context->messages_sent) ) 
+                );
+    pn_link_send ( link, 
+                   context->outgoing_buffer, 
+                   outgoing_size 
+                 );
+    context->messages_sent ++;
+    pn_link_advance ( link );
+    context->total_bytes_sent += outgoing_size;
+    if ( ! (context->messages_sent % 1000) )
+    {
+      log ( context, "sent %d\n", context->messages_sent );
+    }
   }
 }
 
@@ -266,28 +294,33 @@ process_event ( context_p context, pn_event_t * event )
 
     case PN_CONNECTION_INIT:
       pn_connection_set_container ( pn_event_connection( event ), context->id );
-
       event_session = pn_session ( pn_event_connection( event ) );
       pn_session_open ( event_session );
+
       if ( context->sending )
       {
-        sprintf ( link_name, "%d_send_%05d", getpid(), context->link_count );
-        context->link_count ++;
-        context->links[0] = pn_sender (  event_session, link_name );
-        pn_terminus_set_address ( pn_link_target(context->links[0]), context->path );
-        pn_link_set_snd_settle_mode ( context->links[0], PN_SND_UNSETTLED );
-        pn_link_set_rcv_settle_mode ( context->links[0], PN_RCV_FIRST );
-        context->send_link = context->links[0];
+        for ( int i = 0; i < context->n_addrs; i ++ )
+        {
+          sprintf ( link_name, "%d_send_%05d", getpid(), i );
+          context->addrs[i].link = pn_sender (  event_session, link_name );
+          pn_terminus_set_address ( pn_link_target(context->addrs[i].link), context->addrs[i].path );
+          pn_link_set_snd_settle_mode ( context->addrs[i].link, PN_SND_UNSETTLED );
+          pn_link_set_rcv_settle_mode ( context->addrs[i].link, PN_RCV_FIRST );
+          pn_link_open ( context->addrs[i].link );
+        }
+
       }
       else
       {
-        sprintf ( link_name, "%d_recv_%05d", getpid(), context->link_count );
-        context->link_count ++;
-        context->links[0] = pn_receiver( event_session, link_name );
-        pn_terminus_set_address ( pn_link_source(context->links[0]), context->path );
+        for ( int i = 0; i < context->n_addrs; i ++ )
+        {
+          sprintf ( link_name, "%d_recv_%05d", getpid(), i );
+          context->addrs[i].link = pn_receiver( event_session, link_name );
+          pn_terminus_set_address ( pn_link_source(context->addrs[i].link), context->addrs[i].path );
+          pn_link_open ( context->addrs[i].link );
+        }
       }
 
-      pn_link_open ( context->links[0] );
     break;
 
 
@@ -323,7 +356,7 @@ process_event ( context_p context, pn_event_t * event )
     {
       if ( context->throttle > 0 )
       {
-        if ( context->messages_sent < context->messages )
+        if ( context->messages_sent < context->total_expected_messages )
         {
           send_message ( context );
           pn_proactor_set_timeout ( context->proactor, context->throttle );
@@ -349,7 +382,7 @@ process_event ( context_p context, pn_event_t * event )
 
       if ( context->throttle > 0 )
       {
-        if ( context->messages_sent < context->messages )
+        if ( context->messages_sent < context->total_expected_messages )
         {
           if ( pn_link_is_sender(event_link) )
           {
@@ -359,9 +392,9 @@ process_event ( context_p context, pn_event_t * event )
       }
       else
       {
-        if ( pn_link_is_sender ( event_link ) && context->messages_sent < context->messages )
+        if ( pn_link_is_sender(event_link) && context->messages_sent < context->total_expected_messages )
         {
-          while ( pn_link_credit ( event_link ) > 0 && context->messages_sent < context->messages )
+          while ( pn_link_credit ( event_link ) > 0 && context->messages_sent < context->total_expected_messages )
             send_message ( context );
         }
       }
@@ -377,7 +410,7 @@ process_event ( context_p context, pn_event_t * event )
         pn_delivery_settle ( event_delivery );
         ++ context->accepted;
 
-        if (context->accepted >= context->messages) 
+        if (context->accepted >= context->total_expected_messages) 
         {
           if ( context->connection )
             pn_connection_close(context->connection);
@@ -401,6 +434,22 @@ process_event ( context_p context, pn_event_t * event )
         pn_delivery_settle ( event_delivery );
         context->received ++;
 
+        int index = find_addr ( context, event_link );
+        if ( index < 0 )
+        {
+          fprintf ( stderr, "client error: unknown link in delivery.\n" );
+        }
+        else
+        {
+          context->addrs[index].messages ++;
+          fprintf ( stderr, 
+                    "addr |%s| has received %d messages.\n",
+                    context->addrs[index].path,
+                    context->addrs[index].messages
+                  );
+        }
+
+
         if ( context->received >= context->next_received_report )
         {
           log ( context,
@@ -410,7 +459,7 @@ process_event ( context_p context, pn_event_t * event )
           context->next_received_report += 100;
         }
 
-        if ( context->received >= context->messages) 
+        if ( context->received >= context->total_expected_messages) 
         {
           fprintf ( stderr, "receiver: got %d messages. Stopping.\n", context->received );
           if ( context->connection )
@@ -466,7 +515,6 @@ init_context ( context_p context, int argc, char ** argv )
 
   strcpy ( context->name, "default_name" );
   strcpy ( context->host, "0.0.0.0" );
-  strcpy ( context->path, "my_path" );
 
   context->listener             = 0;
   context->connection           = 0;
@@ -483,13 +531,15 @@ init_context ( context_p context, int argc, char ** argv )
   context->total_bytes_sent     = 0;
   context->total_bytes_received = 0;
 
-  context->messages             = 1000;
+  context->expected_messages    = 0;
+  context->total_expected_messages = 0;
   context->next_received_report = 100;
   context->credit_window        = 1000;
   context->max_send_length      = 100;
 
-  context->send_link            = 0;
   context->throttle             = 0;
+
+  context->n_addrs              = 0;
 
 
 
@@ -505,7 +555,11 @@ init_context ( context_p context, int argc, char ** argv )
     else
     if ( ! strcmp ( "--address", argv[i] ) )
     {
-      strcpy ( context->path, NEXT_ARG ) ;
+      context->addrs[context->n_addrs].path     = strdup ( NEXT_ARG );
+      context->addrs[context->n_addrs].link     = 0;
+      context->addrs[context->n_addrs].messages = 0;
+      context->n_addrs ++;
+      //fprintf ( stderr, "path %d stored: |%s|\n", context->n_addrs-1, context->addrs[context->n_addrs-1].path );
       i ++;
     }
     // operation ----------------------------------------------
@@ -570,7 +624,7 @@ init_context ( context_p context, int argc, char ** argv )
     else
     if ( ! strcmp ( "--messages", argv[i] ) )
     {
-      context->messages = atoi ( NEXT_ARG );
+      context->expected_messages = atoi ( NEXT_ARG );
       i ++;
     }
     // unknown ----------------------------------------------
@@ -580,6 +634,9 @@ init_context ( context_p context, int argc, char ** argv )
       exit ( 1 );
     }
   }
+
+  context->total_expected_messages = context->n_addrs * context->expected_messages;
+  fprintf ( stderr, "There are %d total expected messages.\n", context->total_expected_messages );
 }
 
 
@@ -652,6 +709,7 @@ main ( int argc, char ** argv )
           context.messages_sent, 
           context.total_bytes_sent 
         );
+    fprintf ( stderr, "MDEBUG sent %d messages\n", context.messages_sent );
   }
   else
   {
@@ -660,6 +718,7 @@ main ( int argc, char ** argv )
           context.received,
           context.total_bytes_received
         );
+    fprintf ( stderr, "MDEBUG received %d messages\n", context.received );
   }
 
   return 0;
