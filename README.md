@@ -157,3 +157,25 @@
 
 
 
+
+###Creating many clients with different addresses
+
+  You can quickly create a large number of clients, each with its own address, with a command like this:
+
+      send A count 100 address my_address_%d
+
+  That will add 100 sender clients to router A, and each one will have its own address. Mercury will notice the "%d" in the address, and it will replace that string with numbers that start at 1 and count up. So you will get  "my_address_1, my_address_2, ... my_address_100".
+
+  Then you can do the same thing with receivers:
+
+      recv C count 100 address my_address_%d
+
+  So now you will have 100 sender-receiver pairs, each connected by a unique address.
+
+
+  If you want the address-numbers to start from some number other than 1, you can control that also:
+
+     send B count 100 address my_address_%d  start_at 101
+
+
+
