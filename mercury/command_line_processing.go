@@ -75,7 +75,6 @@ func process_line ( merc * Merc, line string ) {
 
   call_command ( merc, list )
 
-
   if merc.prompt {
     prompt_reader := bufio.NewReader ( os.Stdin )
     fp ( os.Stdout, "%c: hit enter to continue.\n", mercury )
@@ -119,35 +118,40 @@ func parse_command_line ( merc *      Merc,
   // If there are any unlabeled args, they will be left over after 
   // these are removed.
   for _, arg := range cmd.argmap {
-    str_val := command_line.Get_value_and_remove ( arg.name )
-    if str_val != "" {
-      // The user provided a value.
-      if arg.data_type == "string" {
-        arg.string_value = str_val
-        arg.explicit = true
-      } else {
-        arg.int_value, err = strconv.Atoi ( str_val )
-        if err != nil {
-          ume ( "parse_command_line: error reading int from |%s|", str_val )
-          return
-        }
-        arg.explicit = true
-      }
-    } else {
-      // This arg was not on the command line.
-      // Give it its default value. If it has one.
-      arg.explicit = false
-      arg.string_value = arg.default_value
-      if arg.data_type == "int" && arg.default_value != "" {
-        val, err := strconv.Atoi ( arg.default_value )
-        if err != nil {
-          ume ( "parse_command_line: error converting default val |%s| of arg |%s| to int.", 
-                        arg.default_value,
-                        arg.name )
+
+    if arg.data_type != "list" {
+      str_val := command_line.Get_atom_value_and_remove ( arg.name )
+      if str_val != "" {
+        // The user provided a value.
+        if arg.data_type == "string" {
+          arg.string_value = str_val
+          arg.explicit = true
         } else {
-          arg.int_value = val
+          arg.int_value, err = strconv.Atoi ( str_val )
+          if err != nil {
+            ume ( "parse_command_line: error reading int from |%s|", str_val )
+            return
+          }
+          arg.explicit = true
+        }
+      } else {
+        // This arg was not on the command line.
+        // Give it its default value. If it has one.
+        arg.explicit = false
+        arg.string_value = arg.default_value
+        if arg.data_type == "int" && arg.default_value != "" {
+          val, err := strconv.Atoi ( arg.default_value )
+          if err != nil {
+            ume ( "parse_command_line: error converting default val |%s| of arg |%s| to int.", 
+                          arg.default_value,
+                          arg.name )
+          } else {
+            arg.int_value = val
+          }
         }
       }
+    } else if arg.data_type == "list" {
+      arg.list_value = command_line.Get_list_value_and_remove ( arg.name )
     }
   }
 

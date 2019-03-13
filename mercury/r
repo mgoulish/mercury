@@ -3,6 +3,10 @@
 export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
-go run ./*.go  tests/02_mesh 
+#go run ./*.go  ./tests/01_linear 
+#go run ./*.go  ./tests/02_mesh
+#go run ./*.go  ./tests/03_teds_diamond
+#go run ./*.go  ./tests/04_edges
+go run ./*.go  ./tests/05_addresses
 
 

@@ -13,6 +13,7 @@ linear 5 version random
 send A n_messages 100
 recv E n_messages 100
 
+run
 
 
 

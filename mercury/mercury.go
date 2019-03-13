@@ -82,6 +82,7 @@ type arg_descriptor struct {
   data_type     string // How should the value be interpreted?
   default_value string // If user does not specify, it gets this value.
   help          string // Help string to show the user.
+  explicit      bool   // Did the caller explicity specify? (Or was this default?)
 
   // All fields below this point are filled in by a particular
   // instance of this command. I.e., when the user types it on
@@ -89,7 +90,7 @@ type arg_descriptor struct {
 
   string_value  string // The string that the caller gave.
   int_value     int    // The integer value (if any) of the string.
-  explicit      bool   // Did the caller explicity specify? (Or was this default?)
+  list_value    * lisp.List
 }
 
 
@@ -669,6 +670,7 @@ func main ( ) {
                 "int",
                 "10",
                 "How long to pause, in seconds, after killing and before restarting." )
+
 
 
 

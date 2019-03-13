@@ -14,6 +14,7 @@ send A n_messages 100
 recv D n_messages 100
 
 
+run
 
 
 

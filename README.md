@@ -15,6 +15,16 @@
 
 <br/>
 
+###Mercury Audience
+
+I see Mercury as a tool for developers. The user has one or more installed versions of the Dispatch Router + Proton code and wantsto easily set up a complex network including Dispatch routers, edge routers, and clients with nontrivial addressing patterns. Currently I think that creation of nontrivial networks is difficult enough that it discourages extensive testing during development.
+
+Especially I would like to see a more interactive form of development testing, in which a developer easily creates a network, and easily iterates through a cycle of altering the network, running it, and seeing results from the run. At the end of such a 'session' all of the developer's actions have been captured and will be reproducible later if desired. The captured session is a runnable script, and can be edited and used as a standardized test.
+
+
+<br/>
+
+
 
 ###The C Client
 
@@ -68,6 +78,7 @@ There is a growing collection of tests scripts in the directory  mercury/mercury
 The test scripts includes one other file with the 'inc' command -- a file called 'versions' which defines two different versions of the router code.
 
 You will also need to change that 'versions' file to point to one or more versions that you have installed on your system, and then change the 'test' file to only use your versions.  (If you only define one version, then it will be the default and will get used whenever you create a new router if you just don't use the 'version' arg in the 'routers' command.
+
 
 
 

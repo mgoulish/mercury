@@ -19,6 +19,7 @@ send A count 100 address my_address_%d
 recv C count 100 address my_address_%d
 
 
+run
 
 
 

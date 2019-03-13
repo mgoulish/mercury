@@ -227,17 +227,37 @@ func ( l * List ) Get_value ( attr string ) ( string ) {
 
 
 
-func ( l * List ) Get_value_and_remove ( attr string ) ( string ) {
+func ( l * List ) Get_atom_value_and_remove ( attr string ) ( string ) {
   for index, el := range l.Elements {
     if string(el.atom) == attr {
+      // Save the value to be returned.
       value_element := l.Elements [ index + 1 ]
-      value := string ( value_element.atom )
+      value         := string ( value_element.atom )
+      // Remove the value from the list.
       l.Elements = append ( l.Elements [ : index ], l.Elements [ index+2 : ] ...)
       return value
     }
   }
 
   return ""
+}
+
+
+
+
+func ( l * List ) Get_list_value_and_remove ( attr string ) ( * List ) {
+  for index, el := range l.Elements {
+    if string(el.atom) == attr {
+      // Save the value to be returned.
+      value_element := l.Elements [ index + 1 ]
+      value         := value_element.list 
+      // Remove the value from the list.
+      l.Elements = append ( l.Elements [ : index ], l.Elements [ index+2 : ] ...)
+      return value
+    }
+  }
+
+  return nil
 }
 
 
@@ -257,9 +277,12 @@ func ( l * List ) Print ( indent int ) {
 
 
 
+
+
 func ( l * List ) Length ( ) ( int ) {
   return len ( l.Elements )
 }
+
 
 
 
