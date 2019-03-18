@@ -73,7 +73,7 @@ func process_line ( merc * Merc, line string ) {
   fields := lisp.Listify ( line )
   _, list := lisp.Parse_from_string ( fields )
 
-  call_command ( merc, list )
+  call_command ( merc, list, line )
 
   if merc.prompt {
     prompt_reader := bufio.NewReader ( os.Stdin )

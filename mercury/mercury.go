@@ -69,7 +69,7 @@ func new_session ( ) ( * Session ) {
 // When the user calls a command from the command line,
 // this is the type of function that actually does the
 // work.
-type command_fn func ( * Merc, * lisp.List )
+type command_fn func ( * Merc, * lisp.List, string )
 
 
 //---------------------------------------------------
@@ -234,7 +234,7 @@ func (c * command) add_arg ( name          string,
 
 
 
-func call_command ( merc * Merc, command_line * lisp.List ) {
+func call_command ( merc * Merc, command_line * lisp.List, original_line string ) {
   cmd_name, err := command_line.Get_atom ( 0 ) 
   if err != nil {
     fp ( os.Stdout, "\n--------------------------------------\n" )
@@ -248,11 +248,11 @@ func call_command ( merc * Merc, command_line * lisp.List ) {
     fp ( os.Stdout, "\n--------------------------------------\n" )
     fp ( os.Stdout, "    %c error: no such command: |%s|\n", mercury, cmd_name )
     fp ( os.Stdout, "--------------------------------------\n\n" )
-    help ( merc, nil )
+    help ( merc, nil, "" )
     return
   }
 
-  cmd.fn ( merc, command_line )
+  cmd.fn ( merc, command_line, original_line )
 }
 
 
@@ -357,9 +357,9 @@ func main ( ) {
 
 
   // echo command -------------------------------------------------------
-  cmd = merc.add_command ( "echo",
-                               echo,
-                               "Echo all non-blank command lines." )
+  cmd = merc.add_command ( "echo_all",
+                            echo_all,
+                           "Echo all non-blank command lines." )
   cmd.add_arg ( "state",
                 true,        // unlabelable
                 "string",
@@ -369,8 +369,8 @@ func main ( ) {
 
   // prompt command -------------------------------------------------------
   cmd = merc.add_command ( "prompt",
-                               prompt,
-                               "Prompt after every command before continuing." )
+                            prompt,
+                           "Prompt after every command before continuing." )
   cmd.add_arg ( "state",
                 true,        // unlabelable
                 "string",
@@ -380,8 +380,8 @@ func main ( ) {
 
   // version_roots -------------------------------------------------------
   cmd = merc.add_command ( "version_roots",
-                           version_roots,
-                           "Define a code-version by providing root dirs from which paths are calculated." )
+                            version_roots,
+                            "Define a code-version by providing root dirs from which paths are calculated." )
   cmd.add_arg ( "name",
                 false,        // not unlabelable
                 "string",
@@ -403,14 +403,14 @@ func main ( ) {
 
   // dispatch_version command -------------------------------------------------------
   cmd = merc.add_command ( "dispatch_version",
-                              dispatch_version,
-                              "Define different version of the dispatch code. Arg 1 is version name, arg 2 is path." )
+                            dispatch_version,
+                            "Define different version of the dispatch code. Arg 1 is version name, arg 2 is path." )
 
 
   // routers command -------------------------------------------------------
   cmd = merc.add_command ( "routers",
-                              routers,
-                              "Create new routers." )
+                            routers,
+                           "Create new routers." )
   cmd.add_arg ( "count",
                 true,   // unlabelable
                 "int",
@@ -424,17 +424,27 @@ func main ( ) {
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
+
   // connect command -------------------------------------------------------
   cmd = merc.add_command ( "connect",
-                              connect,
-                              "Connect two routers. Example: connect A B" )
+                            connect,
+                           "Connect two routers. Example: connect A B" )
   // The connect command uses its own command line processing.
+
+
+
+  // echo command -------------------------------------------------------
+  cmd = merc.add_command ( "echo",
+                            echo,
+                           "Echo line to console." )
+  // The echo command uses its own command line processing.
+
 
 
   // linear command -------------------------------------------------------
   cmd = merc.add_command ( "linear",
-                              linear,
-                              "Create a linear router network." )
+                            linear,
+                           "Create a linear router network." )
   cmd.add_arg ( "count",
                 true,   // unlabelable
                 "int",
@@ -450,8 +460,8 @@ func main ( ) {
 
   // mesh command -------------------------------------------------------
   cmd = merc.add_command ( "mesh",
-                              mesh,
-                              "Create a fully-connected router network." )
+                            mesh,
+                           "Create a fully-connected router network." )
   cmd.add_arg ( "count",
                 true,   // unlabelable
                 "int",
@@ -467,8 +477,8 @@ func main ( ) {
 
   // teds_diamond command -------------------------------------------------------
   cmd = merc.add_command ( "teds_diamond",
-                              teds_diamond,
-                              "Create a fully-connected router network, with two outliers." )
+                            teds_diamond,
+                           "Create a fully-connected router network, with two outliers." )
   cmd.add_arg ( "version",
                 true,
                 "string",
@@ -478,8 +488,8 @@ func main ( ) {
 
   // edges command -------------------------------------------------------
   cmd = merc.add_command ( "edges",
-                              edges,
-                              "Create edge router on a given interior router." )
+                            edges,
+                           "Create edge router on a given interior router." )
   cmd.add_arg ( "count",
                 true,   // unlabelable
                 "int",
@@ -501,8 +511,8 @@ func main ( ) {
 
   // send command -------------------------------------------------------
   cmd = merc.add_command ( "send",
-                              send,
-                              "Create message-sending clients." )
+                            send,
+                           "Create message-sending clients." )
 
   cmd.add_arg ( "router",
                 true,   // unlabelable
@@ -557,11 +567,24 @@ func main ( ) {
                 "If you use %d in address, use this to tell what int " +
                 "the counting should start with." )
 
+  cmd.add_arg ( "apc",
+                false,
+                "int",
+                "1",
+                "Addresses per client. Makes each sender have N addresses." )
+
+
+  cmd.add_arg ( "cpa",
+                false,
+                "int",
+                "1",
+                "Clients per address. Makes each address shared by N clients." )
+
 
   // recv command -------------------------------------------------------
   cmd = merc.add_command ( "recv",
-                              recv,
-                              "Create message-receiving clients." )
+                            recv,
+                           "Create message-receiving clients." )
   cmd.add_arg ( "router",
                 true,   // unlabelable
                 "string",
@@ -606,29 +629,41 @@ func main ( ) {
                 "1000",
                 "Max length for each messages. " )
 
+  cmd.add_arg ( "apc",
+                false,
+                "int",
+                "1",
+                "Addresses per client. Makes each sender have N addresses." )
+
+  cmd.add_arg ( "cpa",
+                false,
+                "int",
+                "1",
+                "Clients per address. Makes each address shared by N clients." )
+
 
   // run command -------------------------------------------------------
   cmd = merc.add_command ( "run",
-                              run,
-                              "Start the network of routers and clients." )
+                            run,
+                           "Start the network of routers and clients." )
 
 
   // quit command -------------------------------------------------------
   cmd = merc.add_command ( "quit",
-                              quit,
-                              "Shut down the network and halt Mercury." )
+                            quit,
+                           "Shut down the network and halt Mercury." )
 
 
   // console_ports command -------------------------------------------------------
   cmd = merc.add_command ( "console_ports",
-                              console_ports,
-                              "Show the console ports for all routers." )
+                            console_ports,
+                           "Show the console ports for all routers." )
 
 
   // inc command -------------------------------------------------------
   cmd = merc.add_command ( "inc",
-                              inc,
-                              "Include the named file into the command stream." )
+                            inc,
+                           "Include the named file into the command stream." )
   cmd.add_arg ( "file",
                 true,       // unlabelable
                 "string",   
@@ -640,14 +675,14 @@ func main ( ) {
 
   // help command -------------------------------------------------------
   cmd = merc.add_command ( "help",
-                              help,
-                              "List all commands, or give help on a specific command." )
+                            help,
+                           "List all commands, or give help on a specific command." )
 
 
   // kill command -------------------------------------------------------
   cmd = merc.add_command ( "kill",
-                              kill,
-                              "Kill a router." )
+                            kill,
+                           "Kill a router." )
   cmd.add_arg ( "router",
                 true,   // unlabelable
                 "string",
@@ -657,8 +692,8 @@ func main ( ) {
 
   // kill_and_restart command -------------------------------------------------------
   cmd = merc.add_command ( "kill_and_restart",
-                              kill_and_restart,
-                              "Kill and restart a router, after a pause." )
+                            kill_and_restart,
+                           "Kill and restart a router, after a pause." )
   cmd.add_arg ( "router",
                 true,   // unlabelable
                 "string",
@@ -670,8 +705,6 @@ func main ( ) {
                 "int",
                 "10",
                 "How long to pause, in seconds, after killing and before restarting." )
-
-
 
 
   /*--------------------------------------------

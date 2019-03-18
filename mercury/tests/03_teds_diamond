@@ -1,6 +1,14 @@
-##########################################################
-# test_3
-##########################################################
+echo 
+echo ==============================================
+echo test: 03_teds_diamond
+echo -----------------------------
+echo Make a Ted's Diamond router network (this is 
+echo a 4-mesh with two outlier nodes opposite each
+echo other) and send 100 messages through it.
+echo ==============================================
+echo 
+echo 
+echo 
 
 seed PID
 

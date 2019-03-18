@@ -26,7 +26,7 @@ func usage ( merc * Merc, command_name string ) {
 
 
 
-func verbose ( merc * Merc, command_line * lisp.List ) {
+func verbose ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "verbose" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -47,7 +47,10 @@ func verbose ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func echo ( merc * Merc, command_line * lisp.List ) {
+// This is the command that turns echo-all-commands on and off.
+// There is another 'echo' command that causes just its own
+// line to be echoed to the console.
+func echo_all ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "echo" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -68,7 +71,7 @@ func echo ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func prompt ( merc * Merc, command_line * lisp.List ) {
+func prompt ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "prompt" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -88,7 +91,7 @@ func prompt ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func edges ( merc * Merc, command_line * lisp.List ) {
+func edges ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "edges" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -126,7 +129,7 @@ func edges ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func seed ( merc * Merc, command_line * lisp.List ) {
+func seed ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "seed" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -138,7 +141,7 @@ func seed ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func version_roots ( merc * Merc, command_line * lisp.List ) {
+func version_roots ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "version_roots" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -158,7 +161,7 @@ func version_roots ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func send ( merc * Merc, command_line * lisp.List ) {
+func send ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "send" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -169,8 +172,8 @@ func send ( merc * Merc, command_line * lisp.List ) {
   // This list will accumulate all targets.
   target_router_list := make ( [] string, 0 )
 
-  router_name := cmd.unlabelable_string.string_value
-  count       := cmd.unlabelable_int.int_value
+  router_name  := cmd.unlabelable_string.string_value
+  client_count := cmd.unlabelable_int.int_value
 
   if router_name != "" {
     target_router_list = append ( target_router_list, router_name )
@@ -204,46 +207,141 @@ func send ( merc * Merc, command_line * lisp.List ) {
   n_messages         := cmd.argmap [ "n_messages"         ] . int_value
   max_message_length := cmd.argmap [ "max_message_length" ] . int_value
   throttle           := cmd.argmap [ "throttle"           ] . string_value
+  apc                := cmd.argmap [ "apc"                ] . int_value
+  cpa                := cmd.argmap [ "cpa"                ] . int_value
 
+  if apc > 1 && ! variable_address {
+    ume ( "send: can't have apc > 1 but no variable address.\n" )
+    return
+  }
+
+  if apc < 1 || cpa < 1 {
+    ume ( "send: can't have apc or cpa < 1.\n" )
+    return
+  }
+
+  if apc != 1 && cpa != 1 {
+    ume ( "send: can't have apc or cpa < 1.\n" )
+    return
+  }
+
+  // This index refers to the list of target routers that was made, above.
   router_index := 0
-  for i := 0; i < count; i ++ {
-    merc.sender_count ++
-    sender_name := fmt.Sprintf ( "send_%04d", merc.sender_count )
 
-    if variable_address {
-      final_addr = fmt.Sprintf ( address, addr_number )
-      addr_number ++
+  var sender_name,
+      config_path string
+
+  if apc > 1 {
+    // We want multiple addresses per client.
+    for i := 0; i < client_count; i ++ {
+      merc.sender_count ++
+      sender_name = fmt.Sprintf ( "send_%04d", merc.sender_count )
+      config_path = merc.session.config_path + "/clients/" + sender_name
+
+      // Do each address for this sender.
+      for j := 0; j < apc; j ++ {
+        final_addr = fmt.Sprintf ( address, addr_number )
+        addr_number ++
+        router_name = target_router_list[router_index]
+        
+        merc.network.Add_sender ( sender_name,
+                                  config_path,
+                                  n_messages,
+                                  max_message_length,
+                                  router_name,
+                                  final_addr,
+                                  throttle )
+
+        umi ( merc.verbose,
+              "send: added sender |%s| with addr |%s| to router |%s|.", 
+              sender_name,
+              final_addr,
+              router_name )
+
+        router_index ++
+        if router_index >= len(target_router_list) {
+          router_index = 0
+        }
+      }
     }
+  } else if cpa > 1 {
+    // We want multiple clients per address.
+    for i := 0; i < client_count; i ++ {
 
-    router_name = target_router_list[router_index]
-    config_path := merc.session.config_path + "/clients/" + sender_name
+      final_addr = fmt.Sprintf ( address, addr_number )
+      // Only increment addr_number every CPA clinets.
+      if i > 0 && 0 == (i % cpa) {
+        addr_number ++
+      }
 
-    merc.network.Add_sender ( sender_name,
-                              config_path,
-                              n_messages,
-                              max_message_length,
-                              router_name,
-                              final_addr,
-                              throttle )
+      merc.sender_count ++
+      sender_name = fmt.Sprintf ( "send_%04d", merc.sender_count )
+      config_path = merc.session.config_path + "/clients/" + sender_name
+      router_name = target_router_list[router_index]
 
-    umi ( merc.verbose,
-          "send: added sender |%s| with addr |%s| to router |%s|.", 
-          sender_name,
-          final_addr,
-          router_name )
+      merc.network.Add_sender ( sender_name,
+                                config_path,
+                                n_messages,
+                                max_message_length,
+                                router_name,
+                                final_addr,
+                                throttle )
 
-    router_index ++
-    if router_index >= len(target_router_list) {
-      router_index = 0
+      umi ( merc.verbose,
+            "send: added sender |%s| with addr |%s| to router |%s|.",
+            sender_name,
+            final_addr,
+            router_name )
+
+      router_index ++
+      if router_index >= len(target_router_list) {
+        router_index = 0
+      }
+    }
+  } else {
+    // We want 1 address for each client.
+    for i := 0; i < client_count; i ++ {
+
+      // If the address is *not* variable, then final_addr 
+      // already has the correect string.
+      if variable_address {
+        final_addr = fmt.Sprintf ( address, addr_number )
+        addr_number ++
+      }
+
+      merc.sender_count ++
+      sender_name = fmt.Sprintf ( "send_%04d", merc.sender_count )
+      config_path = merc.session.config_path + "/clients/" + sender_name
+      router_name = target_router_list[router_index]
+
+      merc.network.Add_sender ( sender_name,
+                                config_path,
+                                n_messages,
+                                max_message_length,
+                                router_name,
+                                final_addr,
+                                throttle )
+
+      umi ( merc.verbose,
+            "send: added sender |%s| with addr |%s| to router |%s|.",
+            sender_name,
+            final_addr,
+            router_name )
+
+      router_index ++
+      if router_index >= len(target_router_list) {
+        router_index = 0
+      }
     }
   }
+
 }
 
 
 
 
 
-func recv ( merc * Merc, command_line * lisp.List ) {
+func recv ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "recv" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -254,8 +352,8 @@ func recv ( merc * Merc, command_line * lisp.List ) {
   // This list will accumulate all targets.
   target_router_list := make ( [] string, 0 )
 
-  router_name := cmd.unlabelable_string.string_value
-  count       := cmd.unlabelable_int.int_value
+  router_name  := cmd.unlabelable_string.string_value
+  client_count := cmd.unlabelable_int.int_value
 
   if router_name != "" {
     target_router_list = append ( target_router_list, router_name )
@@ -285,40 +383,131 @@ func recv ( merc * Merc, command_line * lisp.List ) {
     variable_address = true
   }
 
-  start_at           := cmd.argmap [ "start_at"           ] . int_value
+  addr_number        := cmd.argmap [ "start_at"           ] . int_value
   n_messages         := cmd.argmap [ "n_messages"         ] . int_value
   max_message_length := cmd.argmap [ "max_message_length" ] . int_value
+  apc                := cmd.argmap [ "apc"                ] . int_value
+  cpa                := cmd.argmap [ "cpa"                ] . int_value
 
+  if apc > 1 && ! variable_address {
+    ume ( "recv: can't have apc > 1 but no variable address.\n" )
+    return
+  }
+
+  if apc < 1 || cpa < 1 {
+    ume ( "recv: can't have apc or cpa < 1.\n" )
+    return
+  }
+
+  if apc != 1 && cpa != 1 {
+    ume ( "recv: can't have apc or cpa < 1.\n" )
+    return
+  }
+
+  // This index refers to the list of target routers that was made, above.
   router_index := 0
-  for i := 0; i < count; i ++ {
-    merc.receiver_count ++
-    recv_name := fmt.Sprintf ( "recv_%04d", merc.receiver_count )
 
-    if variable_address {
-      final_addr = fmt.Sprintf ( address, start_at )
-      start_at ++
+  var receiver_name,
+      config_path string
+
+  if apc > 1 {
+    // We want multiple addresses per client.
+    for i := 0; i < client_count; i ++ {
+      merc.receiver_count ++
+      receiver_name = fmt.Sprintf ( "recv_%04d", merc.receiver_count )
+      config_path = merc.session.config_path + "/clients/" + receiver_name
+
+      // Do each address for this receiver.
+      for j := 0; j < apc; j ++ {
+        final_addr = fmt.Sprintf ( address, addr_number )
+        addr_number ++
+        router_name = target_router_list[router_index]
+        
+        merc.network.Add_receiver ( receiver_name,
+                                    config_path,
+                                    n_messages,
+                                    max_message_length,
+                                    router_name,
+                                    final_addr )
+
+        umi ( merc.verbose,
+              "recv: added receiver |%s| with addr |%s| to router |%s|.", 
+              receiver_name,
+              final_addr,
+              router_name )
+
+        router_index ++
+        if router_index >= len(target_router_list) {
+          router_index = 0
+        }
+      }
     }
+  } else if cpa > 1 {
+    // We want multiple clients per address.
+    for i := 0; i < client_count; i ++ {
 
-    router_name := target_router_list[router_index]
+      final_addr = fmt.Sprintf ( address, addr_number )
+      // Only increment addr_number every CPA clinets.
+      if i > 0 && 0 == (i % cpa) {
+        addr_number ++
+      }
 
-    config_path := merc.session.config_path + "/clients/" + recv_name
+      merc.receiver_count ++
+      receiver_name = fmt.Sprintf ( "recv_%04d", merc.receiver_count )
+      config_path = merc.session.config_path + "/clients/" + receiver_name
+      router_name = target_router_list[router_index]
 
-    merc.network.Add_receiver ( recv_name,
-                                config_path,
-                                n_messages,
-                                max_message_length,
-                                router_name,
-                                final_addr )
+      merc.network.Add_receiver ( receiver_name,
+                                  config_path,
+                                  n_messages,
+                                  max_message_length,
+                                  router_name,
+                                  final_addr )
 
-    umi ( merc.verbose,
-          "recv: added |%s| with addr |%s| to router |%s|.", 
-          recv_name,
-          final_addr,
-          router_name )
+      umi ( merc.verbose,
+            "recv: added receiver |%s| with addr |%s| to router |%s|.",
+            receiver_name,
+            final_addr,
+            router_name )
 
-    router_index ++
-    if router_index >= len(target_router_list) {
-      router_index = 0
+      router_index ++
+      if router_index >= len(target_router_list) {
+        router_index = 0
+      }
+    }
+  } else {
+    // We want 1 address for each client.
+    for i := 0; i < client_count; i ++ {
+
+      // If the address is *not* variable, then final_addr 
+      // already has the correect string.
+      if variable_address {
+        final_addr = fmt.Sprintf ( address, addr_number )
+        addr_number ++
+      }
+
+      merc.receiver_count ++
+      receiver_name = fmt.Sprintf ( "recv_%04d", merc.receiver_count )
+      config_path = merc.session.config_path + "/clients/" + receiver_name
+      router_name = target_router_list[router_index]
+
+      merc.network.Add_receiver ( receiver_name,
+                                  config_path,
+                                  n_messages,
+                                  max_message_length,
+                                  router_name,
+                                  final_addr )
+
+      umi ( merc.verbose,
+            "recv: added receiver |%s| with addr |%s| to router |%s|.",
+            receiver_name,
+            final_addr,
+            router_name )
+
+      router_index ++
+      if router_index >= len(target_router_list) {
+        router_index = 0
+      }
     }
   }
 }
@@ -329,7 +518,7 @@ func recv ( merc * Merc, command_line * lisp.List ) {
 
 // This command has its own special magic syntax, so it 
 // parses the command lline its own way.
-func dispatch_version ( merc * Merc, command_line * lisp.List ) {
+func dispatch_version ( merc * Merc, command_line * lisp.List, _ string ) {
 
   umi ( merc.verbose, "version command is under construction." )
   return
@@ -358,7 +547,7 @@ func dispatch_version ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func routers ( merc  * Merc, command_line * lisp.List ) {
+func routers ( merc  * Merc, command_line * lisp.List, _ string ) {
   if len(merc.network.Versions) < 1 {
     ume ( "routers: You must define at least one version before creating routers." )
     return
@@ -394,7 +583,7 @@ func routers ( merc  * Merc, command_line * lisp.List ) {
 
 
 
-func connect ( merc  * Merc, command_line * lisp.List ) {
+func connect ( merc  * Merc, command_line * lisp.List, _ string ) {
   from_router, _ := command_line.Get_atom ( 1 )
   to_router, _   := command_line.Get_atom ( 2 )
 
@@ -415,7 +604,15 @@ func connect ( merc  * Merc, command_line * lisp.List ) {
 
 
 
-func inc ( merc  * Merc, command_line * lisp.List ) {
+func echo ( merc  * Merc, command_line * lisp.List, original_line string ) {
+  fp ( os.Stdout, "%s\n", original_line [ strings.Index ( original_line, "echo" ) + 5 : ] )
+}
+
+
+
+
+
+func inc ( merc  * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "inc" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -449,7 +646,7 @@ func (merc * Merc) random_version_name ( ) (string) {
 
 
 
-func linear ( merc * Merc, command_line * lisp.List ) {
+func linear ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "linear" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -494,7 +691,7 @@ func linear ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func mesh ( merc  * Merc, command_line * lisp.List ) {
+func mesh ( merc  * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "mesh" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -541,7 +738,7 @@ func mesh ( merc  * Merc, command_line * lisp.List ) {
 
 
 
-func teds_diamond ( merc  * Merc, command_line * lisp.List ) {
+func teds_diamond ( merc  * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "teds_diamond" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -623,7 +820,7 @@ func teds_diamond ( merc  * Merc, command_line * lisp.List ) {
 
 
 
-func run ( merc  * Merc, command_line * lisp.List ) {
+func run ( merc  * Merc, command_line * lisp.List, _ string ) {
   merc.network.Init ( )
   merc.network.Run  ( )
 
@@ -635,7 +832,7 @@ func run ( merc  * Merc, command_line * lisp.List ) {
 
 
 
-func quit ( merc * Merc, command_line * lisp.List ) {
+func quit ( merc * Merc, command_line * lisp.List, _ string ) {
   if merc.network_running {
     merc.network.Halt ( )
   }
@@ -647,7 +844,7 @@ func quit ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func console_ports ( merc * Merc, command_line * lisp.List ) {
+func console_ports ( merc * Merc, command_line * lisp.List, _ string ) {
   merc.network.Print_console_ports ( )
 }
 
@@ -706,7 +903,7 @@ func help_for_command ( merc * Merc, cmd * command ) {
 
 
 
-func kill ( merc * Merc, command_line * lisp.List ) {
+func kill ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "kill" ]
   parse_command_line ( merc, cmd, command_line )
 
@@ -724,7 +921,7 @@ func kill ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func kill_and_restart ( merc * Merc, command_line * lisp.List ) {
+func kill_and_restart ( merc * Merc, command_line * lisp.List, _ string ) {
 
   if ! merc.network.Running {
     ume ( "kill_and_restart: the network is not running." )
@@ -747,7 +944,7 @@ func kill_and_restart ( merc * Merc, command_line * lisp.List ) {
 
 
 
-func help ( merc * Merc, command_line * lisp.List ) {
+func help ( merc * Merc, command_line * lisp.List, _ string ) {
   // Get a sorted list of command names, 
   // and find the longest one.
   longest_command_name := 0

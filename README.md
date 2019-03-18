@@ -181,6 +181,14 @@ Right now the only notification you get in Mercury is when the client 'completes
 <br/>
 
 
+###Router Status Reporting
+
+TODO
+
+
+<br/>
+
+
 ###Creating many clients with different addresses
 
 You can quickly create a large number of clients, each with its own address, with a command like this:
@@ -205,6 +213,15 @@ send B count 100 address my\_address\_%d  start\_at 101
 <br/>
 
 
+###Distributing Clients over Routers
+
+TODO
+
+
+
+<br/>
+
+
 ###One-Command Networks
 
 There are some network topologies that we tend to use a lot, and Mercury gives you a way to create each of these with a single command. Here are some examples to try:
@@ -213,7 +230,11 @@ There are some network topologies that we tend to use a lot, and Mercury gives y
     mesh   4
     teds_diamond
 
+<br/>
 
+###Repeatable Randomness
+
+TODO
 
 <br/>
 <br/>

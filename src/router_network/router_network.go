@@ -574,14 +574,14 @@ func ( rn * Router_network ) Run ( ) {
       nap_time := 5
       if rn.verbose {
         fp ( os.Stdout, 
-             "network info: sleeping %d seconds to wait for network stabilization.\n", 
+             "    network info: sleeping %d seconds to wait for network stabilization.\n", 
              nap_time )
       }
       time.Sleep ( time.Duration(nap_time) * time.Second )
     }
 
     for _, c := range rn.clients {
-      umi ( rn.verbose, "starting client |%s|\n", c.Name )
+      umi ( rn.verbose, "starting client |%s|", c.Name )
       c.Run ( )
     }
   }

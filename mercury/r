@@ -7,6 +7,15 @@ export GOPATH=${MERCURY_ROOT}
 #go run ./*.go  ./tests/02_mesh
 #go run ./*.go  ./tests/03_teds_diamond
 #go run ./*.go  ./tests/04_edges
-go run ./*.go  ./tests/05_addresses
 
 
+# Demonstrate addresses counting up, 1 addr per client.
+#go run ./*.go  ./tests/05_addresses
+
+
+# Demonstrate the "addresses per clint" feature.
+#go run ./*.go   ./tests/06_apc
+
+
+# Demonstrate the "clients per address" feature.
+go run ./*.go   ./tests/07_cpa
