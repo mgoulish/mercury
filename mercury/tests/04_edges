@@ -18,8 +18,14 @@ inc versions
 linear 3
 
 edges A 100
-
 edges C 100
+
+#------------------------------------------------------
+# Make 100 senders attached to the edge nodes of A,
+# and 100 receivers attached to the edge nodes of C.
+#------------------------------------------------------
+send count 100 edges A
+recv count 100 edges C
 
 run
 

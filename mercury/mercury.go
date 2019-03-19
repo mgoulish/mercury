@@ -529,7 +529,7 @@ func main ( ) {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                "100",
+                "1000",
                 "How many messages to send." )
 
   cmd.add_arg ( "max_message_length",
@@ -600,7 +600,7 @@ func main ( ) {
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
-                "100",
+                "1000",
                 "How many messages to send." )
 
   cmd.add_arg ( "edges",

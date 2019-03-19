@@ -94,6 +94,11 @@ type Client struct {
   verbose              bool
 
   status_file_name     string
+
+
+  // This gets set by the network, when it is 
+  // checking on this client's status file.
+  Completed            bool
 }
 
 

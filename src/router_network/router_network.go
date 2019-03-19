@@ -487,19 +487,6 @@ func ( rn * Router_network ) Add_client ( name               string,
 
 
 
-func ( rn * Router_network ) Halt_a_sender ( ) {
-  for _, c := range rn.clients {
-    if c.Is_running() && c.Operation == "send" {
-      c.Halt ( )
-      return
-    }
-  }
-}
-
-
-
-
-
 /*
   Connect the first router to the second. I.e. the first router
   will have a connector created in its config file that will 
@@ -598,7 +585,9 @@ func ( rn * Router_network ) client_status_check ( ) {
   for range rn.client_ticker.C {
     for index, file_name := range rn.client_status_files {
       client := rn.clients [ index ]
-      rn.read_client_status_file ( client.Name, file_name )
+      if ! client.Completed {
+        client.Completed = rn.read_client_status_file ( client.Name, file_name )
+      }
     }
   }
 }
@@ -801,11 +790,14 @@ func ( rn * Router_network ) Get_nth_interior_router_name ( index int ) ( string
 
 
 
-func ( rn * Router_network ) read_client_status_file ( client_name, file_name string ) {
+func ( rn * Router_network ) read_client_status_file ( client_name, file_name string ) ( bool ) {
+
+  is_it_completed := false
+
   buf, err := ioutil.ReadFile ( file_name )
   if err != nil {
-    ume ( "read_client_status_file: can't read file |%s| error: |%s|", file_name, err.Error() )
-    return
+    // The client file does not exist yet.
+    return is_it_completed
   }
   lines := strings.Split ( string(buf), "\n" )
 
@@ -819,20 +811,37 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
   }
 
   reader := strings.NewReader ( line )
-  var ( timestamp, first_word string )
-  _, err = fmt.Fscanf ( reader, "%s%s", & timestamp, & first_word )
+  var ( timestamp, first_word, second_word string )
+  _, err = fmt.Fscanf ( reader, 
+                        "%s%s%s", 
+                        & timestamp, 
+                        & first_word,
+                        & second_word )
   if err != nil {
     ume ( "read_client_status_file: error reading last line: |%s|", err.Error() )
-    return
+    return is_it_completed
   }
+
+  n_clients := len ( rn.clients )
+
   if first_word == "complete" {
     rn.completed_clients ++
-    umi ( true, "network: client |%s| has successfully completed.", client_name )
+    is_it_completed = true
+    umi ( true, 
+          "network: client |%s| has successfully completed.  (%d of %d)", 
+          client_name, 
+          rn.completed_clients, 
+          n_clients )
+  } else if first_word == "received" {
+    fp ( os.Stdout, "client %s says it has received %s\n", client_name, second_word )
   }
   
   if rn.completed_clients >= len ( rn.clients ) {
+    umi ( true, "network: all %d clients have successfully completed.", len ( rn.clients ) )
     rn.client_ticker.Stop()
   }
+
+  return is_it_completed
 }
 
 
