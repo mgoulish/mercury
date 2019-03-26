@@ -17,21 +17,26 @@ inc versions
 
 linear 3
 
-edges A 100
-edges C 100
+edges A 5
+edges C 5
+
+run 
+
+sleep 15
 
 #------------------------------------------------------
 # Make 100 senders attached to the edge nodes of A,
 # and 100 receivers attached to the edge nodes of C.
 #------------------------------------------------------
-send count 100 edges A
-recv count 100 edges C
+recv count 20 edges C n_messages 100 address addr_%d
+run
+echo    
+echo --------------------------------------------------
+sleep 15
+echo --------------------------------------------------
+echo    
+send count 20 edges A n_messages 100 address addr_%d
 
 run
 
-
-
-
-
-
-
+start_client_status_check 10

@@ -146,11 +146,11 @@ func new_version_with_paths ( name            string,
 
 
 type Router_network struct {
-  Name                           string
-  Running                        bool
+  Name                        string
+  Running                     bool
 
-  result_path                    string
-  log_path                       string
+  result_path                 string
+  log_path                    string
 
   /*
     The Network, rather than the Version has
@@ -158,20 +158,37 @@ type Router_network struct {
     from the Mercury install, not from the Dispatch
     or Proton installs, which are contained in Version.
   */
-  client_path                    string
+  client_path                 string
 
-  Versions                  [] * Version
-  Default_version              * Version
+  Versions               [] * Version
+  Default_version           * Version
 
-  verbose                        bool
+  verbose                     bool
 
-  routers                   [] * router.Router
-  clients                   [] * client.Client
+  routers                [] * router.Router
+  clients                [] * client.Client
 
-  ticker_frequency               int
-  client_ticker                * time.Ticker
-  client_status_files       []   string
-  completed_clients              int
+  ticker_frequency            int
+  client_ticker             * time.Ticker
+  client_status_files    []   string
+  completed_clients           int
+
+  channel                     chan string
+
+  n_senders                   int
+}
+
+
+
+
+
+func ( rn * Router_network ) get_client_by_name ( target_name string ) ( * client.Client ) {
+  for _, c := range rn.clients {
+    if target_name == c.Name {
+      return c
+    }
+  }
+  return nil
 }
 
 
@@ -183,10 +200,12 @@ type Router_network struct {
 // and provide lots of paths.
 func New_router_network ( name         string,
                           mercury_root string,
-                          log_path     string ) * Router_network {
+                          log_path     string,
+                          channel      chan string ) * Router_network {
 
   rn := & Router_network { Name     : name,
-                           log_path : log_path }
+                           log_path : log_path,
+                           channel  : channel }
 
   rn.client_path = mercury_root + "/clients/c_proactor_client" 
   if ! utils.Path_exists ( rn.client_path  ) {
@@ -446,6 +465,7 @@ func ( rn * Router_network ) Add_client ( name               string,
   var operation string
   if sender {
     operation = "send"
+    rn.n_senders ++
   } else {
     operation = "receive"
     throttle = "0" // Receivers do not get throttled.
@@ -482,6 +502,8 @@ func ( rn * Router_network ) Add_client ( name               string,
 
   rn.clients = append ( rn.clients, client )
 }
+
+
 
 
 
@@ -550,10 +572,6 @@ func ( rn * Router_network ) Run ( ) {
     }
   }
 
-  // Start the ticker for the client status checker.
-  ticker_time      := time.Second * time.Duration ( rn.ticker_frequency )
-  rn.client_ticker  = time.NewTicker ( ticker_time )
-  go rn.client_status_check ( )
 
   if len(rn.clients) > 0 {
 
@@ -581,12 +599,34 @@ func ( rn * Router_network ) Run ( ) {
 
 
 
+func ( rn * Router_network ) Start_client_status_check  ( ticker_frequency int ) {
+  rn.ticker_frequency = ticker_frequency
+
+  if ticker_frequency <= 0 {
+    ume ( "router_network: ticker_frequency must be > 0." )
+    return
+  }
+
+  ticker_time      := time.Second * time.Duration ( rn.ticker_frequency )
+  rn.client_ticker  = time.NewTicker ( ticker_time )
+
+  go rn.client_status_check ( )
+}
+
+
+
+
+
 func ( rn * Router_network ) client_status_check ( ) {
   for range rn.client_ticker.C {
     for index, file_name := range rn.client_status_files {
       client := rn.clients [ index ]
-      if ! client.Completed {
-        client.Completed = rn.read_client_status_file ( client.Name, file_name )
+      // I only care about senders, because only they have
+      // access to information about all the messages.
+      if strings.HasPrefix ( client.Name, "send") {
+        if ! client.Completed {
+          client.Completed = rn.read_client_status_file ( client.Name, file_name )
+        }
       }
     }
   }
@@ -743,7 +783,7 @@ func ( rn * Router_network ) get_router_by_name ( target_name string ) * router.
     }
   }
 
-  ume ( "get_router_by_name: no such router |%s|", target_name )
+  ume ( "router_network: get_router_by_name: no such router |%s|", target_name )
   fp ( os.Stdout, "    routers are:\n" )
   for _, router := range rn.routers {
     fp ( os.Stdout, "      %s\n", router.Name() )
@@ -794,6 +834,12 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
 
   is_it_completed := false
 
+  client := rn.get_client_by_name ( client_name )
+  if client == nil {
+    ume ( "router_network: read_client_status_file: no such client |%s|", client_name )
+    return is_it_completed
+  }
+
   buf, err := ioutil.ReadFile ( file_name )
   if err != nil {
     // The client file does not exist yet.
@@ -811,34 +857,51 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
   }
 
   reader := strings.NewReader ( line )
-  var ( timestamp, first_word, second_word string )
+  var ( timestamp, first_word string )
   _, err = fmt.Fscanf ( reader, 
-                        "%s%s%s", 
+                        "%s%s", 
                         & timestamp, 
-                        & first_word,
-                        & second_word )
+                        & first_word )
   if err != nil {
-    ume ( "read_client_status_file: error reading last line: |%s|", err.Error() )
+    ume ( "read_client_status_file: error reading report line: |%s|", err.Error() )
     return is_it_completed
   }
 
-  n_clients := len ( rn.clients )
+  //n_clients := len ( rn.clients )
 
-  if first_word == "complete" {
-    rn.completed_clients ++
-    is_it_completed = true
-    umi ( true, 
-          "network: client |%s| has successfully completed.  (%d of %d)", 
-          client_name, 
-          rn.completed_clients, 
-          n_clients )
-  } else if first_word == "received" {
-    fp ( os.Stdout, "client %s says it has received %s\n", client_name, second_word )
+  if first_word == "report" {
+    // 1553527855.073151  report received 0 accepted 0 rejected 0 released 100 modified 0
+    reader := strings.NewReader ( line )
+    var ( received,
+          accepted,
+          rejected,
+          released,
+          modified int ) 
+    _, err = fmt.Fscanf ( reader,
+                          "%s report received %d accepted %d rejected %d released %d modified %d",
+                          & timestamp,
+                          & received,
+                          & accepted,
+                          & rejected,
+                          & released,
+                          & modified )
+
+    if err != nil {
+      ume ( "read_client_status_file: error reading report line: |%s|", err.Error() )
+      return is_it_completed
+    }
+    total_messages_accounted_for := received + accepted + rejected + released + modified
+    if total_messages_accounted_for >= client.N_messages {
+      rn.completed_clients ++
+      is_it_completed = true
+    }
   }
-  
-  if rn.completed_clients >= len ( rn.clients ) {
-    umi ( true, "network: all %d clients have successfully completed.", len ( rn.clients ) )
+
+  if rn.completed_clients >= rn.n_senders {
+    umi ( true, "network: all %d senders have successfully completed.", rn.n_senders )
+    umi ( rn.verbose, "halting network.\n" )
     rn.client_ticker.Stop()
+    rn.channel <- "done"
   }
 
   return is_it_completed

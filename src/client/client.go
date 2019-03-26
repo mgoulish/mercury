@@ -82,7 +82,7 @@ type Client struct {
   pythonpath           string
   log_file             string
 
-  n_messages           int
+  N_messages           int
 
   cmd                * exec.Cmd
   State                Client_state
@@ -129,7 +129,7 @@ func New_client ( name                  string,
                  pythonpath            : pythonpath,
                  log_file              : log_file,
                  State                 : initialized,
-                 n_messages            : n_messages,
+                 N_messages            : n_messages,
                  max_message_length    : max_message_length,
                  address               : address,
                  throttle              : throttle,
@@ -162,7 +162,14 @@ func ( c * Client ) Run ( ) {
   os.Setenv ( "LD_LIBRARY_PATH", c.ld_library_path )
   os.Setenv ( "PYTHONPATH"     , c.pythonpath )
 
-  args := " --name " + c.Name + " --operation " + c.Operation + " --port " + c.Port + " --log " + c.log_file + " --messages " + strconv.Itoa(c.n_messages) + " --max_message_length " + strconv.Itoa(c.max_message_length) + " --address " + c.address + " --throttle " + c.throttle 
+  args := " --name " + c.Name + 
+          " --operation " + c.Operation + 
+          " --port " + c.Port + 
+          " --log " + c.log_file + 
+          " --messages " + strconv.Itoa(c.N_messages) + 
+          " --max_message_length " + strconv.Itoa(c.max_message_length) + 
+          " --address " + c.address + 
+          " --throttle " + c.throttle 
   args_list := strings.Fields ( args )
   c.cmd = exec.Command ( c.Path,  args_list... )
 

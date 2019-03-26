@@ -12,6 +12,7 @@
 #include <inttypes.h>
 #include <memory.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -75,7 +76,13 @@ struct context_s
   char            * log_file_name;
   FILE            * log_file;
   int               messages_sent;
-  int               received;
+  
+  int               received,
+                    accepted,
+                    rejected,
+                    released,
+                    modified;
+
   pn_message_t    * message;
   uint64_t          total_bytes_sent,
                     total_bytes_received;
@@ -86,11 +93,16 @@ struct context_s
   pn_proactor_t   * proactor;
   pn_listener_t   * listener;
   pn_connection_t * connection;
-  size_t            accepted;
   int               throttle;
 }
 context_t,
 * context_p;
+
+
+
+
+
+context_p context_g = 0;
 
 
 
@@ -405,12 +417,43 @@ process_event ( context_p context, pn_event_t * event )
     case PN_DELIVERY: 
       event_delivery = pn_event_delivery( event );
       event_link = pn_delivery_link ( event_delivery );
+
+
+
+
       if ( pn_link_is_sender ( event_link ) ) 
       {
-        pn_delivery_settle ( event_delivery );
-        ++ context->accepted;
+        int state = pn_delivery_remote_state(event_delivery);
+        switch ( state ) 
+        {
+          case PN_RECEIVED:
+            context->received ++;
+          break;
 
-        if (context->accepted >= context->total_expected_messages) 
+          case PN_ACCEPTED:
+            context->accepted ++;
+          break;
+
+          case PN_REJECTED:
+            context->rejected ++;
+          break;
+
+          case PN_RELEASED:
+            context->released ++;
+          break;
+
+          case PN_MODIFIED:
+            context->modified ++;
+          break;
+
+          default:
+            log ( context, "unknown remote state! %d\n", state );
+          break;
+        }
+
+        pn_delivery_settle ( event_delivery );
+
+        if ( context->accepted + context->released + context->modified >= context->total_expected_messages) 
         {
           if ( context->connection )
             pn_connection_close(context->connection);
@@ -423,15 +466,19 @@ process_event ( context_p context, pn_event_t * event )
       if ( pn_link_is_receiver ( event_link ) )
       {
 
+
         if ( ! pn_delivery_readable  ( event_delivery ) )
           break;
 
         if ( pn_delivery_partial ( event_delivery ) ) 
           break;
 
+
         decode_message ( context, event_delivery );
         pn_delivery_update ( event_delivery, PN_ACCEPTED );
         pn_delivery_settle ( event_delivery );
+
+        // As the receiver, we only count that a message has been received.
         context->received ++;
 
         int index = find_addr ( context, event_link );
@@ -523,8 +570,13 @@ init_context ( context_p context, int argc, char ** argv )
   context->sending              = 0;
   context->link_count           = 0;
   context->messages_sent        = 0;
+
   context->received             = 0;
   context->accepted             = 0;
+  context->rejected             = 0;
+  context->released             = 0;
+  context->modified             = 0;
+
   context->log_file_name        = 0;
   context->log_file             = 0;
   context->message              = 0;
@@ -643,11 +695,39 @@ init_context ( context_p context, int argc, char ** argv )
 
 
 
+void
+report_writer ( )
+{
+  log ( context_g, 
+        "report received %d accepted %d rejected %d released %d modified %d\n",
+        context_g->received,
+        context_g->accepted,
+        context_g->rejected,
+        context_g->released,
+        context_g->modified
+      );
+}
+
+
+
+
+
 int 
 main ( int argc, char ** argv ) 
 {
+  struct itimerval timer;
+  timer.it_value.tv_sec  = 10;
+  timer.it_value.tv_usec =  0;
+  timer.it_interval = timer.it_value;
+  signal ( SIGALRM, (void (*)(int)) report_writer );
+  setitimer ( ITIMER_REAL, & timer, NULL );
+
+
+
   srand ( getpid() );
   context_t context;
+  context_g = & context;
+
   init_context ( & context, argc, argv );
 
   if ( context.log_file_name ) 
@@ -709,7 +789,7 @@ main ( int argc, char ** argv )
           context.messages_sent, 
           context.total_bytes_sent 
         );
-    fprintf ( stderr, "MDEBUG sent %d messages\n", context.messages_sent );
+    report_writer ( );
   }
   else
   {
@@ -718,7 +798,7 @@ main ( int argc, char ** argv )
           context.received,
           context.total_bytes_received
         );
-    fprintf ( stderr, "MDEBUG received %d messages\n", context.received );
+    report_writer ( );
   }
 
   return 0;

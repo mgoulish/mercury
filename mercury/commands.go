@@ -6,6 +6,7 @@ import (
   "sort"
   "strings"
   "math/rand"
+  "time"
 
   "lisp"
 )
@@ -985,6 +986,38 @@ func help ( merc * Merc, command_line * lisp.List, _ string ) {
       fp ( os.Stdout, "    %s%s : %s\n", name, pad, cmd.help )
     }
   }
+}
+
+
+
+
+
+func sleep ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd := merc.commands [ "sleep" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  nap_time := cmd.unlabelable_int.int_value
+  umi ( merc.verbose, "sleep: sleeping for %d seconds.", nap_time )
+  time.Sleep ( time.Duration(nap_time) * time.Second )
+}
+
+
+
+
+
+func start_client_status_check ( merc * Merc, command_line * lisp.List, _ string ) {
+  if ! merc.network.Running {
+    ume ( "start_client_status_check: the network is not running." )
+    return
+  }
+
+  cmd := merc.commands [ "start_client_status_check" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  seconds := cmd.unlabelable_int.int_value
+  umi ( merc.verbose, "start_client_status_check: every %d seconds.", seconds )
+  //time.Sleep ( time.Duration(seconds) * time.Second )
+  merc.network.Start_client_status_check ( seconds )
 }
 
 

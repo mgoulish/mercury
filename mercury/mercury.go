@@ -301,6 +301,16 @@ func this_is_an_interior_router_name ( merc * Merc, name string ) ( bool ) {
 
 
 
+func listen_for_network_halt ( merc * Merc, channel chan string ) {
+  _ = <- channel
+
+  umi ( merc.verbose, "network has halted.\n" )
+  quit ( merc, nil, "" )
+}
+
+
+
+
 /*=====================================================================
   Main
 ======================================================================*/
@@ -322,9 +332,17 @@ func main ( ) {
   merc.mercury_log_file, _ = os.Create ( merc.mercury_log_name )
   defer merc.mercury_log_file.Close()
 
+  network_channel := make ( chan string )
   merc.network = rn.New_router_network ( "network", 
                                          mercury_root,
-                                         merc.session.log_path )
+                                         merc.session.log_path,
+                                         network_channel )
+
+
+  // In the background, listen for the network telling us 
+  // that it has completed. (This happens if it is runs a test 
+  // successfully.)
+  go listen_for_network_halt ( merc, network_channel )
 
   /*===========================================
     Make commands. 
@@ -705,6 +723,27 @@ func main ( ) {
                 "int",
                 "10",
                 "How long to pause, in seconds, after killing and before restarting." )
+
+  // sleep command -------------------------------------------------------
+  cmd = merc.add_command ( "sleep",
+                            sleep,
+                           "Sleep for the given number of seconds." )
+  cmd.add_arg ( "seconds",
+                true,   // unlabelable
+                "int",
+                "3",
+                "The number of seconds to sleep." )
+
+
+  // start_client_status_check command -------------------------------------------------------
+  cmd = merc.add_command ( "start_client_status_check",
+                            start_client_status_check,
+                           "Start checking on the status of clients every N seconds." )
+  cmd.add_arg ( "seconds",
+                true,   // unlabelable
+                "int",
+                "15",
+                "The number of seconds between status checks." )
 
 
   /*--------------------------------------------
