@@ -39,4 +39,6 @@ send count 20 edges A n_messages 100 address addr_%d
 
 run
 
+failsafe 30
+
 start_client_status_check 10

@@ -838,6 +838,7 @@ func quit ( merc * Merc, command_line * lisp.List, _ string ) {
     merc.network.Halt ( )
   }
   umi ( merc.verbose, "Mercury quitting." )
+  merc.mercury_log_file.Close()
   os.Exit ( 0 )
 }
 
@@ -1016,8 +1017,20 @@ func start_client_status_check ( merc * Merc, command_line * lisp.List, _ string
 
   seconds := cmd.unlabelable_int.int_value
   umi ( merc.verbose, "start_client_status_check: every %d seconds.", seconds )
-  //time.Sleep ( time.Duration(seconds) * time.Second )
   merc.network.Start_client_status_check ( seconds )
+}
+
+
+
+
+
+func failsafe ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd := merc.commands [ "failsafe" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  seconds := cmd.unlabelable_int.int_value
+  umi ( merc.verbose, "failsafe time set to %d seconds after client status checking begins.\n", seconds )
+  merc.network.Failsafe =  time.Duration ( seconds ) * time.Second
 }
 
 

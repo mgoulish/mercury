@@ -176,6 +176,9 @@ type Router_network struct {
   channel                     chan string
 
   n_senders                   int
+
+  Failsafe                    time.Duration
+  first_client_status_check   time.Time
 }
 
 
@@ -507,8 +510,6 @@ func ( rn * Router_network ) Add_client ( name               string,
 
 
 
-
-
 /*
   Connect the first router to the second. I.e. the first router
   will have a connector created in its config file that will 
@@ -572,7 +573,6 @@ func ( rn * Router_network ) Run ( ) {
     }
   }
 
-
   if len(rn.clients) > 0 {
 
     if router_run_count > 0 {
@@ -590,7 +590,6 @@ func ( rn * Router_network ) Run ( ) {
       c.Run ( )
     }
   }
-
 
   rn.Running = true
 }
@@ -618,7 +617,25 @@ func ( rn * Router_network ) Start_client_status_check  ( ticker_frequency int )
 
 
 func ( rn * Router_network ) client_status_check ( ) {
+
+  zero_time := time.Time{}
+  if rn.first_client_status_check == zero_time {
+    rn.first_client_status_check = time.Now()
+  }
+
   for range rn.client_ticker.C {
+
+    time_since_first_client_status_check := time.Now().Sub (rn.first_client_status_check )
+
+    if time_since_first_client_status_check > rn.Failsafe {
+      ume ( "network: failsafe time of %.1f seconds exceeded. Halting with failure.", rn.Failsafe.Seconds() )
+      rn.client_ticker.Stop()
+      rn.channel <- "failure"
+    }
+
+    remaining := rn.Failsafe.Seconds() - time_since_first_client_status_check.Seconds()
+    umi ( rn.verbose, "client_status_check : time to failsafe: %.1f", remaining )
+
     for index, file_name := range rn.client_status_files {
       client := rn.clients [ index ]
       // I only care about senders, because only they have
@@ -898,6 +915,8 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
   }
 
   if rn.completed_clients >= rn.n_senders {
+    // debug the failsafe by not halting here.
+    // return is_it_completed
     umi ( true, "network: all %d senders have successfully completed.", rn.n_senders )
     umi ( rn.verbose, "halting network.\n" )
     rn.client_ticker.Stop()

@@ -755,6 +755,17 @@ func main ( ) {
                 "The number of seconds between status checks." )
 
 
+  // failsafe command -------------------------------------------------------
+  cmd = merc.add_command ( "failsafe",
+                            failsafe,
+                           "Force a failure this many second after first client status check." )
+  cmd.add_arg ( "seconds",
+                true,   // unlabelable
+                "int",
+                "30",
+                "The number of seconds until forced failure." )
+
+
   /*--------------------------------------------
     Process files named on command line.
   --------------------------------------------*/
