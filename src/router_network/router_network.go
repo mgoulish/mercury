@@ -901,7 +901,7 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
     umi ( true, "network: all %d senders have successfully completed.", rn.n_senders )
     umi ( rn.verbose, "halting network.\n" )
     rn.client_ticker.Stop()
-    rn.channel <- "done"
+    rn.channel <- "success"
   }
 
   return is_it_completed

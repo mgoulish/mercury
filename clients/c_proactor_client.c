@@ -39,6 +39,7 @@ get_timestamp ( void )
 
 #define MAX_NAME   100
 #define MAX_ADDRS  100
+#define MAX_MESSAGE 1000000
 
 
 typedef
@@ -71,7 +72,7 @@ struct context_s
                     message_length,
                     outgoing_buffer_size;
   char            * outgoing_buffer;
-  char              incoming_message [ 1000000 ];   // BUGALERT
+  char              incoming_message [ MAX_MESSAGE ];   // BUGALERT
   char            * port;
   char            * log_file_name;
   FILE            * log_file;
@@ -88,7 +89,6 @@ struct context_s
                     total_bytes_received;
   int               expected_messages;
   int               total_expected_messages;
-  int               next_received_report;
   size_t            credit_window;
   pn_proactor_t   * proactor;
   pn_listener_t   * listener;
@@ -181,14 +181,14 @@ encode_outgoing_message ( context_p context )
   if ( err != 0 ) 
   {
     log ( context, 
-          "error encoding message: %s |%s|\n", 
+          "error : encoding message: %s |%s|\n", 
           pn_code ( err ), 
           pn_error_text(pn_message_error ( context->message ) ) 
         );
     exit ( 1 );
   }
 
-  return 0; // unreachable
+  return 0; // unreachable   // I think.
 }
 
 
@@ -204,7 +204,7 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 
   if ( incoming_size >= context->max_receive_length )
   {
-    log ( context, "error incoming message too big: %d.\n", incoming_size );
+    log ( context, "error : incoming message too big: %d.\n", incoming_size );
     exit ( 1 );
   }
 
@@ -214,7 +214,7 @@ decode_message ( context_p context, pn_delivery_t * delivery )
   if ( pn_message_decode ( msg, context->incoming_message, incoming_size ) ) 
   {
     log ( context, 
-          "error from pn_message_decode: |%s|\n",
+          "error : from pn_message_decode: |%s|\n",
           pn_error_text ( pn_message_error ( msg ) )
         );
     exit ( 2 );
@@ -274,10 +274,6 @@ send_message ( context_p context )
     context->messages_sent ++;
     pn_link_advance ( link );
     context->total_bytes_sent += outgoing_size;
-    if ( ! (context->messages_sent % 1000) )
-    {
-      log ( context, "sent %d\n", context->messages_sent );
-    }
   }
 }
 
@@ -447,7 +443,7 @@ process_event ( context_p context, pn_event_t * event )
           break;
 
           default:
-            log ( context, "unknown remote state! %d\n", state );
+            log ( context, "error : unknown remote state! %d\n", state );
           break;
         }
 
@@ -497,18 +493,8 @@ process_event ( context_p context, pn_event_t * event )
         }
 
 
-        if ( context->received >= context->next_received_report )
-        {
-          log ( context,
-                "received %d\n",
-                context->received
-              );
-          context->next_received_report += 100;
-        }
-
         if ( context->received >= context->total_expected_messages) 
         {
-          fprintf ( stderr, "receiver: got %d messages. Stopping.\n", context->received );
           if ( context->connection )
             pn_connection_close(context->connection);
           if ( context->listener )
@@ -585,7 +571,6 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->expected_messages    = 0;
   context->total_expected_messages = 0;
-  context->next_received_report = 100;
   context->credit_window        = 1000;
   context->max_send_length      = 100;
 
@@ -733,17 +718,7 @@ main ( int argc, char ** argv )
   if ( context.log_file_name ) 
   {
     context.log_file = fopen ( context.log_file_name, "w" );
-    if ( context.sending )
-    {
-      log ( & context, "%d is a sender\n", getpid() );
-    }
-    else
-    {
-      log ( & context, "%d is a receiver\n", getpid() );
-    }
   }
-
-  log ( & context, "max_message_length %d \n", context.max_send_length );
 
   if ( context.max_send_length <= 0 )
   {
@@ -782,24 +757,7 @@ main ( int argc, char ** argv )
     pn_proactor_done ( context.proactor, events );
   }
 
-  if ( context.sending ) 
-  {
-    log ( & context, 
-          "complete --  sent %d messages %ld bytes\n", 
-          context.messages_sent, 
-          context.total_bytes_sent 
-        );
-    report_writer ( );
-  }
-  else
-  {
-    log ( & context, 
-          "complete -- received %d messages %ld bytes\n", 
-          context.received,
-          context.total_bytes_received
-        );
-    report_writer ( );
-  }
+  report_writer ( );
 
   return 0;
 }

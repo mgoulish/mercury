@@ -302,9 +302,19 @@ func this_is_an_interior_router_name ( merc * Merc, name string ) ( bool ) {
 
 
 func listen_for_network_halt ( merc * Merc, channel chan string ) {
-  _ = <- channel
-
+  msg := <- channel
   umi ( merc.verbose, "network has halted.\n" )
+
+  result_file_name := merc.session.name + "/result"
+  result_file, _ := os.Create ( result_file_name )
+  if result_file != nil {
+    defer result_file.Close() 
+    fmt.Fprintf ( result_file, "%s\n", msg )
+  }
+
+
+
+
   quit ( merc, nil, "" )
 }
 
@@ -330,7 +340,6 @@ func main ( ) {
   utils.Find_or_create_dir ( merc.session.name )
   merc.mercury_log_name = merc.session.name + "/mercury_log"
   merc.mercury_log_file, _ = os.Create ( merc.mercury_log_name )
-  defer merc.mercury_log_file.Close()
 
   network_channel := make ( chan string )
   merc.network = rn.New_router_network ( "network", 
