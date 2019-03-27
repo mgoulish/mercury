@@ -586,7 +586,6 @@ func ( rn * Router_network ) Run ( ) {
     }
 
     for _, c := range rn.clients {
-      umi ( rn.verbose, "starting client |%s|", c.Name )
       c.Run ( )
     }
   }
@@ -623,6 +622,12 @@ func ( rn * Router_network ) client_status_check ( ) {
     rn.first_client_status_check = time.Now()
   }
 
+  total_received := 0
+  total_accepted := 0
+  total_rejected := 0
+  total_released := 0
+  total_modified := 0
+
   for range rn.client_ticker.C {
 
     time_since_first_client_status_check := time.Now().Sub (rn.first_client_status_check )
@@ -643,9 +648,25 @@ func ( rn * Router_network ) client_status_check ( ) {
       if strings.HasPrefix ( client.Name, "send") {
         if ! client.Completed {
           client.Completed = rn.read_client_status_file ( client.Name, file_name )
+
+          total_received += client.Received
+          total_accepted += client.Accepted
+          total_rejected += client.Rejected
+          total_released += client.Released
+          total_modified += client.Modified
+
         }
       }
     }
+
+    // Once per timer expiration.
+    umi ( rn.verbose, 
+          "client_status_check : received: %d accepted: %d rejected: %d released: %d modified: %d\n", 
+          total_received, 
+          total_accepted, 
+          total_rejected, 
+          total_released, 
+          total_modified )
   }
 }
 
@@ -884,9 +905,8 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
     return is_it_completed
   }
 
-  //n_clients := len ( rn.clients )
-
   if first_word == "report" {
+    // example of a report-line from the client
     // 1553527855.073151  report received 0 accepted 0 rejected 0 released 100 modified 0
     reader := strings.NewReader ( line )
     var ( received,
@@ -902,6 +922,12 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
                           & rejected,
                           & released,
                           & modified )
+
+    client.Received = received
+    client.Accepted = accepted
+    client.Rejected = rejected
+    client.Released = released
+    client.Modified = modified
 
     if err != nil {
       ume ( "read_client_status_file: error reading report line: |%s|", err.Error() )

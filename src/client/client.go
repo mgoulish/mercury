@@ -99,6 +99,12 @@ type Client struct {
   // This gets set by the network, when it is 
   // checking on this client's status file.
   Completed            bool
+
+  Received             int
+  Accepted             int
+  Rejected             int
+  Released             int
+  Modified             int
 }
 
 

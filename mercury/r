@@ -22,3 +22,4 @@ export GOPATH=${MERCURY_ROOT}
 
 
 go run ./*.go  ./tests/08_large_scale
+
