@@ -1,0 +1,75 @@
+echo 
+echo ==============================================
+echo test: 08_large_scale
+echo -----------------------------
+echo Make a 4-mesh with 10 edge-routers on each 
+echo node. Connect 500 senders and 500 receivers,
+echo and send half a million messages.
+echo ==============================================
+echo 
+echo 
+echo 
+
+seed PID
+verbose
+inc versions
+
+echo ----------------------------------
+echo Making 4-mesh network.
+echo ----------------------------------
+mesh 4
+run
+sleep 10
+
+
+
+echo ----------------------------------
+echo Adding 10 edges to each router.
+echo ----------------------------------
+edges A 10
+edges B 10
+edges C 10
+edges D 10
+run 
+sleep 15
+
+
+
+echo ----------------------------------
+echo Adding 1000 clients.
+echo ----------------------------------
+
+#-----------------------------------------------
+# 500 receivers split evenly between the edge
+# routers of C and D.
+# 50 different addresses, 5 receivers for each.
+#-----------------------------------------------
+recv count 250 edges C n_messages 1000 cpa 5 address addr_%d
+recv count 250 edges D n_messages 1000 cpa 5 address addr_%d
+run
+sleep 15
+
+
+
+#-----------------------------------------------
+# 500 senders split evenly between the edge
+# routers of A and B.
+# 50 different addresses, 5 receivers for each.
+#-----------------------------------------------
+echo ----------------------------------
+echo Starting senders!
+echo ----------------------------------
+send count 250 edges A n_messages 1000 cpa 5 address addr_%d
+send count 250 edges B n_messages 1000 cpa 5 address addr_%d
+run
+
+
+
+echo --------------------------------------------
+echo Setting failsafe to 120 seconds,
+echo and client status check every 15 seconds.
+echo --------------------------------------------
+failsafe 60
+start_client_status_check 15
+
+
