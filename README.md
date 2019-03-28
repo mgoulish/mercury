@@ -237,4 +237,254 @@ There are some network topologies that we tend to use a lot, and Mercury gives y
 TODO
 
 <br/>
+
+
+###Command Theories of Operation
+
+Here are more detailed explanations for each command.
+<br/>
+But first, a word about the commands in general.
+<br/>
+Most of the commands process their command lines the same way. 
+
+1. They look for named arguments, and take them all.
+2. They look at whatever is left and assume that those must be 'unlabeled' arguments.
+3. There can be at most two unlabeled args: one string and one int. Mercury will know which is which as long as your string doesn't look like an int. These are used for the (very common) cases where you almost always use one arg for a particular command, so you can just say, for example, "sleep 5" instead of "sleep seconds 5" and it will do what you want.
+4. All commands that have unlabelable args will tell you what they are when you give the command:   help COMMAND
+
+<br/>
+OK. Now, here are more detailed explanations for each command.
+
+<br/>
+
+####connect                   
+Connect two routers that you have already created. 
+    Example: connect A B     
+This will cause router A to initiate a connection with router B.
+This command does not parse its arguments the way most of them do, so there are no named arguments. Just the two router names.
+
+<br/>
+typical usage : connect A B
+
+<br/>
+
+####console_ports 
+Every router (even edge routers) has an HTTP-enabled listener for the console. The A-router (the first core router created) always uses the special-magic port 5673 for this (which will be a problem if you run two Mercury tests at once on one system) but all the other routers use whatever free ports they could find. This command lists all the console ports that are available, so you can attach Ernie's Console if you like.
+
+<br/>
+typical usage : console_ports
+
+<br/>
+
+####echo         
+This command has its own way of processing its command line, and does not have any named arguments.
+It just echoes the whole line (not including the word 'echo' to the console. 
+You can use this as a way of documenting scripts, so that the user can see what is going on as the script runs.
+
+<br/>
+typical usage :   echo This line will be echoed to the console!
+
+<br/>
+
+<br/>
+
+####echo_all
+Once you issue this command, all further commands are echoed to the console. ( Until you issue "echo_all off" . )  This is handy if you are using a Mercury script to do a demo and you want people to be able to see the commands.  ( In that case, you should also look at the 'prompt' command. )
+
+<br/>
+typical usage :   echo_all
+
+
+<br/>
+
+<br/>
+
+####edges  
+Create edge routers attached to a core router. You can specify how many edge routers you want and which router they should be attached to with the unlabelable "count" and "router" args. You can also specify which version of the code they should use, with the "version" arg, if you have defined a version.
+
+<br/>
+typical usage : edges 10 A version VERSION_NAME
+
+<br/>
+
+<br/>
+
+####failsafe
+This command tells the system how many seconds to wait (after reporting on clients begins) until it should shut down with failure. There are ( or will be ) other ways to shut down, but you can use this to specify a shutdown time in case all else fails.
+
+<br/>
+typical usage : failsafe 60
+
+<br/>
+
+<br/>
+
+####help   
+Print the names of all commands and give a brief description of each, or print a detailed description of a single command, including descriptions of each argument.
+
+<br/>
+typical usage : help     ~OR~      help COMMAND_NAME
+
+<br/>
+
+<br/>
+
+####inc   
+Include another file at this point in your script or interactive session. If you are doing an interactive session, this is a nice way to avoid having to type 'boilerplate' commands that never change, for example the commands that define your various versions of the dispatch and router code to be tested.
+
+<br/>
+typical usage : inc FILENAME
+
+<br/>
+
+<br/>
+
+####kill 
+Kill a router!   Useful in stress testing. Just gives its name and BOOM. Dead router.
+
+<br/>
+typical usage :  kill ROUTER_NAME 
+
+<br/>
+
+<br/>
+
+####kill_and_restart
+Kill a router and immediately restart it. Useful in stress-testing.
+
+<br/>
+typical usage : kill_and_restart ROUTER_NAME
+
+<br/>
+
+<br/>
+
+####linear         
+This is a network-command. It takes an unlabelable arg 'count' to tell how large the network should be, and then makes a network of that size, whose topology is linear. You can also specify what version you would like to use for the routers with  'version VERSION_NAME'  or you can say 'version RANDOM' to tell Mercury to select randomly from your set of versions as it creates each router.
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####mesh          
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####prompt       
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####quit        
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####recv  
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####routers
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####run 
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####seed
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####send 
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####sleep
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####start_client_status_check
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####teds_diamond      
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####verbose    
+
+<br/>
+typical usage :
+
+<br/>
+
+<br/>
+
+####version_roots 
+
+<br/>
+typical usage :
+
+<br/>
+
+
+
+<br/>
 <br/>

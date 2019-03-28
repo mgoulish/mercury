@@ -157,6 +157,12 @@ For example (see example of whole startup script, above) :</p>
 
 <p><br/></p>
 
+<h3>Router Status Reporting</h3>
+
+<p>TODO</p>
+
+<p><br/></p>
+
 <h3>Creating many clients with different addresses</h3>
 
 <p>You can quickly create a large number of clients, each with its own address, with a command like this:</p>
@@ -177,6 +183,12 @@ For example (see example of whole startup script, above) :</p>
 
 <p><br/></p>
 
+<h3>Distributing Clients over Routers</h3>
+
+<p>TODO</p>
+
+<p><br/></p>
+
 <h3>One-Command Networks</h3>
 
 <p>There are some network topologies that we tend to use a lot, and Mercury gives you a way to create each of these with a single command. Here are some examples to try:</p>
@@ -185,6 +197,272 @@ For example (see example of whole startup script, above) :</p>
 mesh   4
 teds_diamond
 </code></pre>
+
+<p><br/></p>
+
+<h3>Repeatable Randomness</h3>
+
+<p>TODO</p>
+
+<p><br/></p>
+
+<h3>Command Theories of Operation</h3>
+
+<p>Here are more detailed explanations for each command.
+<br/>
+But first, a word about the commands in general.
+<br/>
+Most of the commands process their command lines the same way.</p>
+
+<ol>
+<li>They look for named arguments, and take them all.</li>
+<li>They look at whatever is left and assume that those must be &lsquo;unlabeled&rsquo; arguments.</li>
+<li>There can be at most two unlabeled args: one string and one int. Mercury will know which is which as long as your string doesn&rsquo;t look like an int. These are used for the (very common) cases where you almost always use one arg for a particular command, so you can just say, for example, &ldquo;sleep 5&rdquo; instead of &ldquo;sleep seconds 5&rdquo; and it will do what you want.</li>
+<li>All commands that have unlabelable args will tell you what they are when you give the command:   help COMMAND</li>
+</ol>
+
+
+<p><br/>
+OK. Now, here are more detailed explanations for each command.</p>
+
+<p><br/></p>
+
+<h4>connect</h4>
+
+<p>Connect two routers that you have already created.
+    Example: connect A B   <br/>
+This will cause router A to initiate a connection with router B.
+This command does not parse its arguments the way most of them do, so there are no named arguments. Just the two router names.</p>
+
+<p><br/>
+typical usage : connect A B</p>
+
+<p><br/></p>
+
+<h4>console_ports</h4>
+
+<p>Every router (even edge routers) has an HTTP-enabled listener for the console. The A-router (the first core router created) always uses the special-magic port 5673 for this (which will be a problem if you run two Mercury tests at once on one system) but all the other routers use whatever free ports they could find. This command lists all the console ports that are available, so you can attach Ernie&rsquo;s Console if you like.</p>
+
+<p><br/>
+typical usage : console_ports</p>
+
+<p><br/></p>
+
+<h4>echo</h4>
+
+<p>This command has its own way of processing its command line, and does not have any named arguments.
+It just echoes the whole line (not including the word &lsquo;echo&rsquo; to the console.
+You can use this as a way of documenting scripts, so that the user can see what is going on as the script runs.</p>
+
+<p><br/>
+typical usage :   echo This line will be echoed to the console!</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>echo_all</h4>
+
+<p>Once you issue this command, all further commands are echoed to the console. ( Until you issue &ldquo;echo_all off&rdquo; . )  This is handy if you are using a Mercury script to do a demo and you want people to be able to see the commands.  ( In that case, you should also look at the &lsquo;prompt&rsquo; command. )</p>
+
+<p><br/>
+typical usage :   echo_all</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>edges</h4>
+
+<p>Create edge routers attached to a core router. You can specify how many edge routers you want and which router they should be attached to with the unlabelable &ldquo;count&rdquo; and &ldquo;router&rdquo; args. You can also specify which version of the code they should use, with the &ldquo;version&rdquo; arg, if you have defined a version.</p>
+
+<p><br/>
+typical usage : edges 10 A version VERSION_NAME</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>failsafe</h4>
+
+<p>This command tells the system how many seconds to wait (after reporting on clients begins) until it should shut down with failure. There are ( or will be ) other ways to shut down, but you can use this to specify a shutdown time in case all else fails.</p>
+
+<p><br/>
+typical usage : failsafe 60</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>help</h4>
+
+<p>Print the names of all commands and give a brief description of each, or print a detailed description of a single command, including descriptions of each argument.</p>
+
+<p><br/>
+typical usage : help     ~OR~      help COMMAND_NAME</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>inc</h4>
+
+<p>Include another file at this point in your script or interactive session. If you are doing an interactive session, this is a nice way to avoid having to type &lsquo;boilerplate&rsquo; commands that never change, for example the commands that define your various versions of the dispatch and router code to be tested.</p>
+
+<p><br/>
+typical usage : inc FILENAME</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>kill</h4>
+
+<p>Kill a router!   Useful in stress testing. Just gives its name and BOOM. Dead router.</p>
+
+<p><br/>
+typical usage :  kill ROUTER_NAME</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>kill_and_restart</h4>
+
+<p>Kill a router and immediately restart it. Useful in stress-testing.</p>
+
+<p><br/>
+typical usage : kill_and_restart ROUTER_NAME</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>linear</h4>
+
+<p>This is a network-command. It takes an unlabelable arg &lsquo;count&rsquo; to tell how large the network should be, and then makes a network of that size, whose topology is linear. You can also specify what version you would like to use for the routers with  &lsquo;version VERSION_NAME&rsquo;  or you can say &lsquo;version RANDOM&rsquo; to tell Mercury to select randomly from your set of versions as it creates each router.</p>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>mesh</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>prompt</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>quit</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>recv</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>routers</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>run</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>seed</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>send</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>sleep</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>start_client_status_check</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>teds_diamond</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>verbose</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
+<h4>version_roots</h4>
+
+<p><br/>
+typical usage :</p>
+
+<p><br/></p>
 
 <p><br/>
 <br/></p>

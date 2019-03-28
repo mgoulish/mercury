@@ -21,5 +21,7 @@ export GOPATH=${MERCURY_ROOT}
 #go run ./*.go   ./tests/07_cpa
 
 
-go run ./*.go  ./tests/08_large_scale
+# go run ./*.go  ./tests/08_large_scale
+
+go run ./*.go  
 

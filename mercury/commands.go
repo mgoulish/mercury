@@ -517,37 +517,6 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
-// This command has its own special magic syntax, so it 
-// parses the command lline its own way.
-func dispatch_version ( merc * Merc, command_line * lisp.List, _ string ) {
-
-  umi ( merc.verbose, "version command is under construction." )
-  return
-
-  version_name, err := command_line.Get_atom ( 1 )
-  if err != nil {
-    ume ( "dispatch_version: error on version name: %s", err.Error() )
-    return
-  }
-
-  path, err := command_line.Get_atom ( 2 )
-  if err != nil {
-    ume ( "dispatch_version: error on path: %s", err.Error() )
-    return
-  }
-
-  if _, err := os.Stat ( path ); os.IsNotExist ( err ) {
-    ume ( "dispatch_version: %s version path does not exist: |%s|.", version_name, path )
-    return
-  }
-
-  umi ( merc.verbose, "dispatch_version: added version %s with path %s", version_name, path )
-}
-
-
-
-
-
 func routers ( merc  * Merc, command_line * lisp.List, _ string ) {
   if len(merc.network.Versions) < 1 {
     ume ( "routers: You must define at least one version before creating routers." )

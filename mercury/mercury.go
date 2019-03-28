@@ -428,12 +428,6 @@ func main ( ) {
                 "Proton install directory." )
 
 
-  // dispatch_version command -------------------------------------------------------
-  cmd = merc.add_command ( "dispatch_version",
-                            dispatch_version,
-                            "Define different version of the dispatch code. Arg 1 is version name, arg 2 is path." )
-
-
   // routers command -------------------------------------------------------
   cmd = merc.add_command ( "routers",
                             routers,
