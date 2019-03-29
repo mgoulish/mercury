@@ -251,6 +251,7 @@ Most of the commands process their command lines the same way.
 2. They look at whatever is left and assume that those must be 'unlabeled' arguments.
 3. There can be at most two unlabeled args: one string and one int. Mercury will know which is which as long as your string doesn't look like an int. These are used for the (very common) cases where you almost always use one arg for a particular command, so you can just say, for example, "sleep 5" instead of "sleep seconds 5" and it will do what you want.
 4. All commands that have unlabelable args will tell you what they are when you give the command:   help COMMAND
+5. All arguments of commands can occur in any order. Order does not matter.
 
 <br/>
 OK. Now, here are more detailed explanations for each command.
@@ -370,24 +371,37 @@ typical usage :
 <br/>
 
 ####mesh          
+Network command that create a full-connected graph of routers, as large as you wish. Don't go nuts. Fully-connected graphs gets lots of connections proportional to N^2.  
 
 <br/>
-typical usage :
+typical usage :  mesh N
 
 <br/>
 
 <br/>
 
 ####prompt       
+Turns prompting on or off (default on), which means that Mercury stops after each command and asks you to hit enter. If you are doing a demo from a prepared script, you should use this plus the echo_all command, so your audience will be able to see each command before it executes.
 
 <br/>
-typical usage :
+typical usage : prompt
 
 <br/>
 
 <br/>
 
 ####quit        
+Halts Mercury.
+
+<br/>
+typical usage : quit
+
+<br/>
+
+<br/>
+
+####random_network 
+This is a network-command. Tell it how many nodes you want, and it will create a randomly-connected network with that many nodes. It just starts making connections between random pairs of routers, and stops as soon as it has a connected graph. The only rule is that you cannot have more than one connection between any two routers.
 
 <br/>
 typical usage :
@@ -397,15 +411,17 @@ typical usage :
 <br/>
 
 ####recv  
+Create one or more receivers on one or more routers, all using the same version of code, or all selecting randomly.  There are lots of arguments -- look at "help recv".  Below I give an example in which you want to create 100 receivers distributed across all edge-routers connected to router A, using random versions of the code, and each expecting 1000 messages. And there 5 addresses per receiver, i.e. receiver_1 gets addr_1 to addr_5, receiver_2 gets addr_6 to addr_10, etc.
 
 <br/>
-typical usage :
+typical usage : recv count 100 apc 5 n_messages 1000 edges A
 
 <br/>
 
 <br/>
 
 ####routers
+Create some routers. You can specify how many, and what version of the code they should use. Version will default to the first one that was defined, if you don't say anything.
 
 <br/>
 typical usage :

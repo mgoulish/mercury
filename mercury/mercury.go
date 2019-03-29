@@ -312,11 +312,9 @@ func listen_for_network_halt ( merc * Merc, channel chan string ) {
     fmt.Fprintf ( result_file, "%s\n", msg )
   }
 
-
-
-
   quit ( merc, nil, "" )
 }
+
 
 
 
@@ -428,6 +426,7 @@ func main ( ) {
                 "Proton install directory." )
 
 
+
   // routers command -------------------------------------------------------
   cmd = merc.add_command ( "routers",
                             routers,
@@ -462,6 +461,11 @@ func main ( ) {
 
 
 
+  //=======================================================================
+  // End Topology Commands.
+  //=======================================================================
+
+
   // linear command -------------------------------------------------------
   cmd = merc.add_command ( "linear",
                             linear,
@@ -477,6 +481,7 @@ func main ( ) {
                 "string",
                 "",
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
+
 
 
   // mesh command -------------------------------------------------------
@@ -496,6 +501,7 @@ func main ( ) {
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
+
   // teds_diamond command -------------------------------------------------------
   cmd = merc.add_command ( "teds_diamond",
                             teds_diamond,
@@ -505,6 +511,14 @@ func main ( ) {
                 "string",
                 "",
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
+
+
+
+  //=======================================================================
+  // End Topology Commands.
+  //=======================================================================
+
+
 
 
   // edges command -------------------------------------------------------
@@ -758,6 +772,23 @@ func main ( ) {
                 "int",
                 "30",
                 "The number of seconds until forced failure." )
+
+
+  // random_network command -------------------------------------------------------
+  cmd = merc.add_command ( "random_network",
+                            random_network,
+                           "Create a randomly-connected network wuth the requested number of routers." )
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "4",    // default is 4 routers
+                "How many routers to create in the random network." )
+
+  cmd.add_arg ( "version",
+                true,   // unlabelable
+                "string",
+                "",
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
   /*--------------------------------------------

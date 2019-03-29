@@ -108,7 +108,7 @@ func edges ( merc * Merc, command_line * lisp.List, _ string ) {
   // Make the edges.
   var edge_name string
   for i := 0; i < count; i ++ {
-    if requested_version == "random" {
+    if requested_version == "RANDOM" {
       version = merc.random_version_name()
     }
     merc.edge_count ++
@@ -526,26 +526,32 @@ func routers ( merc  * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "routers" ]
   parse_command_line ( merc, cmd, command_line )
 
-  count   := cmd.unlabelable_int.int_value
-  version_name := cmd.unlabelable_string.string_value
+  count             := cmd.unlabelable_int.int_value
+  requested_version := cmd.unlabelable_string.string_value
 
   // If no version name was supplied, use default.
-  if version_name == "" {
-    version_name = merc.network.Default_version.Name
+  var version string
+  if requested_version == "" {
+    version = merc.network.Default_version.Name
   }
 
   // Make the requested routers.
   var router_name string
   for i := 0; i < count; i ++ {
     router_name = get_next_interior_router_name ( merc )
+
+    if requested_version == "RANDOM" {
+      version = merc.random_version_name()
+    }
+
     merc.network.Add_router ( router_name, 
-                              version_name, 
+                              version, 
                               merc.session.config_path,
                               merc.session.log_path )
     umi ( merc.verbose, 
           "routers: added router |%s| with version |%s|.", 
           router_name, 
-          version_name )
+          version )
   }
 }
 
@@ -606,11 +612,61 @@ func inc ( merc  * Merc, command_line * lisp.List, _ string ) {
 
 
 
-func (merc * Merc) random_version_name ( ) (string) {
+func ( merc * Merc ) random_version_name ( ) (string) {
   n_versions   := len(merc.network.Versions)
   random_index := rand.Intn ( n_versions )
   return merc.network.Versions[random_index].Name
 }
+
+
+
+
+
+func ( merc * Merc ) random_router_name ( ) (string) {
+  interior_router_names := merc.network.Get_interior_routers_names ( )
+  n_routers    := len ( interior_router_names )
+  random_index := rand.Intn ( n_routers )
+  return interior_router_names [ random_index ]
+}
+
+
+
+
+
+func ( merc * Merc ) make_random_connection ( ) ( bool ) {
+
+  var router_name_1, router_name_2 string
+
+  for i := 0; i < 100; i ++ {
+    
+    router_name_1 = merc.random_router_name() 
+    router_name_2 = merc.random_router_name() 
+
+    if router_name_1 == router_name_2 {
+      continue
+    }
+
+    // Direction doesn't matter. If these two already have
+    // ac connection, I don't want them.
+    if merc.network.Are_connected ( router_name_1, router_name_2 ) {
+      continue
+    }
+
+    umi ( merc.verbose, "make_random_connection: connecting %s and %s", router_name_1, router_name_2 )
+    merc.network.Connect_router ( router_name_1, router_name_2 )
+    return true
+  }
+
+  return false
+}
+
+
+
+
+
+//=======================================================================
+// Topology Commands.
+//=======================================================================
 
 
 
@@ -623,6 +679,7 @@ func linear ( merc * Merc, command_line * lisp.List, _ string ) {
   count             := cmd.unlabelable_int.int_value
   requested_version := cmd.unlabelable_string.string_value
 
+  // If no version supplied, use default.
   var version string
   if requested_version == "" {
     version = merc.network.Default_version.Name
@@ -634,7 +691,7 @@ func linear ( merc * Merc, command_line * lisp.List, _ string ) {
   for i := 0; i < count; i ++ {
     router_name = get_next_interior_router_name ( merc )
 
-    if requested_version == "random" {
+    if requested_version == "RANDOM" {
       version = merc.random_version_name()
     }
 
@@ -761,7 +818,6 @@ func teds_diamond ( merc  * Merc, command_line * lisp.List, _ string ) {
                             merc.session.log_path )
   umi ( merc.verbose, "teds_diamond: added router |%s| with version |%s|.", outlier, version )
   catcher = temp_names[0]
-  fp ( os.Stdout, "MDEBUG : outlier |%s|   catcher |%s|\n", outlier, catcher )
   merc.network.Connect_router ( outlier, catcher )
   umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
   catcher = temp_names[1]
@@ -785,6 +841,76 @@ func teds_diamond ( merc  * Merc, command_line * lisp.List, _ string ) {
   merc.network.Connect_router ( outlier, catcher )
   umi ( merc.verbose, "teds_diamond: connected router |%s| to router |%s|", outlier, catcher )
 }
+
+
+
+
+
+func random_network ( merc  * Merc, command_line * lisp.List, _ string ) {
+
+  if len(merc.network.Versions) < 1 {
+    ume ( "routers: You must define at least one version before creating routers." )
+    return
+  }
+
+  cmd := merc.commands [ "random_network" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  n_routers         := cmd.unlabelable_int.int_value
+  requested_version := cmd.unlabelable_string.string_value
+
+  // If no version name was supplied, use default.
+  var version string
+  if requested_version == "" {
+    version = merc.network.Default_version.Name
+  }
+
+  // Make the requested routers.
+  var router_name string
+  for i := 0; i < n_routers; i ++ {
+    router_name = get_next_interior_router_name ( merc )
+
+    if requested_version == "RANDOM" {
+      version = merc.random_version_name()
+    }
+
+    merc.network.Add_router ( router_name, 
+                              version, 
+                              merc.session.config_path,
+                              merc.session.log_path )
+    umi ( merc.verbose, 
+          "routers: added router |%s| with version |%s|.", 
+          router_name, 
+          version )
+  }
+
+  n_connections := 0
+  for {
+    if merc.network.Is_the_network_connected ( ) {
+      umi ( merc.verbose, 
+            "random_network : made network with %d routers and %d connections.", 
+            n_routers,
+            n_connections )
+      return
+    }
+
+    if ! merc.make_random_connection ( ) {
+      ume ( "random_network : make_random_connection() failed. Can't make connected network!" )
+      return
+    }
+
+    n_connections ++
+  }
+
+}
+
+
+
+
+
+//=======================================================================
+// End Topology Commands.
+//=======================================================================
 
 
 

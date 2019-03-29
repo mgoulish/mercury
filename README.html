@@ -219,6 +219,7 @@ Most of the commands process their command lines the same way.</p>
 <li>They look at whatever is left and assume that those must be &lsquo;unlabeled&rsquo; arguments.</li>
 <li>There can be at most two unlabeled args: one string and one int. Mercury will know which is which as long as your string doesn&rsquo;t look like an int. These are used for the (very common) cases where you almost always use one arg for a particular command, so you can just say, for example, &ldquo;sleep 5&rdquo; instead of &ldquo;sleep seconds 5&rdquo; and it will do what you want.</li>
 <li>All commands that have unlabelable args will tell you what they are when you give the command:   help COMMAND</li>
+<li>All arguments of commands can occur in any order. Order does not matter.</li>
 </ol>
 
 
@@ -351,8 +352,10 @@ typical usage :</p>
 
 <h4>mesh</h4>
 
+<p>Network command that create a full-connected graph of routers, as large as you wish. Don&rsquo;t go nuts. Fully-connected graphs gets lots of connections proportional to N<sup>2</sup>.</p>
+
 <p><br/>
-typical usage :</p>
+typical usage :  mesh N</p>
 
 <p><br/></p>
 
@@ -360,8 +363,10 @@ typical usage :</p>
 
 <h4>prompt</h4>
 
+<p>Turns prompting on or off (default on), which means that Mercury stops after each command and asks you to hit enter. If you are doing a demo from a prepared script, you should use this plus the echo_all command, so your audience will be able to see each command before it executes.</p>
+
 <p><br/>
-typical usage :</p>
+typical usage : prompt</p>
 
 <p><br/></p>
 
@@ -369,8 +374,10 @@ typical usage :</p>
 
 <h4>quit</h4>
 
+<p>Halts Mercury.</p>
+
 <p><br/>
-typical usage :</p>
+typical usage : quit</p>
 
 <p><br/></p>
 
@@ -378,8 +385,10 @@ typical usage :</p>
 
 <h4>recv</h4>
 
+<p>Create one or more receivers on one or more routers, all using the same version of code, or all selecting randomly.  There are lots of arguments &ndash; look at &ldquo;help recv&rdquo;.  Below I give an example in which you want to create 100 receivers distributed across all edge-routers connected to router A, using random versions of the code, and each expecting 1000 messages. And there 5 addresses per receiver, i.e. receiver_1 gets addr_1 to addr_5, receiver_2 gets addr_6 to addr_10, etc.</p>
+
 <p><br/>
-typical usage :</p>
+typical usage : recv count 100 apc 5 n_messages 1000 edges A</p>
 
 <p><br/></p>
 

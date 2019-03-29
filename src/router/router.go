@@ -118,14 +118,30 @@ type Router struct {
   state                          router_state            
   cmd                          * exec.Cmd
   i_connect_to_ports            [] string
-  i_connect_to_names            [] string
+  I_connect_to_names            [] string
 
   // Names of routers that connect to me.
-  connect_to_me_interior        [] string
+  Connect_to_me_interior        [] string
   connect_to_me_edge            [] string
 }
 
 
+
+func ( r * Router ) Is_connected_to ( other_router_name string ) ( bool ) {
+  for _, i_connect_to := range r.I_connect_to_names {
+    if i_connect_to == other_router_name {
+      return true
+    }
+  }
+
+  for _, connect_to_me := range r.Connect_to_me_interior {
+    if connect_to_me == other_router_name {
+      return true
+    }
+  }
+
+  return false
+}
 
 
 
@@ -203,7 +219,7 @@ func ( r * Router ) Connected_to_you ( router_name string, edge bool ) {
   if edge {
     r.connect_to_me_edge = append ( r.connect_to_me_edge, router_name )
   } else {
-    r.connect_to_me_interior = append ( r.connect_to_me_interior, router_name )
+    r.Connect_to_me_interior = append ( r.Connect_to_me_interior, router_name )
   }
 }
 
@@ -229,16 +245,16 @@ func ( r * Router ) Print () {
   fp ( os.Stdout, "  console port: %s\n", r.console_port )
   fp ( os.Stdout, "\n" )
 
-  if 0 < len(r.i_connect_to_names) {
+  if 0 < len(r.I_connect_to_names) {
     fp ( os.Stdout, "  Routers that I connect to:\n" )
-    for i, name := range r.i_connect_to_names {
+    for i, name := range r.I_connect_to_names {
       fp ( os.Stdout, "    %s %s\n", name, r.i_connect_to_ports [ i ] )
     }
   }
 
-  if 0 < len(r.connect_to_me_interior) {
+  if 0 < len(r.Connect_to_me_interior) {
     fp ( os.Stdout, "  Interior routers that connect to me:\n" )
-    for _, name := range r.connect_to_me_interior {
+    for _, name := range r.Connect_to_me_interior {
       fp ( os.Stdout, "    %s\n", name )
     }
   }
@@ -261,7 +277,7 @@ func ( r * Router ) Print () {
 // that it should attach to.
 func ( r * Router ) Connect_to ( name string, port string ) {
   r.i_connect_to_ports = append ( r.i_connect_to_ports, port )
-  r.i_connect_to_names = append ( r.i_connect_to_names, name )
+  r.I_connect_to_names = append ( r.I_connect_to_names, name )
 }
 
 
@@ -407,7 +423,7 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  saslMechanisms     : ANONYMOUS\n")
   fp ( f, "  authenticatePeer   : no\n")
   fp ( f, "  http               : true\n")
-  fp ( f, "  httpRoot           : %s\n", r.console_path)
+  //fp ( f, "  httpRoot           : %s\n", r.console_path)
   fp ( f, "}\n")
 
   // The Router Listener -----------------

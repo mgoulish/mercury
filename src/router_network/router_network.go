@@ -110,7 +110,7 @@ func new_version_with_roots ( name          string,
   PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH   + "/proton/bindings/python"
 
   v.Pythonpath          =  DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_LIBRARY_PATH +":"+ PROTON_PYTHONPATH
-  v.Console_path        =  v.dispatch_root + "/share/qpid-dispatch/console/stand-alone"
+  v.Console_path        =  v.dispatch_root + "/share/qpid-dispatch/console"
   v.Include_path        =  v.dispatch_root + "/lib/qpid-dispatch/python"
 
   check_path ( "dispatch_root", v.dispatch_root, true )
@@ -269,6 +269,18 @@ func ( rn * Router_network ) Get_n_interior_routers ( ) ( int ) {
     }
   }
   return count
+}
+
+
+func ( rn * Router_network ) Get_interior_routers_names ( ) ( [] string ) {
+  var interior_router_names [] string
+  for _, r := range rn.routers {
+    if r.Type() == "interior" { 
+      interior_router_names = append ( interior_router_names, r.Name() )
+    }
+  }
+
+  return interior_router_names
 }
 
 
@@ -534,6 +546,13 @@ func ( rn * Router_network ) Connect_router ( router_1_name string, router_2_nam
   router_1.Connect_to ( router_2_name, connect_to_port )
   // And tell router_2 who just connected to it.
   router_2.Connected_to_you ( router_1_name, "edge" == router_1.Type() )
+}
+
+
+func ( rn * Router_network ) Are_connected ( router_1_name string, router_2_name string ) ( bool ) {
+
+  router_1 := rn.get_router_by_name ( router_1_name )
+  return router_1.Is_connected_to ( router_2_name )
 }
 
 
@@ -950,6 +969,123 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
   }
 
   return is_it_completed
+}
+
+
+
+
+
+func element_of ( target_str string, strings [] string ) ( bool ) {
+  for _, str := range strings {
+    if target_str == str {
+      return true
+    }
+  }
+
+  return false
+}
+
+
+
+
+
+func union ( list_1, list_2 [] string ) ( [] string ) {
+
+  var union_list [] string
+
+  for _, str := range list_1 {
+    if ! element_of ( str, union_list ) {
+      union_list = append ( union_list, str )
+    }
+  }
+
+  for _, str := range list_2 {
+    if ! element_of ( str, union_list ) {
+      union_list = append ( union_list, str )
+    }
+  }
+
+  return union_list 
+}
+
+
+
+
+
+func print_list ( label string, list [] string ) {
+  fp ( os.Stdout, "%s\n", label )
+  for _, x := range list {
+    fp ( os.Stdout, "    %s\n", x )
+  }
+}
+
+
+
+
+
+func ( rn * Router_network ) Is_the_network_connected ( ) ( bool ) {
+
+  if len ( rn.routers ) <= 0  {
+    return false
+  }
+
+  // reachable_nodes is the Big Kahuna. 
+  // This is the list we are building up such that, when it is 
+  // the same size as the set of all nodes -- that means that the
+  // network is connected.
+  reachable_nodes := [ ] string { "A" }
+  var next_generation, neighbors_of_this_node [ ] string
+
+  if len(reachable_nodes) >= len(rn.routers) {
+    return true
+  }
+
+  for {
+    next_generation = nil
+
+    // Make the next generation.
+    // For each node in the reachables, add all the nodes that
+    // are connected to them into the new set of reachables.
+    for _, reachable_node_name := range reachable_nodes {
+      r := rn.get_router_by_name ( reachable_node_name )
+      neighbors_of_this_node = union ( r.I_connect_to_names, r.Connect_to_me_interior )
+
+      // For each neighbor of this node, put it into the next gen if
+      //  1. it's not already there, and
+      //  2. it's also not in the grand list of reachables already.
+      for _, neighbor_of_this_node := range neighbors_of_this_node {
+        if element_of ( neighbor_of_this_node, next_generation ) {
+          continue
+        }
+
+        if element_of ( neighbor_of_this_node, reachable_nodes ) {
+          continue
+        }
+
+        next_generation = append ( next_generation, neighbor_of_this_node )
+      }
+    }
+
+    // Now we have built the next generation: the list of all nodes 
+    // that are reachable from the set of 'reachable nodes' but were
+    // not already contained therein.
+
+    // If at this point the next generation is empty, the set 
+    // of reachable nodes will not grow anymore. Fail.
+    if len(next_generation) <= 0 {
+      return false
+    }
+    
+    // OK, so we *do* have some new nodes in the next generation.
+    // Union them in with the set of reachables.
+    reachable_nodes = union ( reachable_nodes, next_generation )
+
+    // Do we have a Full House?
+    // If so, then the network is connected!
+    if len ( reachable_nodes ) >= len ( rn.routers ) {
+      return true
+    }
+  }
 }
 
 
