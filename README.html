@@ -195,6 +195,8 @@ For example (see example of whole startup script, above) :</p>
 
 <pre><code>linear 3
 mesh   4
+ring   6
+random_network 6
 teds_diamond
 </code></pre>
 
@@ -383,6 +385,17 @@ typical usage : quit</p>
 
 <p><br/></p>
 
+<h4>random_network</h4>
+
+<p>This is a network-command. Tell it how many nodes you want, and it will create a randomly-connected network with that many nodes. It just starts making connections between random pairs of routers, and stops as soon as it has a connected graph. The only rule is that you cannot have more than one connection between any two routers.</p>
+
+<p><br/>
+typical usage :  random_network  6</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
 <h4>recv</h4>
 
 <p>Create one or more receivers on one or more routers, all using the same version of code, or all selecting randomly.  There are lots of arguments &ndash; look at &ldquo;help recv&rdquo;.  Below I give an example in which you want to create 100 receivers distributed across all edge-routers connected to router A, using random versions of the code, and each expecting 1000 messages. And there 5 addresses per receiver, i.e. receiver_1 gets addr_1 to addr_5, receiver_2 gets addr_6 to addr_10, etc.</p>
@@ -394,7 +407,20 @@ typical usage : recv count 100 apc 5 n_messages 1000 edges A</p>
 
 <p><br/></p>
 
+<h4>ring</h4>
+
+<p>This is a network-command. Tell it how many nodes you want, and it will create a ring-shaped network of that size.</p>
+
+<p><br/>
+typical usage : ring 5</p>
+
+<p><br/></p>
+
+<p><br/></p>
+
 <h4>routers</h4>
+
+<p>Create some routers. You can specify how many, and what version of the code they should use. Version will default to the first one that was defined, if you don&rsquo;t say anything.</p>
 
 <p><br/>
 typical usage :</p>
@@ -405,8 +431,10 @@ typical usage :</p>
 
 <h4>run</h4>
 
+<p>No args. This is what starts things running. Sometimes it&rsquo;s best to issue this command more than once in the course of a test. For example, you make a network of a bunch of routers. Issue this command to start them going, so they will take care of their inter-router chatter. <em>Then</em> make the receivers, and issue &lsquo;run&rsquo; again, so that the routers will learn about all the addresses. Then make the senders and call run one more time, to start them up. Each time, the clients or senders that were not already running get started when you call &lsquo;run&rsquo;.</p>
+
 <p><br/>
-typical usage :</p>
+typical usage : run</p>
 
 <p><br/></p>
 

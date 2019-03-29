@@ -765,6 +765,64 @@ func mesh ( merc  * Merc, command_line * lisp.List, _ string ) {
 
 
 
+func ring ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd := merc.commands [ "ring" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  count             := cmd.unlabelable_int.int_value
+  requested_version := cmd.unlabelable_string.string_value
+
+  // If no version supplied, use default.
+  var version string
+  if requested_version == "" {
+    version = merc.network.Default_version.Name
+  } 
+
+  // Make the requested routers.
+  var router_name string
+  var temp_names [] string
+  for i := 0; i < count; i ++ {
+    router_name = get_next_interior_router_name ( merc )
+
+    if requested_version == "RANDOM" {
+      version = merc.random_version_name()
+    }
+
+    merc.network.Add_router ( router_name, 
+                              version,
+                              merc.session.config_path,
+                              merc.session.log_path )
+    temp_names = append ( temp_names, router_name )
+    umi ( merc.verbose, "ring: added router |%s| with version |%s|.", router_name, version )
+  }
+
+  // And connect them.
+  // This part is just like in a linear network.
+  var pitcher, catcher string
+  for index, name := range temp_names {
+    if index < len(temp_names) - 1 {
+      pitcher = name
+      catcher = temp_names [ index + 1 ]
+      merc.network.Connect_router ( pitcher, catcher )
+      umi ( merc.verbose, "ring: connected router |%s| to router |%s|", pitcher, catcher )
+    }
+  }
+
+  // And now close the circle.
+  pitcher = temp_names [ len(temp_names) - 1 ]
+  catcher = temp_names [ 0 ]
+  merc.network.Connect_router ( pitcher, catcher )
+  umi ( merc.verbose, "ring: connected router |%s| to router |%s|", pitcher, catcher )
+}
+
+
+
+
+
+
+
+
+
 func teds_diamond ( merc  * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "teds_diamond" ]
   parse_command_line ( merc, cmd, command_line )

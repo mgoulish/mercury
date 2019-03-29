@@ -492,7 +492,7 @@ func main ( ) {
                 true,   // unlabelable
                 "int",
                 "4",    // default is 4 routers
-                "How many routers to create in the linear network." )
+                "How many routers to create in the mesh network." )
 
   cmd.add_arg ( "version",
                 true,
@@ -511,6 +511,25 @@ func main ( ) {
                 "string",
                 "",
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
+
+
+
+  // ring command -------------------------------------------------------
+  cmd = merc.add_command ( "ring",
+                            ring,
+                           "Create a ring-shaped router network." )
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "4",    // default is 4 routers
+                "How many routers to create in the ring network." )
+
+  cmd.add_arg ( "version",
+                true,
+                "string",
+                "",
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
+
 
 
 

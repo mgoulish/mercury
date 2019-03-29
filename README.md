@@ -228,6 +228,8 @@ There are some network topologies that we tend to use a lot, and Mercury gives y
 
     linear 3
     mesh   4
+    ring   6
+    random_network 6
     teds_diamond
 
 <br/>
@@ -404,7 +406,7 @@ typical usage : quit
 This is a network-command. Tell it how many nodes you want, and it will create a randomly-connected network with that many nodes. It just starts making connections between random pairs of routers, and stops as soon as it has a connected graph. The only rule is that you cannot have more than one connection between any two routers.
 
 <br/>
-typical usage :
+typical usage :  random_network  6
 
 <br/>
 
@@ -415,6 +417,17 @@ Create one or more receivers on one or more routers, all using the same version 
 
 <br/>
 typical usage : recv count 100 apc 5 n_messages 1000 edges A
+
+<br/>
+
+<br/>
+
+
+####ring  
+This is a network-command. Tell it how many nodes you want, and it will create a ring-shaped network of that size.
+
+<br/>
+typical usage : ring 5
 
 <br/>
 
@@ -431,9 +444,10 @@ typical usage :
 <br/>
 
 ####run 
+No args. This is what starts things running. Sometimes it's best to issue this command more than once in the course of a test. For example, you make a network of a bunch of routers. Issue this command to start them going, so they will take care of their inter-router chatter. *Then* make the receivers, and issue 'run' again, so that the routers will learn about all the addresses. Then make the senders and call run one more time, to start them up. Each time, the clients or senders that were not already running get started when you call 'run'.
 
 <br/>
-typical usage :
+typical usage : run
 
 <br/>
 

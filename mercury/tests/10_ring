@@ -1,0 +1,22 @@
+echo 
+echo ==============================================
+echo test: 10_ring
+echo -----------------------------
+echo Demonstrate creation of a ring network
+echo ==============================================
+echo 
+echo 
+echo 
+
+seed PID
+
+verbose
+
+inc versions
+
+ring 5
+
+run
+
+
+
