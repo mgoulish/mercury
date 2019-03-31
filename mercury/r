@@ -20,9 +20,12 @@ export GOPATH=${MERCURY_ROOT}
 # Demonstrate the "clients per address" feature.
 #go run ./*.go   ./tests/07_cpa
 
+#go run ./*.go   ./tests/08_large_scale
 
-# go run ./*.go  ./tests/08_large_scale
+#go run ./*.go   ./tests/09_random_network
 
-go run ./*.go   ./tests/00
+#go run ./*.go    ./tests/10_ring
+
+go run ./*.go    ./tests/11_star
 
 

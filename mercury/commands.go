@@ -819,6 +819,82 @@ func ring ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
+func star ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd := merc.commands [ "star" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  count             := cmd.unlabelable_int.int_value
+  requested_version := cmd.unlabelable_string.string_value
+
+  // If no version supplied, use default.
+  var version string
+  if requested_version == "" {
+    version = merc.network.Default_version.Name
+  } 
+
+  ring_size := count - 1
+
+  /*----------------------------------------------
+    First Make a ring
+  ----------------------------------------------*/
+  // Make the requested routers.
+  var router_name string
+  var ring_names [] string
+  for i := 0; i < ring_size; i ++ {
+    router_name = get_next_interior_router_name ( merc )
+
+    if requested_version == "RANDOM" {
+      version = merc.random_version_name()
+    }
+
+    merc.network.Add_router ( router_name, 
+                              version,
+                              merc.session.config_path,
+                              merc.session.log_path )
+    ring_names = append ( ring_names, router_name )
+    umi ( merc.verbose, "star: added router |%s| with version |%s|.", router_name, version )
+  }
+
+  // And connect them.
+  // This part is just like in a linear network.
+  var pitcher, catcher string
+  for index, name := range ring_names {
+    if index < len(ring_names) - 1 {
+      pitcher = name
+      catcher = ring_names [ index + 1 ]
+      merc.network.Connect_router ( pitcher, catcher )
+      umi ( merc.verbose, "ring: connected router |%s| to router |%s|", pitcher, catcher )
+    }
+  }
+
+  // And now close the circle.
+  pitcher = ring_names [ len(ring_names) - 1 ]
+  catcher = ring_names [ 0 ]
+  merc.network.Connect_router ( pitcher, catcher )
+  umi ( merc.verbose, "ring: connected router |%s| to router |%s|", pitcher, catcher )
+
+
+  /*----------------------------------------------
+    Now add a center to the ring.
+  ----------------------------------------------*/
+  router_name = get_next_interior_router_name ( merc )
+  if requested_version == "RANDOM" {
+    version = merc.random_version_name()
+  }
+  merc.network.Add_router ( router_name,
+                            version,
+                            merc.session.config_path,
+                            merc.session.log_path )
+  umi ( merc.verbose, "star: added router |%s| with version |%s|.", router_name, version )
+
+  // And connect the center to all other routers.
+  pitcher = router_name
+  for _, catcher := range ring_names {
+    merc.network.Connect_router ( pitcher, catcher )
+    umi ( merc.verbose, "ring: connected router |%s| to router |%s|", pitcher, catcher )
+  }
+}
+
 
 
 

@@ -531,6 +531,23 @@ func main ( ) {
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
+  // star command -------------------------------------------------------
+  cmd = merc.add_command ( "star",
+                            star,
+                           "Create a star-shaped router network." )
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "4",    // default is 4 routers
+                "How many routers to create in the star network." )
+
+  cmd.add_arg ( "version",
+                true,
+                "string",
+                "",
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
+
+
 
 
   //=======================================================================
