@@ -548,6 +548,22 @@ func main ( ) {
                 "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
+  // random_network command -------------------------------------------------------
+  cmd = merc.add_command ( "random_network",
+                            random_network,
+                           "Create a randomly-connected network wuth the requested number of routers." )
+  cmd.add_arg ( "count",
+                true,   // unlabelable
+                "int",
+                "4",    // default is 4 routers
+                "How many routers to create in the random network." )
+
+  cmd.add_arg ( "version",
+                true,   // unlabelable
+                "string",
+                "",
+                "Which version of the dispatch code to use. Defaults to the first version you defined." )
+
 
 
   //=======================================================================
@@ -809,22 +825,11 @@ func main ( ) {
                 "30",
                 "The number of seconds until forced failure." )
 
+  // wait_for_network command -------------------------------------------------------
+  cmd = merc.add_command ( "wait_for_network",
+                            wait_for_network,
+                           "Wait for the network to settle down after being created or changed." )
 
-  // random_network command -------------------------------------------------------
-  cmd = merc.add_command ( "random_network",
-                            random_network,
-                           "Create a randomly-connected network wuth the requested number of routers." )
-  cmd.add_arg ( "count",
-                true,   // unlabelable
-                "int",
-                "4",    // default is 4 routers
-                "How many routers to create in the random network." )
-
-  cmd.add_arg ( "version",
-                true,   // unlabelable
-                "string",
-                "",
-                "Which version of the dispatch code to use. Defaults to the first version you defined." )
 
 
   /*--------------------------------------------

@@ -16,6 +16,10 @@ inc versions
 
 star 11
 
+run 
+
+wait_for_network
+
 
 
 

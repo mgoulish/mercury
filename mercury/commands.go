@@ -1266,3 +1266,42 @@ func failsafe ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
+func wait_for_network ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd := merc.commands [ "wait_for_network" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  umi ( merc.verbose, "wait_for_network: waiting for network to stabilize." )
+
+  router_names := merc.network.Get_interior_routers_names ( )
+  paths        := merc.network.Get_router_log_file_paths ( router_names )
+
+  var total_size, previous_size int64
+
+  previous_size = 0
+
+  for i := 0; i < 10; i ++ {
+    total_size = 0
+    for _, file_path := range paths {
+      file_info, err := os.Stat ( file_path )
+      if err == nil {
+        total_size += file_info.Size()
+      }
+    }
+
+    if total_size > 0 {
+      if total_size == previous_size {
+        umi ( merc.verbose, "wait_for_network: network has stabilized." )
+        return
+      }
+      umi ( merc.verbose, "wait_for_network: router log files still active: size %d", total_size )
+    }
+
+    time.Sleep ( 2 * time.Second )
+    previous_size = total_size
+  }
+}
+
+
+
+
+

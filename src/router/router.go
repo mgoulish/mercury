@@ -103,6 +103,7 @@ type Router struct {
   executable_path                string
   config_path                    string
   log_path                       string
+  Log_file_path                  string
   config_file_path               string
   ld_library_path                string
   pythonpath                     string
@@ -394,8 +395,10 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  distribution : multicast\n" );
   fp ( f, "}\n" )
 
+  r.Log_file_path = r.log_path + "/" + r.name + ".log"
+
   fp ( f, "log {\n" )
-  fp ( f, "  outputFile    : %s.log\n", r.log_path + "/" +r.name )
+  fp ( f, "  outputFile    : %s\n", r.Log_file_path )
   // Use this if you want no output.
   //fp ( f, "  enable        : none\n" )
   fp ( f, "  includeSource : true\n" )

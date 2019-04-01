@@ -287,6 +287,20 @@ func ( rn * Router_network ) Get_interior_routers_names ( ) ( [] string ) {
 
 
 
+func ( rn * Router_network ) Get_router_log_file_paths ( router_names [] string )  ( [] string ) {
+  var log_file_names [] string
+  for _, r_name := range router_names {
+    r := rn.get_router_by_name ( r_name )
+    log_file_names = append ( log_file_names, r.Log_file_path )
+  }
+
+  return log_file_names
+}
+
+
+
+
+
 func ( rn * Router_network ) Get_version_from_name ( target_name string ) ( * Version ) {
   for _, v := range rn.Versions {
     if v.Name == target_name {
