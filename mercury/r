@@ -1,5 +1,8 @@
 #! /usr/bin/bash
 
+rm /tmp/mdebug*
+
+
 export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
@@ -26,6 +29,9 @@ export GOPATH=${MERCURY_ROOT}
 
 #go run ./*.go    ./tests/10_ring
 
-go run ./*.go    ./tests/11_star
+# go run ./*.go    ./tests/00
+
+
+go run ./*.go    ./scripts/tests/00
 
 

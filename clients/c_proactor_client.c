@@ -37,6 +37,12 @@ get_timestamp ( void )
 
 
 
+
+
+
+
+
+
 #define MAX_NAME   100
 #define MAX_ADDRS  100
 #define MAX_MESSAGE 1000000
@@ -94,6 +100,11 @@ struct context_s
   pn_listener_t   * listener;
   pn_connection_t * connection;
   int               throttle;
+
+  double          * flight_times;
+  int               max_flight_times;
+  int               n_flight_times;
+  char            * flight_times_file_name;
 }
 context_t,
 * context_p;
@@ -103,6 +114,41 @@ context_t,
 
 
 context_p context_g = 0;
+
+
+
+
+
+void
+dump_flight_times ( context_p context )
+{
+  char default_file_name[1000];
+  char * file_name = context->flight_times_file_name;
+
+  if ( file_name == 0 )
+  {
+    sprintf ( default_file_name, "/tmp/flight_times_%d", getpid() );
+    file_name = default_file_name;
+  }
+
+  FILE * fp = fopen ( file_name, "w" );
+  for ( int i = 0; i < context->n_flight_times; i ++ )
+  {
+    fprintf ( fp, "%.7lf\n", context->flight_times [ i ] );
+  }
+  fclose ( fp );
+}
+
+
+
+
+
+void
+sig_handler ( int )
+{
+  dump_flight_times ( context_g );
+  exit ( 0 );
+}
 
 
 
@@ -163,6 +209,20 @@ make_random_message ( context_p context )
 
 
 
+void
+make_timestamped_message ( context_p context )
+{
+  double ts = get_timestamp();
+
+  context->message_length = 100;
+  memset ( context->outgoing_buffer, 'x', context->message_length );
+  sprintf ( context->outgoing_buffer, "%.7lf", ts );
+}
+
+
+
+
+
 size_t 
 encode_outgoing_message ( context_p context ) 
 {
@@ -195,9 +255,25 @@ encode_outgoing_message ( context_p context )
 
 
 
+void
+store_flight_time ( context_p context, double flight_time ) 
+{
+  if ( context->n_flight_times >= context->max_flight_times ) 
+    return;
+
+  context->flight_times [ context->n_flight_times ] = flight_time;
+  context->n_flight_times ++;
+}
+
+
+
+
+
 void 
 decode_message ( context_p context, pn_delivery_t * delivery ) 
 {
+  double receive_timestamp = get_timestamp();
+
   pn_message_t * msg  = context->message;
   pn_link_t    * link = pn_delivery_link ( delivery );
   ssize_t        incoming_size = pn_delivery_pending ( delivery );
@@ -221,11 +297,30 @@ decode_message ( context_p context, pn_delivery_t * delivery )
   }
   else
   {
+    char temp[1000];
+    char * dst = temp;
     pn_string_t *s = pn_string ( NULL );
     pn_inspect ( pn_message_body(msg), s );
     //log ( context, "%s\n", pn_string_get(s));
-    context->total_bytes_received += strlen ( pn_string_get(s) );
+    double send_timestamp;
+    const char * message_content = pn_string_get(s);
+    const char * src = message_content + 1; // first char is a double-quote!
+
+    while ( *src != 'x' && *src != '\\' )
+      * dst ++ = * src ++;
+    * dst = 0;
+
+    sscanf ( temp, "%lf", & send_timestamp );
+    context->total_bytes_received += strlen ( message_content );
     pn_free ( s );
+
+    double flight_time = receive_timestamp - send_timestamp;
+    store_flight_time ( context, flight_time );
+
+    if ( context->n_flight_times >= context->max_flight_times )
+    {
+      dump_flight_times ( context );
+    }
   }
 }
 
@@ -255,7 +350,8 @@ send_message ( context_p context )
     pn_message_set_id ( context->message, id_atom );
 
 
-    make_random_message ( context );
+    // make_random_message ( context );
+    make_timestamped_message ( context );
     pn_data_t * body = pn_message_body ( context->message );
     pn_data_clear ( body );
     pn_data_enter ( body );
@@ -414,9 +510,6 @@ process_event ( context_p context, pn_event_t * event )
       event_delivery = pn_event_delivery( event );
       event_link = pn_delivery_link ( event_delivery );
 
-
-
-
       if ( pn_link_is_sender ( event_link ) ) 
       {
         int state = pn_delivery_remote_state(event_delivery);
@@ -461,14 +554,11 @@ process_event ( context_p context, pn_event_t * event )
       else 
       if ( pn_link_is_receiver ( event_link ) )
       {
-
-
         if ( ! pn_delivery_readable  ( event_delivery ) )
           break;
 
         if ( pn_delivery_partial ( event_delivery ) ) 
           break;
-
 
         decode_message ( context, event_delivery );
         pn_delivery_update ( event_delivery, PN_ACCEPTED );
@@ -578,6 +668,8 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->n_addrs              = 0;
 
+  context->flight_times_file_name = 0;
+
 
 
   for ( int i = 1; i < argc; ++ i )
@@ -657,11 +749,21 @@ init_context ( context_p context, int argc, char ** argv )
       context->log_file_name = strdup ( NEXT_ARG );
       i ++;
     }
+    // flight_times_file_name ----------------------------------------------
+    else
+    if ( ! strcmp ( "--flight_times_file_name", argv[i] ) )
+    {
+      context->flight_times_file_name = strdup ( NEXT_ARG );
+      i ++;
+    }
     // messages ----------------------------------------------
     else
     if ( ! strcmp ( "--messages", argv[i] ) )
     {
       context->expected_messages = atoi ( NEXT_ARG );
+      context->flight_times     = (double *) malloc ( sizeof(double) * context->expected_messages );
+      context->max_flight_times = context->expected_messages;
+      context->n_flight_times   = 0;
       i ++;
     }
     // unknown ----------------------------------------------
@@ -700,6 +802,8 @@ report_writer ( )
 int 
 main ( int argc, char ** argv ) 
 {
+  signal ( SIGTERM, sig_handler );
+
   struct itimerval timer;
   timer.it_value.tv_sec  = 10;
   timer.it_value.tv_usec =  0;
@@ -728,8 +832,8 @@ main ( int argc, char ** argv )
 
   // Make the max send length larger than the max receive length 
   // to account for the extra header bytes.
-  context.max_receive_length   = 1000000;
-  context.outgoing_buffer_size = 1000000;
+  context.max_receive_length   = 1000;
+  context.outgoing_buffer_size = 1000;
   context.outgoing_buffer = (char *) malloc ( context.outgoing_buffer_size );
 
   context.message = pn_message();
