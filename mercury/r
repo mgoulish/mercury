@@ -32,6 +32,6 @@ export GOPATH=${MERCURY_ROOT}
 # go run ./*.go    ./tests/00
 
 
-go run ./*.go    ./scripts/tests/00
+go run ./*.go    ./scripts/tests/01_latency_1
 
 
