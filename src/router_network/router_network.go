@@ -177,7 +177,8 @@ type Router_network struct {
 
   n_senders                   int
 
-  Failsafe                    time.Duration
+  Failsafe                    int
+  failsafe_timer            * time.Ticker
   first_client_status_check   time.Time
 }
 
@@ -363,7 +364,7 @@ func ( rn * Router_network ) add_router ( name         string,
   version := rn.Get_version_from_name ( version_name )
 
   // TODO -- pass this down from on high
-  worker_threads := 4
+  worker_threads := 16
 
   r := router.New_Router ( name,
                            version.Name,
@@ -597,6 +598,9 @@ func ( rn * Router_network ) Init ( ) {
 */
 func ( rn * Router_network ) Run ( ) {
 
+  rn.failsafe_timer = time.NewTicker ( time.Duration(rn.Failsafe) * time.Second )
+  go rn.failsafe_halt()
+
   router_run_count := 0
 
   for _, r := range rn.routers {
@@ -647,6 +651,16 @@ func ( rn * Router_network ) Start_client_status_check  ( ticker_frequency int )
 
 
 
+func ( rn * Router_network ) failsafe_halt ( ) {
+  for _ = range rn.failsafe_timer.C {
+    umi ( rn.verbose, "network halting: failsafe." )
+    rn.channel <- "failsafe"
+  }
+}
+
+
+
+
 
 func ( rn * Router_network ) client_status_check ( ) {
 
@@ -663,17 +677,6 @@ func ( rn * Router_network ) client_status_check ( ) {
 
   for range rn.client_ticker.C {
 
-    time_since_first_client_status_check := time.Now().Sub (rn.first_client_status_check )
-
-    if time_since_first_client_status_check > rn.Failsafe {
-      ume ( "network: failsafe time of %.1f seconds exceeded. Halting with failure.", rn.Failsafe.Seconds() )
-      rn.client_ticker.Stop()
-      rn.channel <- "failure"
-    }
-
-    remaining := rn.Failsafe.Seconds() - time_since_first_client_status_check.Seconds()
-    umi ( rn.verbose, "client_status_check : time to failsafe: %.1f", remaining )
-
     for index, file_name := range rn.client_status_files {
       client := rn.clients [ index ]
       // I only care about senders, because only they have
@@ -687,7 +690,6 @@ func ( rn * Router_network ) client_status_check ( ) {
           total_rejected += client.Rejected
           total_released += client.Released
           total_modified += client.Modified
-
         }
       }
     }

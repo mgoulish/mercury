@@ -1259,7 +1259,7 @@ func failsafe ( merc * Merc, command_line * lisp.List, _ string ) {
 
   seconds := cmd.unlabelable_int.int_value
   umi ( merc.verbose, "failsafe time set to %d seconds after client status checking begins.\n", seconds )
-  merc.network.Failsafe =  time.Duration ( seconds ) * time.Second
+  merc.network.Failsafe = seconds
 }
 
 
