@@ -598,8 +598,10 @@ func ( rn * Router_network ) Init ( ) {
 */
 func ( rn * Router_network ) Run ( ) {
 
-  rn.failsafe_timer = time.NewTicker ( time.Duration(rn.Failsafe) * time.Second )
-  go rn.failsafe_halt()
+  if rn.Failsafe > 0 {
+    rn.failsafe_timer = time.NewTicker ( time.Duration(rn.Failsafe) * time.Second )
+    go rn.failsafe_halt()
+  }
 
   router_run_count := 0
 
