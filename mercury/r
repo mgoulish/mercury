@@ -1,37 +1,14 @@
 #! /usr/bin/bash
 
-rm /tmp/mdebug*
+rm /tmp/mdebug* /tmp/flight_times_*  /tmp/start
 
 
 export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
-#go run ./*.go  ./tests/01_linear 
-#go run ./*.go  ./tests/02_mesh
-#go run ./*.go  ./tests/03_teds_diamond
-#go run ./*.go  ./tests/04_edges
+go run ./*.go    ./scripts/tests/latency/telco_latency/200
 
+#go run ./*.go    ./scripts/demos/00
 
-# Demonstrate addresses counting up, 1 addr per client.
-#go run ./*.go  ./tests/05_addresses
-
-
-# Demonstrate the "addresses per client" feature.
-#go run ./*.go   ./tests/06_apc
-
-
-# Demonstrate the "clients per address" feature.
-#go run ./*.go   ./tests/07_cpa
-
-#go run ./*.go   ./tests/08_large_scale
-
-#go run ./*.go   ./tests/09_random_network
-
-#go run ./*.go    ./tests/10_ring
-
-# go run ./*.go    ./tests/00
-
-
-go run ./*.go    ./scripts/tests/01_latency_1
 
 

@@ -367,6 +367,14 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
   }
   target_router_list = append ( target_router_list, edge_list ... )
 
+  // At this point we are done adding routers to the target routers list.
+  // Soon we will start to use it.
+  // If it's still empty, that is Bad.
+  if len ( target_router_list ) <= 0 {
+    ume ( "recv: target routers list is empty.\n" )
+    return
+  }
+
   // If it turns out that this address is not variable, 
   // then this 'final' address is the only one we will
   // use. But if address is variable this value will get
@@ -1299,6 +1307,130 @@ func wait_for_network ( merc * Merc, command_line * lisp.List, _ string ) {
     time.Sleep ( 2 * time.Second )
     previous_size = total_size
   }
+}
+
+
+
+
+
+func latency_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd := merc.commands [ "wait_for_network" ]
+  parse_command_line ( merc, cmd, command_line )
+
+  var command_lines [] string
+
+  n_receivers           := 30
+  senders_per_receiver  := 40
+  messages_per_receiver := 10000
+  total_messages        := n_receivers * messages_per_receiver
+  messages_per_sender   := 3000
+  addr_number           := 1
+  msec_between_messages := 100
+
+  command_lines = append ( command_lines, "seed PID" )
+  command_lines = append ( command_lines, "verbose" )
+  command_lines = append ( command_lines, "inc versions" )
+  command_lines = append ( command_lines, "routers 1" )
+  command_lines = append ( command_lines, "run" )
+  command_lines = append ( command_lines, "sleep 5" )
+
+  // This will make 40 receivers, with addrs 1 ... 40 .
+  line := fmt.Sprintf ( "recv %d A n_messages %d address addr_%d", 
+                        n_receivers,
+                        messages_per_receiver,
+                        addr_number )
+
+  fp ( os.Stdout, " here's the line: |%s|\n", line )
+  command_lines = append ( command_lines, line )
+
+  command_lines = append ( command_lines, "run" )
+  command_lines = append ( command_lines, "sleep 5" )
+
+  for i := 1; i <= n_receivers; i ++ {
+    // Make 40 senders for each receiver. All 40 same address.
+    // ( Each receiver has one address. )
+    line = fmt.Sprintf ( "send %d A n_messages %d throttle %d address addr_%d",
+                         senders_per_receiver,
+                         messages_per_sender,
+                         msec_between_messages,
+                         i )
+    command_lines = append ( command_lines, line )
+  }
+
+  command_lines = append ( command_lines, "run" )
+
+  umi ( merc.verbose, "================================================" )
+  umi ( merc.verbose, "latency_test_1 " )
+  umi ( merc.verbose, "================================================" )
+
+  var test_duration int
+
+  for _, line := range command_lines {
+    process_line ( merc, line )
+  }
+
+  test_duration = 0
+  for {
+    time.Sleep ( 10 * time.Second )
+    fp ( os.Stdout, " CHECKING STATUS -------------------------\n" )
+    result := merc.network.Client_status_check ( )
+    fp ( os.Stdout, " result: %d\n", result )
+    test_duration += 10
+
+    if result >= total_messages {
+      fp ( os.Stdout, "test is complete.\n" )
+      break
+    }
+  }
+
+  umi ( merc.verbose, "Halting network." )
+  merc.network.Halt ( )
+
+
+
+  // ##################################################################
+  // ##################################################################
+  //
+  //          Now -- can we do another iteration ???
+  //
+  // ##################################################################
+  // ##################################################################
+
+
+
+  /* later 
+  fp ( os.Stdout, " ##################################################\n" )
+  fp ( os.Stdout, " ##################################################\n" )
+  fp ( os.Stdout, " ##################################################\n" )
+  fp ( os.Stdout, " ##################################################\n" )
+  fp ( os.Stdout, " TRYING IT AGAIN \n" )
+  fp ( os.Stdout, " ##################################################\n" )
+  fp ( os.Stdout, " ##################################################\n" )
+  fp ( os.Stdout, " ##################################################\n" )
+
+  for _, line := range command_lines {
+    process_line ( merc, line )
+  }
+
+  test_duration = 0
+  for {
+    time.Sleep ( 10 * time.Second )
+    fp ( os.Stdout, " CHECKING STATUS -------------------------\n" )
+    result := merc.network.Client_status_check ( )
+    fp ( os.Stdout, " result: %d\n", result )
+    test_duration += 10
+
+    if result >= total_messages {
+      fp ( os.Stdout, "test is complete.\n" )
+      break
+    }
+  }
+
+  umi ( merc.verbose, "Halting network." )
+  merc.network.Halt ( )
+  */
+
+
 }
 
 

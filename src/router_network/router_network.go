@@ -647,7 +647,7 @@ func ( rn * Router_network ) Start_client_status_check  ( ticker_frequency int )
   ticker_time      := time.Second * time.Duration ( rn.ticker_frequency )
   rn.client_ticker  = time.NewTicker ( ticker_time )
 
-  go rn.client_status_check ( )
+  go rn.Client_status_check ( )
 }
 
 
@@ -664,7 +664,7 @@ func ( rn * Router_network ) failsafe_halt ( ) {
 
 
 
-func ( rn * Router_network ) client_status_check ( ) {
+func ( rn * Router_network ) Client_status_check ( ) ( int ) {
 
   zero_time := time.Time{}
   if rn.first_client_status_check == zero_time {
@@ -677,34 +677,34 @@ func ( rn * Router_network ) client_status_check ( ) {
   total_released := 0
   total_modified := 0
 
-  for range rn.client_ticker.C {
 
-    for index, file_name := range rn.client_status_files {
-      client := rn.clients [ index ]
-      // I only care about senders, because only they have
-      // access to information about all the messages.
-      if strings.HasPrefix ( client.Name, "send") {
-        if ! client.Completed {
-          client.Completed = rn.read_client_status_file ( client.Name, file_name )
+  for index, file_name := range rn.client_status_files {
+    client := rn.clients [ index ]
+    // I only care about senders, because only they have
+    // access to information about all the messages.
+    if strings.HasPrefix ( client.Name, "send") {
+      if ! client.Completed {
+        client.Completed = rn.read_client_status_file ( client.Name, file_name )
 
-          total_received += client.Received
-          total_accepted += client.Accepted
-          total_rejected += client.Rejected
-          total_released += client.Released
-          total_modified += client.Modified
-        }
+        total_received += client.Received
+        total_accepted += client.Accepted
+        total_rejected += client.Rejected
+        total_released += client.Released
+        total_modified += client.Modified
       }
     }
-
-    // Once per timer expiration.
-    umi ( rn.verbose, 
-          "client_status_check : received: %d accepted: %d rejected: %d released: %d modified: %d\n", 
-          total_received, 
-          total_accepted, 
-          total_rejected, 
-          total_released, 
-          total_modified )
   }
+
+  // Once per timer expiration.
+  umi ( rn.verbose, 
+        "client_status_check : received: %d accepted: %d rejected: %d released: %d modified: %d\n", 
+        total_received, 
+        total_accepted, 
+        total_rejected, 
+        total_released, 
+        total_modified )
+
+  return total_accepted + total_rejected + total_released + total_modified
 }
 
 
@@ -938,7 +938,7 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
                         & timestamp, 
                         & first_word )
   if err != nil {
-    ume ( "read_client_status_file: error reading report line: |%s|", err.Error() )
+    // In some conntexts, an error here is normal.
     return is_it_completed
   }
 
@@ -967,7 +967,7 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
     client.Modified = modified
 
     if err != nil {
-      ume ( "read_client_status_file: error reading report line: |%s|", err.Error() )
+      // In some conntexts, an error here is normal.
       return is_it_completed
     }
     total_messages_accounted_for := received + accepted + rejected + released + modified
@@ -982,8 +982,8 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
     // return is_it_completed
     umi ( true, "network: all %d senders have successfully completed.", rn.n_senders )
     umi ( rn.verbose, "halting network.\n" )
-    rn.client_ticker.Stop()
-    rn.channel <- "success"
+    // rn.client_ticker.Stop()
+    // rn.channel <- "success"
   }
 
   return is_it_completed

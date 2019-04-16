@@ -311,8 +311,6 @@ func listen_for_network_halt ( merc * Merc, channel chan string ) {
     defer result_file.Close() 
     fmt.Fprintf ( result_file, "%s\n", msg )
   }
-
-  quit ( merc, nil, "" )
 }
 
 
@@ -349,7 +347,8 @@ func main ( ) {
   // In the background, listen for the network telling us 
   // that it has completed. (This happens if it is runs a test 
   // successfully.)
-  go listen_for_network_halt ( merc, network_channel )
+  // TODO  Gotta think about this.
+  // go listen_for_network_halt ( merc, network_channel )
 
   /*===========================================
     Make commands. 
@@ -829,6 +828,13 @@ func main ( ) {
   cmd = merc.add_command ( "wait_for_network",
                             wait_for_network,
                            "Wait for the network to settle down after being created or changed." )
+
+
+  // latency_test_1 command -------------------------------------------------------
+  cmd = merc.add_command ( "latency_test_1",
+                            latency_test_1,
+                           "Macro: perform a latency_test_1." )
+
 
 
 

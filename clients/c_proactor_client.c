@@ -38,11 +38,6 @@ get_timestamp ( void )
 
 
 
-
-
-
-
-
 #define MAX_NAME   100
 #define MAX_ADDRS  100
 #define MAX_MESSAGE 1000000
@@ -105,6 +100,8 @@ struct context_s
   int               max_flight_times;
   int               n_flight_times;
   char            * flight_times_file_name;
+
+  double            start_time;
 }
 context_t,
 * context_p;
@@ -331,6 +328,17 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 void 
 send_message ( context_p context ) 
 {
+  double now = get_timestamp();
+  double time_since_start = now - context->start_time;
+
+  // log ( context, "send called at %.6lf since start time.\n", time_since_start );
+
+  if ( time_since_start < 30 ) // TODO -- make this an arg passed in.
+  {
+    // log ( context, "too soon to send.\n" );
+    return;
+  }
+
   for ( int i = 0; i < context->n_addrs; i ++ )
   {
     pn_link_t * link = context->addrs[i].link;
@@ -639,37 +647,38 @@ init_context ( context_p context, int argc, char ** argv )
   strcpy ( context->name, "default_name" );
   strcpy ( context->host, "0.0.0.0" );
 
-  context->listener             = 0;
-  context->connection           = 0;
-  context->proactor             = 0;
+  context->listener                = 0;
+  context->connection              = 0;
+  context->proactor                = 0;
 
-  context->sending              = 0;
-  context->link_count           = 0;
-  context->messages_sent        = 0;
+  context->sending                 = 0;
+  context->link_count              = 0;
+  context->messages_sent           = 0;
 
-  context->received             = 0;
-  context->accepted             = 0;
-  context->rejected             = 0;
-  context->released             = 0;
-  context->modified             = 0;
+  context->received                = 0;
+  context->accepted                = 0;
+  context->rejected                = 0;
+  context->released                = 0;
+  context->modified                = 0;
 
-  context->log_file_name        = 0;
-  context->log_file             = 0;
-  context->message              = 0;
-  context->total_bytes_sent     = 0;
-  context->total_bytes_received = 0;
+  context->log_file_name           = 0;
+  context->log_file                = 0;
+  context->message                 = 0;
+  context->total_bytes_sent        = 0;
+  context->total_bytes_received    = 0;
 
-  context->expected_messages    = 0;
+  context->expected_messages       = 0;
   context->total_expected_messages = 0;
-  context->credit_window        = 1000;
-  context->max_send_length      = 100;
+  context->credit_window           = 1000;
+  context->max_send_length         = 100;
 
-  context->throttle             = 0;
+  context->throttle                = 0;
 
-  context->n_addrs              = 0;
+  context->n_addrs                 = 0;
 
-  context->flight_times_file_name = 0;
+  context->flight_times_file_name  = 0;
 
+  context->start_time              = get_timestamp();
 
 
   for ( int i = 1; i < argc; ++ i )
@@ -783,10 +792,10 @@ init_context ( context_p context, int argc, char ** argv )
 
 
 void
-report_writer ( )
+write_report ( )
 {
   log ( context_g, 
-        "report received %d accepted %d rejected %d released %d modified %d\n",
+        "report received %d   accepted %d   rejected %d   released %d   modified %d\n",
         context_g->received,
         context_g->accepted,
         context_g->rejected,
@@ -804,25 +813,32 @@ main ( int argc, char ** argv )
 {
   signal ( SIGTERM, sig_handler );
 
+  /*
+   TODO
+   This is not appropriate when I am doing sensitive 
+   latency measurements. Make a way to turn it on and off
+   from on high.
+
   struct itimerval timer;
   timer.it_value.tv_sec  = 10;
   timer.it_value.tv_usec =  0;
   timer.it_interval = timer.it_value;
-  signal ( SIGALRM, (void (*)(int)) report_writer );
+  signal ( SIGALRM, (void (*)(int)) write_report );
   setitimer ( ITIMER_REAL, & timer, NULL );
+  */
 
 
 
   srand ( getpid() );
   context_t context;
   context_g = & context;
-
   init_context ( & context, argc, argv );
 
   if ( context.log_file_name ) 
   {
     context.log_file = fopen ( context.log_file_name, "w" );
   }
+  log ( & context, "start\n" );
 
   if ( context.max_send_length <= 0 )
   {
@@ -861,7 +877,7 @@ main ( int argc, char ** argv )
     pn_proactor_done ( context.proactor, events );
   }
 
-  report_writer ( );
+  write_report ( );
 
   return 0;
 }
