@@ -88,8 +88,12 @@ struct context_s
   pn_message_t    * message;
   uint64_t          total_bytes_sent,
                     total_bytes_received;
+  //
+  // expected_messages is per address.
+  // total_expected_messages is for all of them put together.
   int               expected_messages;
   int               total_expected_messages;
+
   size_t            credit_window;
   pn_proactor_t   * proactor;
   pn_listener_t   * listener;
@@ -101,7 +105,12 @@ struct context_s
   int               n_flight_times;
   char            * flight_times_file_name;
 
-  double            start_time;
+  double            grand_start_time,
+                    send_start_time,
+                    stop_time;
+
+  bool              doing_throughput;
+  bool              data_dumped;
 }
 context_t,
 * context_p;
@@ -111,6 +120,21 @@ context_t,
 
 
 context_p context_g = 0;
+
+
+void
+log ( context_p context, char const * format, ... )
+{
+  if ( ! context->log_file )
+    return;
+
+  fprintf ( context->log_file, "%.6f  ", get_timestamp() );
+  va_list ap;
+  va_start ( ap, format );
+  vfprintf ( context->log_file, format, ap );
+  va_end ( ap );
+  fflush ( context->log_file );
+}
 
 
 
@@ -140,17 +164,6 @@ dump_flight_times ( context_p context )
 
 
 
-void
-sig_handler ( int )
-{
-  dump_flight_times ( context_g );
-  exit ( 0 );
-}
-
-
-
-
-
 int
 find_addr ( context_p context, pn_link_t * target_link )
 {
@@ -165,29 +178,13 @@ find_addr ( context_p context, pn_link_t * target_link )
 
 
 
+
+
 int
 rand_int ( int one_past_max )
 {
   double zero_to_one = (double) rand() / (double) RAND_MAX;
   return (int) (zero_to_one * (double) one_past_max);
-}
-
-
-
-
-
-void
-log ( context_p context, char const * format, ... )
-{
-  if ( ! context->log_file )
-    return;
-
-  fprintf ( context->log_file, "%.6f  ", get_timestamp() );
-  va_list ap;
-  va_start ( ap, format );
-  vfprintf ( context->log_file, format, ap );
-  va_end ( ap );
-  fflush ( context->log_file );
 }
 
 
@@ -255,6 +252,8 @@ encode_outgoing_message ( context_p context )
 void
 store_flight_time ( context_p context, double flight_time ) 
 {
+  // log ( context, "%.6lf\n", flight_time );
+
   if ( context->n_flight_times >= context->max_flight_times ) 
     return;
 
@@ -329,14 +328,25 @@ void
 send_message ( context_p context ) 
 {
   double now = get_timestamp();
-  double time_since_start = now - context->start_time;
+  double time_since_start = now - context->grand_start_time;
 
-  // log ( context, "send called at %.6lf since start time.\n", time_since_start );
-
+  // This is the enforced delay to prevent senders from sending
+  // // while other senders are still attaching.
   if ( time_since_start < 30 ) // TODO -- make this an arg passed in.
   {
-    // log ( context, "too soon to send.\n" );
+    log ( context, "too soon to send: %.3lf\n", time_since_start );
+    // Gotta pause if it's still too soon to send,
+    // or we will spend a lot of cycles just doing this.
+    sleep ( 1 );
     return;
+  }
+
+  // We are about to send a message.
+  // If this is the first one, record this as the start-time
+  // to be used for throughput measurement.
+  if ( context->messages_sent == 0 )
+  {
+    context->send_start_time = get_timestamp();
   }
 
   for ( int i = 0; i < context->n_addrs; i ++ )
@@ -376,6 +386,7 @@ send_message ( context_p context )
                    outgoing_size 
                  );
     context->messages_sent ++;
+    // log ( context, "sent: %d\n", context->messages_sent );
     pn_link_advance ( link );
     context->total_bytes_sent += outgoing_size;
   }
@@ -529,6 +540,14 @@ process_event ( context_p context, pn_event_t * event )
 
           case PN_ACCEPTED:
             context->accepted ++;
+
+            /*
+            if (! (context->accepted % 1000 ) )
+            {
+              log ( context, "accepted: %d\n", context->accepted );
+            }
+            */
+
           break;
 
           case PN_REJECTED:
@@ -552,6 +571,12 @@ process_event ( context_p context, pn_event_t * event )
 
         if ( context->accepted + context->released + context->modified >= context->total_expected_messages) 
         {
+          // Calculate throughput.
+          context->stop_time = get_timestamp();
+          double duration = context->stop_time - context->send_start_time;
+          double messages_per_second = double(context->total_expected_messages) / duration;
+          log ( context, "throughput: %.3lf messages per second.\n", messages_per_second );
+
           if ( context->connection )
             pn_connection_close(context->connection);
           if ( context->listener )
@@ -575,19 +600,18 @@ process_event ( context_p context, pn_event_t * event )
         // As the receiver, we only count that a message has been received.
         context->received ++;
 
+        //if ( ! (context->received % 100 ) )
+          //log ( context, "received %d\n", context->received );
+
         int index = find_addr ( context, event_link );
         if ( index < 0 )
         {
           fprintf ( stderr, "client error: unknown link in delivery.\n" );
+          exit ( 1 );
         }
         else
         {
           context->addrs[index].messages ++;
-          fprintf ( stderr, 
-                    "addr |%s| has received %d messages.\n",
-                    context->addrs[index].path,
-                    context->addrs[index].messages
-                  );
         }
 
 
@@ -678,7 +702,9 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->flight_times_file_name  = 0;
 
-  context->start_time              = get_timestamp();
+  context->grand_start_time        = get_timestamp();
+
+  context->doing_throughput        = false;
 
 
   for ( int i = 1; i < argc; ++ i )
@@ -697,7 +723,6 @@ init_context ( context_p context, int argc, char ** argv )
       context->addrs[context->n_addrs].link     = 0;
       context->addrs[context->n_addrs].messages = 0;
       context->n_addrs ++;
-      //fprintf ( stderr, "path %d stored: |%s|\n", context->n_addrs-1, context->addrs[context->n_addrs-1].path );
       i ++;
     }
     // operation ----------------------------------------------
@@ -775,6 +800,12 @@ init_context ( context_p context, int argc, char ** argv )
       context->n_flight_times   = 0;
       i ++;
     }
+    // throughput ----------------------------------------------
+    else
+    if ( ! strcmp ( "--throughput", argv[i] ) )
+    {
+      context->doing_throughput = true;
+    }
     // unknown ----------------------------------------------
     else
     {
@@ -784,7 +815,6 @@ init_context ( context_p context, int argc, char ** argv )
   }
 
   context->total_expected_messages = context->n_addrs * context->expected_messages;
-  fprintf ( stderr, "There are %d total expected messages.\n", context->total_expected_messages );
 }
 
 
@@ -811,8 +841,6 @@ write_report ( )
 int 
 main ( int argc, char ** argv ) 
 {
-  signal ( SIGTERM, sig_handler );
-
   /*
    TODO
    This is not appropriate when I am doing sensitive 
@@ -826,8 +854,6 @@ main ( int argc, char ** argv )
   signal ( SIGALRM, (void (*)(int)) write_report );
   setitimer ( ITIMER_REAL, & timer, NULL );
   */
-
-
 
   srand ( getpid() );
   context_t context;

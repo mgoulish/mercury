@@ -179,7 +179,25 @@ type Router_network struct {
 
   Failsafe                    int
   failsafe_timer            * time.Ticker
-  first_client_status_check   time.Time
+}
+
+
+
+
+
+func ( rn * Router_network ) Reset ( ) {
+  rn.Running         = false
+  rn.result_path     = ""
+  rn.log_path        = ""
+  rn.client_path     = ""
+  rn.Versions        = nil
+  rn.Default_version = nil
+  rn.verbose         = false
+  rn.routers         = nil
+  rn.clients         = nil
+  rn.n_senders       = 0
+  rn.Failsafe        = 0
+  rn.failsafe_timer  = nil
 }
 
 
@@ -443,8 +461,7 @@ func ( rn * Router_network ) Add_receiver ( name               string,
                                             config_path        string,
                                             n_messages         int, 
                                             max_message_length int, 
-                                            router_name        string, 
-                                            address            string ) {
+                                            router_name        string ) {
 
   throttle := "0" // Receivers do not get throttled.
 
@@ -454,7 +471,6 @@ func ( rn * Router_network ) Add_receiver ( name               string,
                   n_messages, 
                   max_message_length, 
                   router_name, 
-                  address, 
                   throttle )
 }
 
@@ -467,7 +483,6 @@ func ( rn * Router_network ) Add_sender ( name               string,
                                           n_messages         int, 
                                           max_message_length int, 
                                           router_name        string, 
-                                          address            string, 
                                           throttle           string ) {
   rn.Add_client ( name, 
                   config_path,
@@ -475,7 +490,6 @@ func ( rn * Router_network ) Add_sender ( name               string,
                   n_messages, 
                   max_message_length, 
                   router_name, 
-                  address, 
                   throttle )
 }
 
@@ -489,7 +503,6 @@ func ( rn * Router_network ) Add_client ( name               string,
                                           n_messages         int, 
                                           max_message_length int, 
                                           router_name        string, 
-                                          address            string, 
                                           throttle           string ) {
 
   var operation string
@@ -516,21 +529,48 @@ func ( rn * Router_network ) Add_client ( name               string,
 
   rn.client_status_files = append ( rn.client_status_files, status_file )
 
-  client := client.New_client ( name,
-                                config_path,
-                                operation,
-                                r.Client_port ( ),
-                                rn.client_path,
-                                ld_library_path,
-                                pythonpath,
-                                status_file,
-                                n_messages,
-                                max_message_length,
-                                address,
-                                throttle,
-                                rn.verbose )
+  c := client.New_client ( name,
+                           config_path,
+                           operation,
+                           r.Client_port ( ),
+                           rn.client_path,
+                           ld_library_path,
+                           pythonpath,
+                           status_file,
+                           n_messages,
+                           max_message_length,
+                           throttle,
+                           rn.verbose )
 
-  rn.clients = append ( rn.clients, client )
+  rn.clients = append ( rn.clients, c )
+}
+
+
+
+
+
+func ( rn * Router_network ) Get_Client_By_Name ( target_name string ) ( * client.Client )  {
+  for _, c := range rn.clients {
+    if target_name == c.Name {
+      return c
+    }
+  }
+  return nil
+}
+
+
+
+
+
+func ( rn * Router_network ) Add_Address_To_Client ( client_name string,
+                                                     addr        string ) {
+  c := rn.Get_Client_By_Name ( client_name )
+  if c == nil {
+    ume ( "router_network: can't find client |%s|", client_name )
+    return
+  }
+
+  c.Add_Address ( addr )
 }
 
 
@@ -665,11 +705,6 @@ func ( rn * Router_network ) failsafe_halt ( ) {
 
 
 func ( rn * Router_network ) Client_status_check ( ) ( int ) {
-
-  zero_time := time.Time{}
-  if rn.first_client_status_check == zero_time {
-    rn.first_client_status_check = time.Now()
-  }
 
   total_received := 0
   total_accepted := 0

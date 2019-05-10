@@ -13,17 +13,3 @@ verbose
 
 inc versions
 
-routers 1
-
-recv 1 n_messages 1000 A
-
-send 1 A n_messages 1000 throttle 1000
-
-run
-
-# failsafe 600
-
-# start_client_status_check
-
-
-

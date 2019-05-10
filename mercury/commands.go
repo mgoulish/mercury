@@ -238,42 +238,45 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
       merc.sender_count ++
       sender_name = fmt.Sprintf ( "send_%04d", merc.sender_count )
       config_path = merc.session.config_path + "/clients/" + sender_name
+      router_name = target_router_list[router_index]
+
+      router_index ++
+      if router_index >= len(target_router_list) {
+        router_index = 0
+      }
+
+      merc.network.Add_sender ( sender_name,
+                                config_path,
+                                n_messages,
+                                max_message_length,
+                                router_name,
+                                throttle )
+      umi ( merc.verbose,
+            "recv: added sender |%s| to router |%s|.", 
+            sender_name,
+            router_name )
 
       // Do each address for this sender.
       for j := 0; j < apc; j ++ {
         final_addr = fmt.Sprintf ( address, addr_number )
+
+        merc.network.Add_Address_To_Client ( sender_name, final_addr )
         addr_number ++
-        router_name = target_router_list[router_index]
-        
-        merc.network.Add_sender ( sender_name,
-                                  config_path,
-                                  n_messages,
-                                  max_message_length,
-                                  router_name,
-                                  final_addr,
-                                  throttle )
 
         umi ( merc.verbose,
-              "send: added sender |%s| with addr |%s| to router |%s|.", 
-              sender_name,
+              "send: added addr |%s| to sender |%s|.", 
               final_addr,
-              router_name )
-
-        router_index ++
-        if router_index >= len(target_router_list) {
-          router_index = 0
-        }
+              sender_name )
       }
     }
   } else if cpa > 1 {
     // We want multiple clients per address.
     for i := 0; i < client_count; i ++ {
-
-      final_addr = fmt.Sprintf ( address, addr_number )
       // Only increment addr_number every CPA clinets.
       if i > 0 && 0 == (i % cpa) {
         addr_number ++
       }
+      final_addr = fmt.Sprintf ( address, addr_number )
 
       merc.sender_count ++
       sender_name = fmt.Sprintf ( "send_%04d", merc.sender_count )
@@ -285,8 +288,9 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
                                 n_messages,
                                 max_message_length,
                                 router_name,
-                                final_addr,
                                 throttle )
+
+      merc.network.Add_Address_To_Client ( sender_name, final_addr )
 
       umi ( merc.verbose,
             "send: added sender |%s| with addr |%s| to router |%s|.",
@@ -320,8 +324,8 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
                                 n_messages,
                                 max_message_length,
                                 router_name,
-                                final_addr,
                                 throttle )
+      merc.network.Add_Address_To_Client ( sender_name, final_addr )
 
       umi ( merc.verbose,
             "send: added sender |%s| with addr |%s| to router |%s|.",
@@ -425,29 +429,31 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
       merc.receiver_count ++
       receiver_name = fmt.Sprintf ( "recv_%04d", merc.receiver_count )
       config_path = merc.session.config_path + "/clients/" + receiver_name
+      router_name = target_router_list[router_index]
+      merc.network.Add_receiver ( receiver_name,
+                                  config_path,
+                                  n_messages,
+                                  max_message_length,
+                                  router_name )
+      umi ( merc.verbose,
+            "recv: added receiver |%s| to router |%s|.", 
+            receiver_name,
+            router_name )
+      router_index ++
+      if router_index >= len(target_router_list) {
+        router_index = 0
 
       // Do each address for this receiver.
       for j := 0; j < apc; j ++ {
         final_addr = fmt.Sprintf ( address, addr_number )
         addr_number ++
-        router_name = target_router_list[router_index]
         
-        merc.network.Add_receiver ( receiver_name,
-                                    config_path,
-                                    n_messages,
-                                    max_message_length,
-                                    router_name,
-                                    final_addr )
+        merc.network.Add_Address_To_Client ( receiver_name, final_addr )
 
         umi ( merc.verbose,
-              "recv: added receiver |%s| with addr |%s| to router |%s|.", 
-              receiver_name,
+              "recv: added address |%s| to receiver |%s|.", 
               final_addr,
-              router_name )
-
-        router_index ++
-        if router_index >= len(target_router_list) {
-          router_index = 0
+              receiver_name )
         }
       }
     }
@@ -470,8 +476,9 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
                                   config_path,
                                   n_messages,
                                   max_message_length,
-                                  router_name,
-                                  final_addr )
+                                  router_name )
+      merc.network.Add_Address_To_Client ( receiver_name, final_addr )
+                                  
 
       umi ( merc.verbose,
             "recv: added receiver |%s| with addr |%s| to router |%s|.",
@@ -504,8 +511,9 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
                                   config_path,
                                   n_messages,
                                   max_message_length,
-                                  router_name,
-                                  final_addr )
+                                  router_name )
+      merc.network.Add_Address_To_Client ( receiver_name, final_addr )
+
 
       umi ( merc.verbose,
             "recv: added receiver |%s| with addr |%s| to router |%s|.",
@@ -1309,6 +1317,25 @@ func wait_for_network ( merc * Merc, command_line * lisp.List, _ string ) {
   }
 }
 
+
+
+
+
+func reset ( merc * Merc, command_line * lisp.List, _ string ) {
+  fp ( os.Stdout, " reset !!!\n" )
+
+  merc.verbose         = false
+  merc.echo            = false
+  merc.prompt          = false
+  merc.network_running = false
+  merc.receiver_count  = 0
+  merc.sender_count    = 0
+  merc.edge_count      = 0
+  merc.versions        = nil
+  merc.default_version = nil
+
+  merc.network.Reset ( )
+}
 
 
 

@@ -6,9 +6,16 @@ rm /tmp/mdebug* /tmp/flight_times_*  /tmp/start
 export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
-go run ./*.go    ./scripts/tests/latency/telco_latency/200
+# go run ./*.go    ./scripts/tests/latency/telco_latency/one_router/100
 
-#go run ./*.go    ./scripts/demos/00
+#go run ./*.go    ./scripts/tests/latency/telco_latency/router_plus_edge/30
+
+# go run ./*.go    /home/mick/redhat/log/2019/latency/characterize/series_of_routers/srp_1_mps_max/5/script
+
+#go run ./*.go  ./scripts/tests/throughput/one_router/7
+
+#go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/srps_vs_routers/45_5
+go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/addrs_vs_routers/10_20_1
 
 
 

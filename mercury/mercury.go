@@ -693,7 +693,7 @@ func main ( ) {
                 false,
                 "string",
                 "",
-                "Add senders to the edges of this router. " +
+                "Add receivers to the edges of this router. " +
                 "i.e. 'edges A' means add senders to edges of router A." )
 
   cmd.add_arg ( "address",
@@ -837,6 +837,10 @@ func main ( ) {
 
 
 
+  // reset command -------------------------------------------------------
+  cmd = merc.add_command ( "reset",
+                           reset,
+                           "Restore Mercury to original conditions." )
 
   /*--------------------------------------------
     Process files named on command line.

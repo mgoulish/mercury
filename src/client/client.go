@@ -87,7 +87,7 @@ type Client struct {
   cmd                * exec.Cmd
   State                Client_state
   max_message_length   int
-  address              string
+  addrs             [] string
 
   throttle             string
 
@@ -121,7 +121,6 @@ func New_client ( name                  string,
                   log_file              string,
                   n_messages            int,
                   max_message_length    int, 
-                  address               string,
                   throttle              string,
                   verbose               bool ) ( * Client )  { 
   var c * Client
@@ -137,7 +136,6 @@ func New_client ( name                  string,
                  State                 : initialized,
                  N_messages            : n_messages,
                  max_message_length    : max_message_length,
-                 address               : address,
                  throttle              : throttle,
                  verbose               : verbose }
 
@@ -149,6 +147,14 @@ func New_client ( name                  string,
   utils.Find_or_create_dir ( config_path )
 
   return c
+}
+
+
+
+
+
+func ( c * Client ) Add_Address ( addr string ) {
+  c.addrs = append ( c.addrs, addr ) 
 }
 
 
@@ -174,8 +180,10 @@ func ( c * Client ) Run ( ) {
           " --log " + c.log_file + 
           " --messages " + strconv.Itoa(c.N_messages) + 
           " --max_message_length " + strconv.Itoa(c.max_message_length) + 
-          " --address " + c.address + 
           " --throttle " + c.throttle 
+  for _, addr := range c.addrs {
+    args += " --address " + addr
+  }
   args_list := strings.Fields ( args )
   c.cmd = exec.Command ( c.Path,  args_list... )
 
