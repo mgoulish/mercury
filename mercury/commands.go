@@ -1340,8 +1340,41 @@ func reset ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
+
+func example_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
+  // cmd := merc.commands [ "example_test_1" ]
+  var command_lines [] string
+
+  command_lines = append ( command_lines, "seed PID" )
+  command_lines = append ( command_lines, "verbose" )
+  command_lines = append ( command_lines, "version_roots name latest dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton" )
+  command_lines = append ( command_lines, "routers 1" )
+  command_lines = append ( command_lines, "send 1 A" )
+  command_lines = append ( command_lines, "recv A 1" )
+  command_lines = append ( command_lines, "run"      )
+  command_lines = append ( command_lines, "sleep 60" )
+  command_lines = append ( command_lines, "reset" )
+
+  n_tests := 5
+
+  for test_number := 1; test_number <= n_tests; test_number ++ {
+
+    fp ( os.Stdout, "===================================================\n" )
+    fp ( os.Stdout, "                    Test %d                        \n", test_number )
+    fp ( os.Stdout, "===================================================\n" )
+
+    for _, line := range command_lines {
+      process_line ( merc, line )
+    }
+  }
+}
+
+
+
+
+
 func latency_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
-  cmd := merc.commands [ "wait_for_network" ]
+  cmd := merc.commands [ "latency_test_1" ]
   parse_command_line ( merc, cmd, command_line )
 
   var command_lines [] string

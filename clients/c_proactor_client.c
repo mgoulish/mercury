@@ -37,7 +37,6 @@ get_timestamp ( void )
 
 
 
-
 #define MAX_NAME   100
 #define MAX_ADDRS  100
 #define MAX_MESSAGE 1000000

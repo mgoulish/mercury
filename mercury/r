@@ -15,7 +15,9 @@ export GOPATH=${MERCURY_ROOT}
 #go run ./*.go  ./scripts/tests/throughput/one_router/7
 
 #go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/srps_vs_routers/45_5
-go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/addrs_vs_routers/10_20_1
+#go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/addrs_vs_routers/10_20_1
+
+go run ./*.go 
 
 
 

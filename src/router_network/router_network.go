@@ -188,8 +188,6 @@ type Router_network struct {
 func ( rn * Router_network ) Reset ( ) {
   rn.Running         = false
   rn.result_path     = ""
-  rn.log_path        = ""
-  rn.client_path     = ""
   rn.Versions        = nil
   rn.Default_version = nil
   rn.verbose         = false
@@ -653,7 +651,6 @@ func ( rn * Router_network ) Run ( ) {
   }
 
   if len(rn.clients) > 0 {
-
     if router_run_count > 0 {
       nap_time := 5
       if rn.verbose {

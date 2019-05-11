@@ -830,6 +830,13 @@ func main ( ) {
                            "Wait for the network to settle down after being created or changed." )
 
 
+  // example_test_1 command -------------------------------------------------------
+  cmd = merc.add_command ( "example_test_1",
+                            example_test_1,
+                           "Macro: perform a small example test." )
+
+
+
   // latency_test_1 command -------------------------------------------------------
   cmd = merc.add_command ( "latency_test_1",
                             latency_test_1,
