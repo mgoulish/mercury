@@ -186,6 +186,7 @@ type Router_network struct {
 
 
 func ( rn * Router_network ) Reset ( ) {
+  rn.Halt ( )
   rn.Running         = false
   rn.result_path     = ""
   rn.Versions        = nil

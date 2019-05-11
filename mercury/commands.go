@@ -1322,8 +1322,6 @@ func wait_for_network ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 func reset ( merc * Merc, command_line * lisp.List, _ string ) {
-  fp ( os.Stdout, " reset !!!\n" )
-
   merc.verbose         = false
   merc.echo            = false
   merc.prompt          = false
