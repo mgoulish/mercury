@@ -415,6 +415,8 @@ process_event ( context_p context, pn_event_t * event )
 
 
     case PN_CONNECTION_INIT:
+      snprintf ( context->id, MAX_NAME, "%d_%d", int(getpid()), int(get_timestamp()) );
+      log ( context, "connection id is |%s|\n", context->id );
       pn_connection_set_container ( pn_event_connection( event ), context->id );
       event_session = pn_session ( pn_event_connection( event ) );
       pn_session_open ( event_session );
@@ -794,9 +796,6 @@ init_context ( context_p context, int argc, char ** argv )
     if ( ! strcmp ( "--messages", argv[i] ) )
     {
       context->expected_messages = atoi ( NEXT_ARG );
-      context->flight_times     = (double *) malloc ( sizeof(double) * context->expected_messages );
-      context->max_flight_times = context->expected_messages;
-      context->n_flight_times   = 0;
       i ++;
     }
     // throughput ----------------------------------------------
@@ -812,8 +811,6 @@ init_context ( context_p context, int argc, char ** argv )
       exit ( 1 );
     }
   }
-
-  context->total_expected_messages = context->n_addrs * context->expected_messages;
 }
 
 
@@ -859,6 +856,7 @@ main ( int argc, char ** argv )
   context_g = & context;
   init_context ( & context, argc, argv );
 
+
   if ( context.log_file_name ) 
   {
     context.log_file = fopen ( context.log_file_name, "w" );
@@ -870,6 +868,13 @@ main ( int argc, char ** argv )
     fprintf ( stderr, "no max message length.\n" );
     exit ( 1 );
   }
+
+  context.total_expected_messages = context.expected_messages * context.n_addrs;
+  log ( & context, "total_expected_messages == %d\n", context.total_expected_messages );
+  context.flight_times     = (double *) malloc ( sizeof(double) * context.total_expected_messages );
+  context.max_flight_times = context.total_expected_messages;
+  context.n_flight_times   = 0;
+
 
   // Make the max send length larger than the max receive length 
   // to account for the extra header bytes.
