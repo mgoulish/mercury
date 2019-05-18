@@ -40,6 +40,7 @@ import ( "errors"
          "fmt"
          "os"
          "os/exec"
+         "syscall"
          "strings"
          "time"
          "utils"
@@ -624,7 +625,9 @@ func ( r * Router ) Halt ( ) error {
     */
     case <-time.After ( 250 * time.Millisecond ) :
 
-      if err := r.cmd.Process.Kill(); err != nil {
+      // Don't just kill it! Give the router a chance to shut down.
+      // if err := r.cmd.Process.Kill(); err != nil {
+      if err := r.cmd.Process.Signal( syscall.SIGTERM ); err != nil {
         return errors.New ( "failed to kill process: " + err.Error() )
       }
 

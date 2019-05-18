@@ -38,7 +38,7 @@ get_timestamp ( void )
 
 
 #define MAX_NAME   100
-#define MAX_ADDRS  100
+#define MAX_ADDRS  1000
 #define MAX_MESSAGE 1000000
 
 
@@ -430,6 +430,7 @@ process_event ( context_p context, pn_event_t * event )
           pn_terminus_set_address ( pn_link_target(context->addrs[i].link), context->addrs[i].path );
           pn_link_set_snd_settle_mode ( context->addrs[i].link, PN_SND_UNSETTLED );
           pn_link_set_rcv_settle_mode ( context->addrs[i].link, PN_RCV_FIRST );
+
           pn_link_open ( context->addrs[i].link );
         }
 
