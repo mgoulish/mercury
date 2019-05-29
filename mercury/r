@@ -1,23 +1,22 @@
 #! /usr/bin/bash
 
-rm /tmp/mdebug* /tmp/flight_times_*  /tmp/start
+rm /tmp/depth*  /tmp/mde* /tmp/flight_times_*  /tmp/start
 
 
 export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
-# go run ./*.go    ./scripts/tests/latency/telco_latency/one_router/100
 
-#go run ./*.go    ./scripts/tests/latency/telco_latency/router_plus_edge/30
 
-# go run ./*.go    /home/mick/redhat/log/2019/latency/characterize/series_of_routers/srp_1_mps_max/5/script
 
-#go run ./*.go  ./scripts/tests/throughput/one_router/7
-
-#go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/srps_vs_routers/45_5
-#go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/addrs_vs_routers/10_20_1
-
+# go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/srps_vs_routers/45_5
 go run ./*.go 
+
+
+# go run ./*.go /home/mick/redhat/log/2019/latency/distribute_receivers_over_all_nodes/test_10.mercury
+
+# go run ./*.go /home/mick/redhat/log/2019/latency/i_think_its_connections/t00
+
 
 
 

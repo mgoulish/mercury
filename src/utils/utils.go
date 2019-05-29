@@ -28,6 +28,7 @@ import ( "fmt"
          "os/user"
          "strconv"
          "strings"
+         "runtime" 
          "time" 
        )
 
@@ -118,12 +119,35 @@ func Path_exists ( path string ) ( bool ) {
 
 
 
+func Print_Callstack ( ) { 
+  var file        string
+  var line_number int
+  var ok          bool
+
+  caller_number := 1
+
+  for {
+    _, file, line_number, ok = runtime.Caller ( caller_number ) 
+    if ! ok {
+      break
+    }
+    fp ( os.Stdout, "    Called from: file %s line %d\n", file, line_number )
+    caller_number += 1
+  }
+}
+
+
+
+
+
 func Find_or_create_dir ( path string ) {
   _, err := os.Stat ( path )
   if os.IsNotExist ( err ) {
     err = os.MkdirAll ( path, os.ModePerm )
     if err != nil {
-        fp ( os.Stderr, "error creating network_root |%s| : %v\n", path, err )
+        fp ( os.Stderr, "utils.Find_or_create_dir : error creating dir |%s| : %v\n", path, err )
+
+        Print_Callstack ( )
         os.Exit ( 1 )
     }
   }

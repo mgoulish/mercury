@@ -149,7 +149,7 @@ type Router_network struct {
   Name                        string
   Running                     bool
 
-  result_path                 string
+  results_path                string
   log_path                    string
 
   /*
@@ -188,7 +188,6 @@ type Router_network struct {
 func ( rn * Router_network ) Reset ( ) {
   rn.Halt ( )
   rn.Running         = false
-  rn.result_path     = ""
   rn.Versions        = nil
   rn.Default_version = nil
   rn.verbose         = false
@@ -224,9 +223,9 @@ func New_router_network ( name         string,
                           log_path     string,
                           channel      chan string ) * Router_network {
 
-  rn := & Router_network { Name     : name,
-                           log_path : log_path,
-                           channel  : channel }
+  rn := & Router_network { Name         : name,
+                           log_path     : log_path,
+                           channel      : channel }
 
   rn.client_path = mercury_root + "/clients/c_proactor_client" 
   if ! utils.Path_exists ( rn.client_path  ) {
@@ -237,6 +236,15 @@ func New_router_network ( name         string,
   rn.ticker_frequency = 10
 
   return rn
+}
+
+
+
+
+
+func ( rn * Router_network ) Set_results_path ( path string ) {
+  rn.results_path = path
+  utils.Find_or_create_dir ( rn.results_path )
 }
 
 
@@ -464,8 +472,9 @@ func ( rn * Router_network ) Add_receiver ( name               string,
 
   throttle := "0" // Receivers do not get throttled.
 
-  rn.Add_client ( name, 
+  rn.add_client ( name, 
                   config_path,
+                  rn.results_path,
                   false, 
                   n_messages, 
                   max_message_length, 
@@ -483,8 +492,9 @@ func ( rn * Router_network ) Add_sender ( name               string,
                                           max_message_length int, 
                                           router_name        string, 
                                           throttle           string ) {
-  rn.Add_client ( name, 
+  rn.add_client ( name, 
                   config_path,
+                  rn.results_path,
                   true, 
                   n_messages, 
                   max_message_length, 
@@ -496,8 +506,9 @@ func ( rn * Router_network ) Add_sender ( name               string,
 
 
 
-func ( rn * Router_network ) Add_client ( name               string, 
+func ( rn * Router_network ) add_client ( name               string, 
                                           config_path        string,
+                                          results_path       string,
                                           sender             bool, 
                                           n_messages         int, 
                                           max_message_length int, 
@@ -516,7 +527,7 @@ func ( rn * Router_network ) Add_client ( name               string,
   r := rn.get_router_by_name ( router_name )
 
   if r == nil {
-    ume ( "Network: Add_client: no such router: |%s|", router_name )
+    ume ( "Network: add_client: no such router: |%s|", router_name )
     return
   }
 
@@ -530,6 +541,7 @@ func ( rn * Router_network ) Add_client ( name               string,
 
   c := client.New_client ( name,
                            config_path,
+                           results_path,
                            operation,
                            r.Client_port ( ),
                            rn.client_path,

@@ -236,9 +236,9 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
     // We want multiple addresses per client.
     for i := 0; i < client_count; i ++ {
       merc.sender_count ++
-      sender_name = fmt.Sprintf ( "send_%04d", merc.sender_count )
-      config_path = merc.session.config_path + "/clients/" + sender_name
-      router_name = target_router_list[router_index]
+      sender_name  = fmt.Sprintf ( "send_%04d", merc.sender_count )
+      config_path  = merc.session.config_path  + "/clients/" + sender_name
+      router_name  = target_router_list[router_index]
 
       router_index ++
       if router_index >= len(target_router_list) {
@@ -279,9 +279,9 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
       final_addr = fmt.Sprintf ( address, addr_number )
 
       merc.sender_count ++
-      sender_name = fmt.Sprintf ( "send_%04d", merc.sender_count )
-      config_path = merc.session.config_path + "/clients/" + sender_name
-      router_name = target_router_list[router_index]
+      sender_name  = fmt.Sprintf ( "send_%04d", merc.sender_count )
+      config_path  = merc.session.config_path + "/clients/" + sender_name
+      router_name  = target_router_list[router_index]
 
       merc.network.Add_sender ( sender_name,
                                 config_path,
@@ -315,9 +315,9 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
       }
 
       merc.sender_count ++
-      sender_name = fmt.Sprintf ( "send_%04d", merc.sender_count )
-      config_path = merc.session.config_path + "/clients/" + sender_name
-      router_name = target_router_list[router_index]
+      sender_name  = fmt.Sprintf ( "send_%04d", merc.sender_count )
+      config_path  = merc.session.config_path + "/clients/" + sender_name
+      router_name  = target_router_list[router_index]
 
       merc.network.Add_sender ( sender_name,
                                 config_path,
@@ -428,7 +428,7 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
     for i := 0; i < client_count; i ++ {
       merc.receiver_count ++
       receiver_name = fmt.Sprintf ( "recv_%04d", merc.receiver_count )
-      config_path = merc.session.config_path + "/clients/" + receiver_name
+      config_path = merc.session.config_path  + "/clients/" + receiver_name
       router_name = target_router_list[router_index]
       merc.network.Add_receiver ( receiver_name,
                                   config_path,
@@ -469,8 +469,8 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
 
       merc.receiver_count ++
       receiver_name = fmt.Sprintf ( "recv_%04d", merc.receiver_count )
-      config_path = merc.session.config_path + "/clients/" + receiver_name
-      router_name = target_router_list[router_index]
+      config_path   = merc.session.config_path + "/clients/" + receiver_name
+      router_name   = target_router_list[router_index]
 
       merc.network.Add_receiver ( receiver_name,
                                   config_path,
@@ -504,8 +504,8 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
 
       merc.receiver_count ++
       receiver_name = fmt.Sprintf ( "recv_%04d", merc.receiver_count )
-      config_path = merc.session.config_path + "/clients/" + receiver_name
-      router_name = target_router_list[router_index]
+      config_path   = merc.session.config_path  + "/clients/" + receiver_name
+      router_name   = target_router_list[router_index]
 
       merc.network.Add_receiver ( receiver_name,
                                   config_path,
@@ -1356,6 +1356,8 @@ func example_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
   n_tests := 5
 
   for test_number := 1; test_number <= n_tests; test_number ++ {
+    
+    merc.network.Set_results_path ( merc.session.name + fmt.Sprintf ( "/results/iteration_%.3d", test_number ) )
 
     fp ( os.Stdout, "===================================================\n" )
     fp ( os.Stdout, "                    Test %d                        \n", test_number )
@@ -1370,126 +1372,6 @@ func example_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
-
-func latency_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
-  cmd := merc.commands [ "latency_test_1" ]
-  parse_command_line ( merc, cmd, command_line )
-
-  var command_lines [] string
-
-  n_receivers           := 30
-  senders_per_receiver  := 40
-  messages_per_receiver := 10000
-  total_messages        := n_receivers * messages_per_receiver
-  messages_per_sender   := 3000
-  addr_number           := 1
-  msec_between_messages := 100
-
-  command_lines = append ( command_lines, "seed PID" )
-  command_lines = append ( command_lines, "verbose" )
-  command_lines = append ( command_lines, "inc versions" )
-  command_lines = append ( command_lines, "routers 1" )
-  command_lines = append ( command_lines, "run" )
-  command_lines = append ( command_lines, "sleep 5" )
-
-  // This will make 40 receivers, with addrs 1 ... 40 .
-  line := fmt.Sprintf ( "recv %d A n_messages %d address addr_%d", 
-                        n_receivers,
-                        messages_per_receiver,
-                        addr_number )
-
-  fp ( os.Stdout, " here's the line: |%s|\n", line )
-  command_lines = append ( command_lines, line )
-
-  command_lines = append ( command_lines, "run" )
-  command_lines = append ( command_lines, "sleep 5" )
-
-  for i := 1; i <= n_receivers; i ++ {
-    // Make 40 senders for each receiver. All 40 same address.
-    // ( Each receiver has one address. )
-    line = fmt.Sprintf ( "send %d A n_messages %d throttle %d address addr_%d",
-                         senders_per_receiver,
-                         messages_per_sender,
-                         msec_between_messages,
-                         i )
-    command_lines = append ( command_lines, line )
-  }
-
-  command_lines = append ( command_lines, "run" )
-
-  umi ( merc.verbose, "================================================" )
-  umi ( merc.verbose, "latency_test_1 " )
-  umi ( merc.verbose, "================================================" )
-
-  var test_duration int
-
-  for _, line := range command_lines {
-    process_line ( merc, line )
-  }
-
-  test_duration = 0
-  for {
-    time.Sleep ( 10 * time.Second )
-    fp ( os.Stdout, " CHECKING STATUS -------------------------\n" )
-    result := merc.network.Client_status_check ( )
-    fp ( os.Stdout, " result: %d\n", result )
-    test_duration += 10
-
-    if result >= total_messages {
-      fp ( os.Stdout, "test is complete.\n" )
-      break
-    }
-  }
-
-  umi ( merc.verbose, "Halting network." )
-  merc.network.Halt ( )
-
-
-
-  // ##################################################################
-  // ##################################################################
-  //
-  //          Now -- can we do another iteration ???
-  //
-  // ##################################################################
-  // ##################################################################
-
-
-
-  /* later 
-  fp ( os.Stdout, " ##################################################\n" )
-  fp ( os.Stdout, " ##################################################\n" )
-  fp ( os.Stdout, " ##################################################\n" )
-  fp ( os.Stdout, " ##################################################\n" )
-  fp ( os.Stdout, " TRYING IT AGAIN \n" )
-  fp ( os.Stdout, " ##################################################\n" )
-  fp ( os.Stdout, " ##################################################\n" )
-  fp ( os.Stdout, " ##################################################\n" )
-
-  for _, line := range command_lines {
-    process_line ( merc, line )
-  }
-
-  test_duration = 0
-  for {
-    time.Sleep ( 10 * time.Second )
-    fp ( os.Stdout, " CHECKING STATUS -------------------------\n" )
-    result := merc.network.Client_status_check ( )
-    fp ( os.Stdout, " result: %d\n", result )
-    test_duration += 10
-
-    if result >= total_messages {
-      fp ( os.Stdout, "test is complete.\n" )
-      break
-    }
-  }
-
-  umi ( merc.verbose, "Halting network." )
-  merc.network.Halt ( )
-  */
-
-
-}
 
 
 

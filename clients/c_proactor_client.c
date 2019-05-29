@@ -37,6 +37,7 @@ get_timestamp ( void )
 
 
 
+
 #define MAX_NAME   100
 #define MAX_ADDRS  1000
 #define MAX_MESSAGE 1000000
@@ -100,9 +101,10 @@ struct context_s
   int               throttle;
 
   double          * flight_times;
+  double          * time_stamps;
   int               max_flight_times;
   int               n_flight_times;
-  char            * flight_times_file_name;
+  char              flight_times_file_name [ 1000 ];
 
   double            grand_start_time,
                     send_start_time,
@@ -154,7 +156,11 @@ dump_flight_times ( context_p context )
   FILE * fp = fopen ( file_name, "w" );
   for ( int i = 0; i < context->n_flight_times; i ++ )
   {
-    fprintf ( fp, "%.7lf\n", context->flight_times [ i ] );
+    fprintf ( fp, 
+              "%.6lf %.7lf\n", 
+              context->time_stamps  [ i ],
+              context->flight_times [ i ] * 1000
+            );
   }
   fclose ( fp );
 }
@@ -249,14 +255,13 @@ encode_outgoing_message ( context_p context )
 
 
 void
-store_flight_time ( context_p context, double flight_time ) 
+store_flight_time ( context_p context, double flight_time, double recv_time ) 
 {
-  // log ( context, "%.6lf\n", flight_time );
-
   if ( context->n_flight_times >= context->max_flight_times ) 
     return;
 
   context->flight_times [ context->n_flight_times ] = flight_time;
+  context->time_stamps  [ context->n_flight_times ] = recv_time;
   context->n_flight_times ++;
 }
 
@@ -310,7 +315,7 @@ decode_message ( context_p context, pn_delivery_t * delivery )
     pn_free ( s );
 
     double flight_time = receive_timestamp - send_timestamp;
-    store_flight_time ( context, flight_time );
+    store_flight_time ( context, flight_time, receive_timestamp );
 
     if ( context->n_flight_times >= context->max_flight_times )
     {
@@ -702,8 +707,6 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->n_addrs                 = 0;
 
-  context->flight_times_file_name  = 0;
-
   context->grand_start_time        = get_timestamp();
 
   context->doing_throughput        = false;
@@ -789,7 +792,11 @@ init_context ( context_p context, int argc, char ** argv )
     else
     if ( ! strcmp ( "--flight_times_file_name", argv[i] ) )
     {
-      context->flight_times_file_name = strdup ( NEXT_ARG );
+      sprintf ( context->flight_times_file_name, 
+                "%s/%s_flight_times", 
+                NEXT_ARG, 
+                context->name 
+              );
       i ++;
     }
     // messages ----------------------------------------------
@@ -872,7 +879,8 @@ main ( int argc, char ** argv )
 
   context.total_expected_messages = context.expected_messages * context.n_addrs;
   log ( & context, "total_expected_messages == %d\n", context.total_expected_messages );
-  context.flight_times     = (double *) malloc ( sizeof(double) * context.total_expected_messages );
+  context.flight_times    = (double *) malloc ( sizeof(double) * context.total_expected_messages );
+  context.time_stamps     = (double *) malloc ( sizeof(double) * context.total_expected_messages );
   context.max_flight_times = context.total_expected_messages;
   context.n_flight_times   = 0;
 

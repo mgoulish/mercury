@@ -386,6 +386,14 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  distribution : closest\n" );
   fp ( f, "}\n" )
 
+  /*
+  fp ( f, "address {\n" );
+  fp ( f, "  prefix       : speedy\n" );
+  fp ( f, "  distribution : closest\n" );
+  fp ( f, "  priority     : 8\n" );
+  fp ( f, "}\n" )
+  */
+
   fp ( f, "address {\n" );
   fp ( f, "  prefix       : balanced\n" );
   fp ( f, "  distribution : balanced\n" );
@@ -406,6 +414,14 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  module        : DEFAULT\n" )
   fp ( f, "}\n" )
 
+  /*
+  link_capacity := 250
+  if r.name == "E" {
+    link_capacity = 10000
+    fp ( os.Stdout, "ingress router  client linkCap == %d\n", link_capacity )
+  }
+  */
+
   // The Client Listener -----------------
   fp ( f, "listener {\n" )
   fp ( f, "  role               : normal\n")
@@ -415,6 +431,7 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  idleTimeoutSeconds : 120\n")
   fp ( f, "  saslMechanisms     : ANONYMOUS\n")
   fp ( f, "  authenticatePeer   : no\n")
+  //fp ( f, "  linkCapacity       : %d\n", link_capacity )
   fp ( f, "}\n")
 
   // The Console Listener -----------------

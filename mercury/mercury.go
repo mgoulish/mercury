@@ -39,6 +39,13 @@ type Session struct {
   // Where the log files of routers and clients for this 
   // session are stored.
   log_path      string       
+
+  // Results are files probably written by clients, showing
+  // measurements we want to save, such as message flight times.
+  // This will just be the directory name. The clients are 
+  // responsible for making sure that the names of the individual 
+  // files do not collide.
+  results_path   string
 }
 
 
@@ -53,12 +60,14 @@ func new_session ( ) ( * Session ) {
   }
 
   name := cwd + "/sessions/session_" + time.Now().Format ( "2006_01_02_1504" )
-  s := & Session { name        : name,
-                   config_path : name + "/config",
-                   log_path    : name + "/logs" }
+  s := & Session { name         : name,
+                   config_path  : name + "/config",
+                   log_path     : name + "/logs",
+                   results_path : name + "/results" }
 
   utils.Find_or_create_dir ( s.config_path )
   utils.Find_or_create_dir ( s.log_path )
+  utils.Find_or_create_dir ( s.results_path )
 
   return s
 }
@@ -834,13 +843,6 @@ func main ( ) {
   cmd = merc.add_command ( "example_test_1",
                             example_test_1,
                            "Macro: perform a small example test." )
-
-
-
-  // latency_test_1 command -------------------------------------------------------
-  cmd = merc.add_command ( "latency_test_1",
-                            latency_test_1,
-                           "Macro: perform a latency_test_1." )
 
 
 

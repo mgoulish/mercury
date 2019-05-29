@@ -74,6 +74,7 @@ const (
 type Client struct {
   Name                 string
   config_path          string
+  results_path         string
   Operation            string
   Port                 string
 
@@ -113,6 +114,7 @@ type Client struct {
 
 func New_client ( name                  string,
                   config_path           string,
+                  results_path          string,
                   operation             string,
                   port                  string,
                   path                  string,
@@ -127,6 +129,7 @@ func New_client ( name                  string,
 
   c = & Client { Name                  : name,
                  config_path           : config_path,
+                 results_path          : results_path,
                  Operation             : operation,
                  Port                  : port,
                  Path                  : path,
@@ -174,7 +177,10 @@ func ( c * Client ) Run ( ) {
   os.Setenv ( "LD_LIBRARY_PATH", c.ld_library_path )
   os.Setenv ( "PYTHONPATH"     , c.pythonpath )
 
+  // Name should always be first, because it may be used 
+  // in the course of other argv processing.
   args := " --name " + c.Name + 
+          " --flight_times_file_name " + c.results_path + 
           " --operation " + c.Operation + 
           " --port " + c.Port + 
           " --log " + c.log_file + 
