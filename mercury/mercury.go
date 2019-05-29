@@ -337,6 +337,16 @@ func main ( ) {
 
   merc := new_merc ( )
 
+  // NOTE: to run this code, your username needs
+  // to have sudo NOPASSWD privileges,
+  // and you need to have installed cpufrequtils.
+  // i.e.   dnf install cpufrequtils
+  cpu_freqs := utils.Get_CPU_freqs ( )
+  fp ( os.Stdout, "main: cpu freqs: \n" )
+  for _, freq := range cpu_freqs {
+    fp ( os.Stdout, "   %s\n", freq )
+  }
+
   // Put this outside of new_merc because in future we 
   // might want the choice of loading a session, based
   // on command line arg.
@@ -850,6 +860,8 @@ func main ( ) {
   cmd = merc.add_command ( "reset",
                            reset,
                            "Restore Mercury to original conditions." )
+
+
 
   /*--------------------------------------------
     Process files named on command line.

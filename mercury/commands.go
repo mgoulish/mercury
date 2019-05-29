@@ -1373,7 +1373,3 @@ func example_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
-
-
-
-

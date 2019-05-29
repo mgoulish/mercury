@@ -39,13 +39,11 @@ var mercury = '\u263F'
 
 
 
-
 func Check ( err error ) {
   if err != nil {
     panic ( err )
   }
 }
-
 
 
 
@@ -210,7 +208,7 @@ func Memory_usage ( pid int ) ( rss int ) {
 
 
 
-func Cpu_usage ( target_pid int ) ( cpu_usage int ) {
+func Cpu_usage ( target_pid int ) ( cpu_usage int, err error ) {
 
   // Let top iterate twice for greater accuracy.
   command   := "top" 
@@ -218,7 +216,9 @@ func Cpu_usage ( target_pid int ) ( cpu_usage int ) {
   args_list := strings.Fields ( args )
 
   out, err := exec.Command ( command, args_list... ).Output()
-  Check ( err )
+  if err != nil {
+    return 0, err
+  }
 
   lines := strings.Split ( string(out), "\n" )
 
@@ -226,10 +226,12 @@ func Cpu_usage ( target_pid int ) ( cpu_usage int ) {
   fields := strings.Fields ( last_line )
   cpu_field := fields [ 8 ]
   temp, err := strconv.ParseFloat ( cpu_field, 32 )
-  Check ( err )
+  if err != nil {
+    return 0, err
+  }
   cpu_usage = int ( 100 * temp )
 
-  return cpu_usage
+  return cpu_usage, nil
 }
 
 
@@ -243,6 +245,37 @@ func Timestamp ( ) ( string ) {
   fsec := float64(nsec) / 1000000000.0
   return ts1 + fmt.Sprintf ( " %.6f", fsec )
 }
+
+
+
+
+
+// Use cpupower command to discover allowable frequencies.
+func Get_CPU_freqs ( ) ( freqs [] string ) {
+  command   := "sudo"
+  args      := "cpupower frequency-info"
+  args_list := strings.Fields ( args )
+
+  out, _ := exec.Command ( command, args_list... ).Output()
+
+  lines := strings.Split ( string(out), "\n" )
+  for _, line := range lines {
+    index := strings.Index ( line, "available frequency steps" )
+    if index != -1 {
+      fields := strings.Fields ( line )
+      for _, field := range fields {
+        _, err := strconv.ParseFloat ( field, 32 )
+        if err == nil {
+          freqs = append ( freqs, field ) // I want the string, though. Not the float.
+        }
+      }
+      break
+    }
+  }
+
+  return freqs
+}
+
 
 
 
