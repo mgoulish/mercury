@@ -9,13 +9,10 @@ export GOPATH=${MERCURY_ROOT}
 
 
 
-# go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series2/scripts/srps_vs_routers/45_5
-go run ./*.go 
 
 
-# go run ./*.go /home/mick/redhat/log/2019/latency/distribute_receivers_over_all_nodes/test_10.mercury
+go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series_3/throttle_study/1000_50/script
 
-# go run ./*.go /home/mick/redhat/log/2019/latency/i_think_its_connections/t00
 
 
 

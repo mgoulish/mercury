@@ -69,6 +69,8 @@ func new_session ( ) ( * Session ) {
   utils.Find_or_create_dir ( s.log_path )
   utils.Find_or_create_dir ( s.results_path )
 
+  fp ( os.Stdout, "Results dir is |%s|\n", s.results_path )
+
   return s
 }
 
@@ -156,6 +158,8 @@ type Merc struct {
   commands                   map [ string ] * command
   versions              [] * rn.Version
   default_version          * rn.Version
+
+  cpu_freqs             []   string
 }
 
 
@@ -341,9 +345,9 @@ func main ( ) {
   // to have sudo NOPASSWD privileges,
   // and you need to have installed cpufrequtils.
   // i.e.   dnf install cpufrequtils
-  cpu_freqs := utils.Get_CPU_freqs ( )
+  merc.cpu_freqs = utils.Get_CPU_freqs ( )
   fp ( os.Stdout, "main: cpu freqs: \n" )
-  for _, freq := range cpu_freqs {
+  for _, freq := range merc.cpu_freqs {
     fp ( os.Stdout, "   %s\n", freq )
   }
 
@@ -362,6 +366,12 @@ func main ( ) {
                                          merc.session.log_path,
                                          network_channel )
 
+
+  // Set a default results path here. 
+  // SOme commands may want to replace this with their own.
+  // If they do, then any clients made after that moment
+  // will use their path.
+  merc.network.Set_results_path ( merc.session.name + "/results" )
 
   // In the background, listen for the network telling us 
   // that it has completed. (This happens if it is runs a test 

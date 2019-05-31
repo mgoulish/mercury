@@ -179,6 +179,12 @@ func ( c * Client ) Run ( ) {
 
   // Name should always be first, because it may be used 
   // in the course of other argv processing.
+  if c.results_path == "" {
+    fp ( os.Stdout, "client.Run error: empty result path.\n" )
+    utils.Print_Callstack ( )
+    return
+  }
+
   args := " --name " + c.Name + 
           " --flight_times_file_name " + c.results_path + 
           " --operation " + c.Operation + 

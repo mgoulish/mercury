@@ -280,3 +280,16 @@ func Get_CPU_freqs ( ) ( freqs [] string ) {
 
 
 
+func Set_Top_Freq ( freqs [] string ) ( err error ) {
+  command := "sudo"
+  args    := "cpupower frequency-set --freq " + freqs [ 0 ] + "GHz"
+
+  fp ( os.Stdout, "Set_Top_Freq: command: |%s %s|\n", command, args )
+  
+  return nil
+}
+
+
+
+
+

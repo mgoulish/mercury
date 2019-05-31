@@ -597,7 +597,13 @@ func connect ( merc  * Merc, command_line * lisp.List, _ string ) {
 
 
 func echo ( merc  * Merc, command_line * lisp.List, original_line string ) {
-  fp ( os.Stdout, "%s\n", original_line [ strings.Index ( original_line, "echo" ) + 5 : ] )
+  start_echo_at := strings.Index ( original_line, "echo" ) + 5
+  if start_echo_at >= len(original_line) {
+    fp ( os.Stdout, "\n" )
+    return
+  }
+
+  fp ( os.Stdout, "%s\n", original_line [ start_echo_at : ] )
 }
 
 
@@ -1353,10 +1359,10 @@ func example_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
   command_lines = append ( command_lines, "sleep 60" )
   command_lines = append ( command_lines, "reset" )
 
-  n_tests := 5
+  // utils.Set_Top_Freq ( merc.cpu_freqs )
 
+  n_tests := 5
   for test_number := 1; test_number <= n_tests; test_number ++ {
-    
     merc.network.Set_results_path ( merc.session.name + fmt.Sprintf ( "/results/iteration_%.3d", test_number ) )
 
     fp ( os.Stdout, "===================================================\n" )

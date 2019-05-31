@@ -37,7 +37,6 @@ get_timestamp ( void )
 
 
 
-
 #define MAX_NAME   100
 #define MAX_ADDRS  1000
 #define MAX_MESSAGE 1000000
@@ -111,7 +110,6 @@ struct context_s
                     stop_time;
 
   bool              doing_throughput;
-  bool              data_dumped;
 }
 context_t,
 * context_p;
@@ -144,6 +142,18 @@ log ( context_p context, char const * format, ... )
 void
 dump_flight_times ( context_p context )
 {
+  // Only receivers store and then dump their flight times.
+  if ( context->sending ) 
+  {
+    return;
+  }
+
+  if ( context->n_flight_times <= 0 )
+  {
+    log ( context, "error: receiver has no flight times to dump.\n" );
+    return;
+  }
+
   char default_file_name[1000];
   char * file_name = context->flight_times_file_name;
 
@@ -159,7 +169,7 @@ dump_flight_times ( context_p context )
     fprintf ( fp, 
               "%.6lf %.7lf\n", 
               context->time_stamps  [ i ],
-              context->flight_times [ i ] * 1000
+              context->flight_times [ i ] * 1000  // write the flight time in msec
             );
   }
   fclose ( fp );
@@ -269,6 +279,16 @@ store_flight_time ( context_p context, double flight_time, double recv_time )
 
 
 
+void
+write_report ( )
+{
+  dump_flight_times ( context_g );
+}
+
+
+
+
+
 void 
 decode_message ( context_p context, pn_delivery_t * delivery ) 
 {
@@ -319,7 +339,18 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 
     if ( context->n_flight_times >= context->max_flight_times )
     {
-      dump_flight_times ( context );
+      // Only receivers record their flight times.
+      if ( ! context->sending ) 
+      {
+        int delay = 30;
+        log ( context, "Dumping flight times in %d seconds.\n", delay );
+        struct itimerval timer;
+        timer.it_value.tv_sec  = delay;
+        timer.it_value.tv_usec =  0;
+        timer.it_interval = timer.it_value;
+        signal ( SIGALRM, (void (*)(int)) write_report );
+        setitimer ( ITIMER_REAL, & timer, NULL );
+      }
     }
   }
 }
@@ -389,7 +420,19 @@ send_message ( context_p context )
                    context->outgoing_buffer, 
                    outgoing_size 
                  );
+
+    if ( context->messages_sent == 0 )
+    {
+      log ( context, "first_send\n" );
+    }
+
     context->messages_sent ++;
+
+    if ( ! ( context->messages_sent % 1000 ) )
+    {
+      log ( context, "sent %d\n", context->messages_sent );
+    }
+
     // log ( context, "sent: %d\n", context->messages_sent );
     pn_link_advance ( link );
     context->total_bytes_sent += outgoing_size;
@@ -714,6 +757,7 @@ init_context ( context_p context, int argc, char ** argv )
 
   for ( int i = 1; i < argc; ++ i )
   {
+
     // throttle ----------------------------------------------
     if ( ! strcmp ( "--throttle", argv[i] ) )
     {
@@ -825,45 +869,14 @@ init_context ( context_p context, int argc, char ** argv )
 
 
 
-void
-write_report ( )
-{
-  log ( context_g, 
-        "report received %d   accepted %d   rejected %d   released %d   modified %d\n",
-        context_g->received,
-        context_g->accepted,
-        context_g->rejected,
-        context_g->released,
-        context_g->modified
-      );
-}
-
-
-
-
-
 int 
 main ( int argc, char ** argv ) 
 {
-  /*
-   TODO
-   This is not appropriate when I am doing sensitive 
-   latency measurements. Make a way to turn it on and off
-   from on high.
-
-  struct itimerval timer;
-  timer.it_value.tv_sec  = 10;
-  timer.it_value.tv_usec =  0;
-  timer.it_interval = timer.it_value;
-  signal ( SIGALRM, (void (*)(int)) write_report );
-  setitimer ( ITIMER_REAL, & timer, NULL );
-  */
 
   srand ( getpid() );
   context_t context;
   context_g = & context;
   init_context ( & context, argc, argv );
-
 
   if ( context.log_file_name ) 
   {
@@ -883,7 +896,6 @@ main ( int argc, char ** argv )
   context.time_stamps     = (double *) malloc ( sizeof(double) * context.total_expected_messages );
   context.max_flight_times = context.total_expected_messages;
   context.n_flight_times   = 0;
-
 
   // Make the max send length larger than the max receive length 
   // to account for the extra header bytes.
