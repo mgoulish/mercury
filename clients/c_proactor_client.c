@@ -98,6 +98,7 @@ struct context_s
   pn_listener_t   * listener;
   pn_connection_t * connection;
   int               throttle;
+  int               delay;
 
   double          * flight_times;
   double          * time_stamps;
@@ -342,7 +343,10 @@ decode_message ( context_p context, pn_delivery_t * delivery )
       // Only receivers record their flight times.
       if ( ! context->sending ) 
       {
-        int delay = 30;
+        // Use the same delay that we use at start-up, here at the
+        // end to avoid dumping stats while other clients are still
+        // running.
+        int delay = context->delay;
         log ( context, "Dumping flight times in %d seconds.\n", delay );
         struct itimerval timer;
         timer.it_value.tv_sec  = delay;
@@ -367,7 +371,7 @@ send_message ( context_p context )
 
   // This is the enforced delay to prevent senders from sending
   // // while other senders are still attaching.
-  if ( time_since_start < 30 ) // TODO -- make this an arg passed in.
+  if ( time_since_start < context->delay ) 
   {
     log ( context, "too soon to send: %.3lf\n", time_since_start );
     // Gotta pause if it's still too soon to send,
@@ -428,10 +432,12 @@ send_message ( context_p context )
 
     context->messages_sent ++;
 
+    /*
     if ( ! ( context->messages_sent % 1000 ) )
     {
       log ( context, "sent %d\n", context->messages_sent );
     }
+    */
 
     // log ( context, "sent: %d\n", context->messages_sent );
     pn_link_advance ( link );
@@ -747,6 +753,7 @@ init_context ( context_p context, int argc, char ** argv )
   context->max_send_length         = 100;
 
   context->throttle                = 0;
+  context->delay                   = 0;
 
   context->n_addrs                 = 0;
 
@@ -762,6 +769,13 @@ init_context ( context_p context, int argc, char ** argv )
     if ( ! strcmp ( "--throttle", argv[i] ) )
     {
       context->throttle = atoi(NEXT_ARG);
+      i ++;
+    }
+    // delay ----------------------------------------------
+    else
+    if ( ! strcmp ( "--delay", argv[i] ) )
+    {
+      context->delay = atoi(NEXT_ARG);
       i ++;
     }
     // address ----------------------------------------------

@@ -1,6 +1,6 @@
 #! /usr/bin/bash
 
-rm /tmp/depth*  /tmp/mde* /tmp/flight_times_*  /tmp/start
+rm /tmp/depth*  /tmp/mde* 
 
 
 export MERCURY_ROOT=${HOME}/mercury
@@ -11,7 +11,7 @@ export GOPATH=${MERCURY_ROOT}
 
 
 
-go run ./*.go /home/mick/redhat/log/2019/latency/characterize/series_3/throttle_study/1000_50/script
+go run ./*.go ./franz
 
 
 

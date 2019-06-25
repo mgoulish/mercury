@@ -210,6 +210,7 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
   throttle           := cmd.argmap [ "throttle"           ] . string_value
   apc                := cmd.argmap [ "apc"                ] . int_value
   cpa                := cmd.argmap [ "cpa"                ] . int_value
+  delay              := cmd.argmap [ "delay"              ] . string_value
 
   if apc > 1 && ! variable_address {
     ume ( "send: can't have apc > 1 but no variable address.\n" )
@@ -250,9 +251,10 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
                                 n_messages,
                                 max_message_length,
                                 router_name,
-                                throttle )
+                                throttle,
+                                delay )
       umi ( merc.verbose,
-            "recv: added sender |%s| to router |%s|.", 
+            "send: added sender |%s| to router |%s|.",
             sender_name,
             router_name )
 
@@ -288,7 +290,8 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
                                 n_messages,
                                 max_message_length,
                                 router_name,
-                                throttle )
+                                throttle,
+                                delay )
 
       merc.network.Add_Address_To_Client ( sender_name, final_addr )
 
@@ -324,7 +327,8 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
                                 n_messages,
                                 max_message_length,
                                 router_name,
-                                throttle )
+                                throttle,
+                                delay )
       merc.network.Add_Address_To_Client ( sender_name, final_addr )
 
       umi ( merc.verbose,
@@ -1372,6 +1376,46 @@ func example_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
     for _, line := range command_lines {
       process_line ( merc, line )
     }
+  }
+}
+
+
+
+
+
+func latency_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
+  // cmd := merc.commands [ "example_test_1" ]
+  var command_lines [] string
+
+  command_lines = append ( command_lines, "seed PID" )
+  command_lines = append ( command_lines, "verbose" )
+  command_lines = append ( command_lines, "version_roots name latest dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton" )
+  command_lines = append ( command_lines, "routers 1" )
+  //command_lines = append ( command_lines, "recv A 100" )
+  command_lines = append ( command_lines, "run"      )
+  //command_lines = append ( command_lines, "sleep 10" )
+  //command_lines = append ( command_lines, "send 100 A" )
+  //command_lines = append ( command_lines, "run"      )
+  //command_lines = append ( command_lines, "sleep 60" )
+  //command_lines = append ( command_lines, "reset" )
+
+  n_tests := 1
+  for test_number := 1; test_number <= n_tests; test_number ++ {
+    merc.network.Set_results_path ( merc.session.name + fmt.Sprintf ( "/results/iteration_%.3d", test_number ) )
+
+    fp ( os.Stdout, "===================================================\n" )
+    fp ( os.Stdout, "                    Test %d                        \n", test_number )
+    fp ( os.Stdout, "===================================================\n" )
+
+    for _, line := range command_lines {
+      process_line ( merc, line )
+    }
+
+
+    // At this point the network should be running.
+    first_router_name := merc.network.First_router_name ( )
+    last_router_name  := merc.network.Last_router_name  ( )
+    fmt.Fprintf ( os.Stdout, "first |%s|   last |%s|\n", first_router_name, last_router_name )
   }
 }
 

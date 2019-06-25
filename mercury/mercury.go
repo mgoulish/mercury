@@ -688,12 +688,17 @@ func main ( ) {
                 "1",
                 "Addresses per client. Makes each sender have N addresses." )
 
-
   cmd.add_arg ( "cpa",
                 false,
                 "int",
                 "1",
                 "Clients per address. Makes each address shared by N clients." )
+
+  cmd.add_arg ( "delay",
+                false,
+                "string",
+                "0",
+                "How many seconds each sender should wait before starting to send." )
 
 
   // recv command -------------------------------------------------------

@@ -62,9 +62,11 @@ type Version struct {
 
 func check_path ( name string, path string, must_exist bool ) {
   if ! utils.Path_exists ( path ) {
-    ume ( "Path |%s| does not exist at |%s|", name, path )
     if must_exist {
+      ume ( "rn.check_path: Path |%s| does not exist at |%s|", name, path )
       os.Exit ( 1 )
+    } else {
+      umi ( true, "rn.check_path: Path |%s| does not exist at |%s|", name, path )
     }
   }
 }
@@ -179,6 +181,24 @@ type Router_network struct {
 
   Failsafe                    int
   failsafe_timer            * time.Ticker
+}
+
+
+
+
+
+func ( rn * Router_network ) First_router_name ( ) ( string ) {
+   fp ( os.Stdout, "n_routers: %d\n", len ( rn.routers ) )
+  return rn.routers[0].Name()
+}
+
+
+
+
+
+func ( rn * Router_network ) Last_router_name ( ) ( string ) {
+  n_routers := len(rn.routers)-1
+  return rn.routers [ n_routers ].Name()
 }
 
 
@@ -471,6 +491,7 @@ func ( rn * Router_network ) Add_receiver ( name               string,
                                             router_name        string ) {
 
   throttle := "0" // Receivers do not get throttled.
+  delay    := "0" // Receivers do not have delays.
 
   rn.add_client ( name, 
                   config_path,
@@ -479,7 +500,8 @@ func ( rn * Router_network ) Add_receiver ( name               string,
                   n_messages, 
                   max_message_length, 
                   router_name, 
-                  throttle )
+                  throttle,
+                  delay )
 }
 
 
@@ -491,7 +513,8 @@ func ( rn * Router_network ) Add_sender ( name               string,
                                           n_messages         int, 
                                           max_message_length int, 
                                           router_name        string, 
-                                          throttle           string ) {
+                                          throttle           string,
+                                          delay              string ) {
   rn.add_client ( name, 
                   config_path,
                   rn.results_path,
@@ -499,7 +522,8 @@ func ( rn * Router_network ) Add_sender ( name               string,
                   n_messages, 
                   max_message_length, 
                   router_name, 
-                  throttle )
+                  throttle,
+                  delay )
 }
 
 
@@ -513,7 +537,8 @@ func ( rn * Router_network ) add_client ( name               string,
                                           n_messages         int, 
                                           max_message_length int, 
                                           router_name        string, 
-                                          throttle           string ) {
+                                          throttle           string,
+                                          delay              string ) {
 
   var operation string
   if sender {
@@ -531,7 +556,7 @@ func ( rn * Router_network ) add_client ( name               string,
     return
   }
 
-  // Clients just use the default versio.
+  // Clients just use the default version.
   ld_library_path := rn.Default_version.Ld_library_path
   pythonpath      := rn.Default_version.Pythonpath
 
@@ -551,7 +576,8 @@ func ( rn * Router_network ) add_client ( name               string,
                            n_messages,
                            max_message_length,
                            throttle,
-                           rn.verbose )
+                           rn.verbose,
+                           delay )
 
   rn.clients = append ( rn.clients, c )
 }

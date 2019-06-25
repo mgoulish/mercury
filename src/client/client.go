@@ -94,6 +94,8 @@ type Client struct {
 
   verbose              bool
 
+  delay                string
+
   status_file_name     string
 
 
@@ -124,7 +126,8 @@ func New_client ( name                  string,
                   n_messages            int,
                   max_message_length    int, 
                   throttle              string,
-                  verbose               bool ) ( * Client )  { 
+                  verbose               bool,
+                  delay                 string ) ( * Client )  { 
   var c * Client
 
   c = & Client { Name                  : name,
@@ -140,7 +143,8 @@ func New_client ( name                  string,
                  N_messages            : n_messages,
                  max_message_length    : max_message_length,
                  throttle              : throttle,
-                 verbose               : verbose }
+                 verbose               : verbose,
+                 delay                 : delay }
 
   if ! utils.Path_exists ( path ) {
     ume ( "client: executable path |%s| isn't there.", c.Path )
@@ -192,7 +196,8 @@ func ( c * Client ) Run ( ) {
           " --log " + c.log_file + 
           " --messages " + strconv.Itoa(c.N_messages) + 
           " --max_message_length " + strconv.Itoa(c.max_message_length) + 
-          " --throttle " + c.throttle 
+          " --throttle " + c.throttle +
+          " --delay " + c.delay
   for _, addr := range c.addrs {
     args += " --address " + addr
   }
