@@ -377,6 +377,7 @@ func ( r * Router ) write_config_file ( ) error {
 
   fp ( f, "router {\n" )
   fp ( f, "  workerThreads : %d\n", r.worker_threads )
+  // fp ( f, "  actionListCapacity : 131072\n" )  Franz test. TODO -- how do I paramaterize something like this?
   fp ( f, "  mode          : %s\n", r.router_type )
   fp ( f, "  id            : %s\n", r.name )
   fp ( f, "}\n" )
@@ -387,6 +388,7 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "}\n" )
 
   /*
+  For priority messaging.
   fp ( f, "address {\n" );
   fp ( f, "  prefix       : speedy\n" );
   fp ( f, "  distribution : closest\n" );
