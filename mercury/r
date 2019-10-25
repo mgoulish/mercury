@@ -1,17 +1,17 @@
 #! /usr/bin/bash
 
-rm /tmp/depth*  /tmp/mde* 
-
 
 export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
 
+SCRIPT=./basic
+
+echo "Using script ${SCRIPT}"
+sleep 2
 
 
-
-
-go run ./*.go ./franz
+go run ./*.go  ${SCRIPT}
 
 
 

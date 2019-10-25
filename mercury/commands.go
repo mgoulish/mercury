@@ -28,6 +28,7 @@ import (
   "time"
 
   "lisp"
+  "utils"
 )
 
 
@@ -230,6 +231,7 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
   apc                := cmd.argmap [ "apc"                ] . int_value
   cpa                := cmd.argmap [ "cpa"                ] . int_value
   delay              := cmd.argmap [ "delay"              ] . string_value
+  soak               := cmd.argmap [ "soak"               ] . string_value
 
   if apc > 1 && ! variable_address {
     ume ( "send: can't have apc > 1 but no variable address.\n" )
@@ -271,7 +273,8 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
                                 max_message_length,
                                 router_name,
                                 throttle,
-                                delay )
+                                delay,
+                                soak )
       umi ( merc.verbose,
             "send: added sender |%s| to router |%s|.",
             sender_name,
@@ -310,7 +313,8 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
                                 max_message_length,
                                 router_name,
                                 throttle,
-                                delay )
+                                delay,
+                                soak )
 
       merc.network.Add_Address_To_Client ( sender_name, final_addr )
 
@@ -347,7 +351,8 @@ func send ( merc * Merc, command_line * lisp.List, _ string ) {
                                 max_message_length,
                                 router_name,
                                 throttle,
-                                delay )
+                                delay,
+                                soak )
       merc.network.Add_Address_To_Client ( sender_name, final_addr )
 
       umi ( merc.verbose,
@@ -424,6 +429,8 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
   max_message_length := cmd.argmap [ "max_message_length" ] . int_value
   apc                := cmd.argmap [ "apc"                ] . int_value
   cpa                := cmd.argmap [ "cpa"                ] . int_value
+  delay              := cmd.argmap [ "delay"              ] . string_value
+  soak               := cmd.argmap [ "soak"               ] . string_value
 
   if apc > 1 && ! variable_address {
     ume ( "recv: can't have apc > 1 but no variable address.\n" )
@@ -457,7 +464,9 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
                                   config_path,
                                   n_messages,
                                   max_message_length,
-                                  router_name )
+                                  router_name,
+                                  delay,
+                                  soak )
       umi ( merc.verbose,
             "recv: added receiver |%s| to router |%s|.", 
             receiver_name,
@@ -499,7 +508,9 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
                                   config_path,
                                   n_messages,
                                   max_message_length,
-                                  router_name )
+                                  router_name,
+                                  delay,
+                                  soak )
       merc.network.Add_Address_To_Client ( receiver_name, final_addr )
                                   
 
@@ -534,7 +545,9 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
                                   config_path,
                                   n_messages,
                                   max_message_length,
-                                  router_name )
+                                  router_name,
+                                  delay,
+                                  soak )
       merc.network.Add_Address_To_Client ( receiver_name, final_addr )
 
 
@@ -556,10 +569,53 @@ func recv ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
+func ( merc * Merc ) find_standard_versions ( ) ( bool ) {
+
+  umi ( merc.verbose, "Looking for standard install paths...\n" )
+
+  standard_proton_root   := "/usr/local/lib64/proton"
+  standard_dispatch_root := "/usr/local/lib/qpid-dispatch"
+
+  target_path := standard_proton_root
+  if ! utils.Path_exists ( target_path ) {
+    umi ( merc.verbose, "Can't find standard proton root |%s|", target_path )
+    return false
+  }
+
+  target_path = standard_dispatch_root
+  if ! utils.Path_exists ( target_path ) {
+    umi ( merc.verbose, "Can't find standard dispatch root |%s|", target_path )
+    return false
+  }
+
+  target_path = "/usr/local/sbin/qdrouterd"
+  if ! utils.Path_exists ( target_path ) {
+    umi ( merc.verbose, "Can't find dispatch executable |%s|", target_path )
+    return false
+  }
+
+  return true
+}
+
+
+
+
+
 func routers ( merc  * Merc, command_line * lisp.List, _ string ) {
   if len(merc.network.Versions) < 1 {
-    ume ( "routers: You must define at least one version before creating routers." )
-    return
+    umi ( merc.verbose, "No versions provided: looking for standard install." )
+    if merc.find_standard_versions ( ) {
+      umi ( merc.verbose, "Standard install found." )
+      merc.network.Add_version_with_paths ( "standard",
+                                            "/usr/local/sbin/qdrouterd",
+                                            "/usr/local/lib/qpid-dispatch:/usr/local/lib64",
+                                            "/usr/local/lib/qpid-dispatch/python:/usr/local/lib/python2.7/site-packages",
+                                            "/usr/local/lib/qpid-dispatch/python" )
+     // TODO make ^^^ return successs bool, and check it!
+    } else {
+      umi ( merc.verbose, "Standard install not found -- exiting." )
+      os.Exit ( 1 )
+    }
   }
 
   cmd := merc.commands [ "routers" ]
@@ -1029,6 +1085,7 @@ func random_network ( merc  * Merc, command_line * lisp.List, _ string ) {
 
   if len(merc.network.Versions) < 1 {
     ume ( "routers: You must define at least one version before creating routers." )
+    os.Exit ( 1 )
     return
   }
 
@@ -1090,6 +1147,12 @@ func random_network ( merc  * Merc, command_line * lisp.List, _ string ) {
 //=======================================================================
 // End Topology Commands.
 //=======================================================================
+
+
+func init_only ( merc  * Merc, command_line * lisp.List, _ string ) {
+  merc.network.Init_only ( true )
+  umi ( merc.verbose, "init_only is set. Mercury will quit after writing config files." )
+}
 
 
 
@@ -1214,6 +1277,18 @@ func kill_and_restart ( merc * Merc, command_line * lisp.List, _ string ) {
     ume ( "kill_and_restart: no such router |%s|", router_name )
     return
   }
+}
+
+
+
+
+
+func set_results_path ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd  := merc.commands [ "set_results_path" ]
+  parse_command_line ( merc, cmd, command_line )
+  path := cmd.unlabelable_string.string_value
+
+  merc.network.Set_results_path ( path )
 }
 
 
@@ -1368,33 +1443,10 @@ func reset ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
-func example_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
-  // cmd := merc.commands [ "example_test_1" ]
-  var command_lines [] string
-
-  command_lines = append ( command_lines, "seed PID" )
-  command_lines = append ( command_lines, "verbose" )
-  command_lines = append ( command_lines, "version_roots name latest dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton" )
-  command_lines = append ( command_lines, "routers 1" )
-  command_lines = append ( command_lines, "send 1 A" )
-  command_lines = append ( command_lines, "recv A 1" )
-  command_lines = append ( command_lines, "run"      )
-  command_lines = append ( command_lines, "sleep 60" )
-  command_lines = append ( command_lines, "reset" )
-
-  // utils.Set_Top_Freq ( merc.cpu_freqs )
-
-  n_tests := 5
-  for test_number := 1; test_number <= n_tests; test_number ++ {
-    merc.network.Set_results_path ( merc.session.name + fmt.Sprintf ( "/results/iteration_%.3d", test_number ) )
-
-    fp ( os.Stdout, "===================================================\n" )
-    fp ( os.Stdout, "                    Test %d                        \n", test_number )
-    fp ( os.Stdout, "===================================================\n" )
-
-    for _, line := range command_lines {
-      process_line ( merc, line )
-    }
+func karrc ( merc * Merc, seconds int ) {
+  for {
+    time.Sleep ( time.Duration(seconds) * time.Second )
+    merc.network.Kill_and_restart_random_client ( )
   }
 }
 
@@ -1402,40 +1454,17 @@ func example_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
-func latency_test_1 ( merc * Merc, command_line * lisp.List, _ string ) {
-  // cmd := merc.commands [ "example_test_1" ]
-  var command_lines [] string
+// This is a command function, callable (like most of the functions in this file) 
+// from the Mercury interactive command line. All it does is launch a goroutine to handle 
+// this repeating action, and immediately return control to the cammand parser.
+func kill_and_restart_random_clients ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd := merc.commands [ "kill_and_restart_random_clients" ]
+  parse_command_line ( merc, cmd, command_line )
 
-  command_lines = append ( command_lines, "seed PID" )
-  command_lines = append ( command_lines, "verbose" )
-  command_lines = append ( command_lines, "version_roots name latest dispatch /home/mick/latest/install/dispatch proton /home/mick/latest/install/proton" )
-  command_lines = append ( command_lines, "routers 1" )
-  //command_lines = append ( command_lines, "recv A 100" )
-  command_lines = append ( command_lines, "run"      )
-  //command_lines = append ( command_lines, "sleep 10" )
-  //command_lines = append ( command_lines, "send 100 A" )
-  //command_lines = append ( command_lines, "run"      )
-  //command_lines = append ( command_lines, "sleep 60" )
-  //command_lines = append ( command_lines, "reset" )
+  seconds := cmd.unlabelable_int.int_value
+  umi ( merc.verbose, "kill_and_restart_random_clients: every %d seconds.", seconds )
 
-  n_tests := 1
-  for test_number := 1; test_number <= n_tests; test_number ++ {
-    merc.network.Set_results_path ( merc.session.name + fmt.Sprintf ( "/results/iteration_%.3d", test_number ) )
-
-    fp ( os.Stdout, "===================================================\n" )
-    fp ( os.Stdout, "                    Test %d                        \n", test_number )
-    fp ( os.Stdout, "===================================================\n" )
-
-    for _, line := range command_lines {
-      process_line ( merc, line )
-    }
-
-
-    // At this point the network should be running.
-    first_router_name := merc.network.First_router_name ( )
-    last_router_name  := merc.network.Last_router_name  ( )
-    fmt.Fprintf ( os.Stdout, "first |%s|   last |%s|\n", first_router_name, last_router_name )
-  }
+  go karrc ( merc, seconds )
 }
 
 

@@ -364,11 +364,17 @@ func main ( ) {
   // to have sudo NOPASSWD privileges,
   // and you need to have installed cpufrequtils.
   // i.e.   dnf install cpufrequtils
+  /*
+    TODO  This really just doesn't belong here
+          at all.Put it in a command or something,
+          and make it smart enough to tell the user
+          what's wrong if it doesn't work.
   merc.cpu_freqs = utils.Get_CPU_freqs ( )
   fp ( os.Stdout, "main: cpu freqs: \n" )
   for _, freq := range merc.cpu_freqs {
     fp ( os.Stdout, "   %s\n", freq )
   }
+  */
 
   // Put this outside of new_merc because in future we 
   // might want the choice of loading a session, based
@@ -682,7 +688,7 @@ func main ( ) {
 
   cmd.add_arg ( "throttle",
                 false,
-                "string",    // Just ... don't ask.
+                "string",
                 "0",
                 "How many msec between each sent message. " +
                 "0 means send as fast as possible." )
@@ -719,6 +725,13 @@ func main ( ) {
                 "0",
                 "How many seconds each sender should wait before starting to send." )
 
+  cmd.add_arg ( "soak",
+                false,
+                "string",
+                "false",
+                "If true, run a soak test. I.e. never stop sending regardless of n_messages." )
+
+
 
   // recv command -------------------------------------------------------
   cmd = merc.add_command ( "recv",
@@ -728,32 +741,32 @@ func main ( ) {
                 true,   // unlabelable
                 "string",
                 "",
-                "Which router the senders should attach to." )
+                "Which router the receivers should attach to." )
 
   cmd.add_arg ( "count",
                 true,   // unlabelable
                 "int",
                 "1",
-                "How many senders to make." )
+                "How many receivers to make." )
 
   cmd.add_arg ( "n_messages",
                 false,
                 "int",
                 "1000",
-                "How many messages to send." )
+                "How many messages to receive." )
 
   cmd.add_arg ( "edges",
                 false,
                 "string",
                 "",
                 "Add receivers to the edges of this router. " +
-                "i.e. 'edges A' means add senders to edges of router A." )
+                "i.e. 'edges A' means add receivers to edges of router A." )
 
   cmd.add_arg ( "address",
                 false,
                 "string",
                 "my_address",
-                "Address to send to. Embed a '%d' if you " +
+                "Address to receive from. Embed a '%d' if you " +
                 "want addresses to count up." )
 
   cmd.add_arg ( "start_at",
@@ -779,6 +792,24 @@ func main ( ) {
                 "int",
                 "1",
                 "Clients per address. Makes each address shared by N clients." )
+
+  cmd.add_arg ( "delay",
+                false,
+                "string",
+                "0",
+                "How many seconds each receiver waits before output of statistics at end of run." )
+
+  cmd.add_arg ( "soak",
+                false,
+                "string",
+                "false",
+                "If true, run a soak test. I.e. never stop receiving regardless of n_messages." )
+
+
+  // init_only command -------------------------------------------------------
+  cmd = merc.add_command ( "init_only",
+                            init_only,
+                            "Tell Mercury to initialize the network, and then quit." )
 
 
   // run command -------------------------------------------------------
@@ -845,6 +876,16 @@ func main ( ) {
                 "10",
                 "How long to pause, in seconds, after killing and before restarting." )
 
+  // set_results_path command -------------------------------------------------------
+  cmd = merc.add_command ( "set_results_path",
+                            set_results_path,
+                           "Set the dir path that will be used by all clients to store their results." )
+  cmd.add_arg ( "path",
+                true,   // unlabelable
+                "string",
+                "",
+                "The dir in which clients will write their results files." )
+
   // sleep command -------------------------------------------------------
   cmd = merc.add_command ( "sleep",
                             sleep,
@@ -882,18 +923,22 @@ func main ( ) {
                             wait_for_network,
                            "Wait for the network to settle down after being created or changed." )
 
-
-  // example_test_1 command -------------------------------------------------------
-  cmd = merc.add_command ( "example_test_1",
-                            example_test_1,
-                           "Macro: perform a small example test." )
-
-
-
   // reset command -------------------------------------------------------
   cmd = merc.add_command ( "reset",
                            reset,
                            "Restore Mercury to original conditions." )
+
+
+
+  // kill_and_restart_random_clients command -------------------------------------------------------
+  cmd = merc.add_command ( "kill_and_restart_random_clients",
+                           kill_and_restart_random_clients,
+                           "Evenry N seconds, choose a random client. Kill and restart it." )
+  cmd.add_arg ( "seconds",
+                true,   // unlabelable
+                "int",
+                "60",
+                "The number of seconds until forced failure." )
 
 
 

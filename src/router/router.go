@@ -377,7 +377,7 @@ func ( r * Router ) write_config_file ( ) error {
 
   fp ( f, "router {\n" )
   fp ( f, "  workerThreads : %d\n", r.worker_threads )
-  // fp ( f, "  actionListCapacity : 131072\n" )  Franz test. TODO -- how do I paramaterize something like this?
+  // fp ( f, "  actionListCapacity : 131072\n" )   TEMP -- Franz lock-free
   fp ( f, "  mode          : %s\n", r.router_type )
   fp ( f, "  id            : %s\n", r.name )
   fp ( f, "}\n" )
@@ -387,14 +387,11 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  distribution : closest\n" );
   fp ( f, "}\n" )
 
-  /*
-  For priority messaging.
   fp ( f, "address {\n" );
   fp ( f, "  prefix       : speedy\n" );
   fp ( f, "  distribution : closest\n" );
   fp ( f, "  priority     : 8\n" );
   fp ( f, "}\n" )
-  */
 
   fp ( f, "address {\n" );
   fp ( f, "  prefix       : balanced\n" );
@@ -410,19 +407,13 @@ func ( r * Router ) write_config_file ( ) error {
 
   fp ( f, "log {\n" )
   fp ( f, "  outputFile    : %s\n", r.Log_file_path )
+  // TODO -- make this available from the top.
   // Use this if you want no output.
   //fp ( f, "  enable        : none\n" )
   fp ( f, "  includeSource : true\n" )
   fp ( f, "  module        : DEFAULT\n" )
+  // fp ( f, "  enable        : trace+\n" )   TODO 
   fp ( f, "}\n" )
-
-  /*
-  link_capacity := 250
-  if r.name == "E" {
-    link_capacity = 10000
-    fp ( os.Stdout, "ingress router  client linkCap == %d\n", link_capacity )
-  }
-  */
 
   // The Client Listener -----------------
   fp ( f, "listener {\n" )
@@ -433,7 +424,6 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  idleTimeoutSeconds : 120\n")
   fp ( f, "  saslMechanisms     : ANONYMOUS\n")
   fp ( f, "  authenticatePeer   : no\n")
-  //fp ( f, "  linkCapacity       : %d\n", link_capacity )
   fp ( f, "}\n")
 
   // The Console Listener -----------------
@@ -446,7 +436,6 @@ func ( r * Router ) write_config_file ( ) error {
   fp ( f, "  saslMechanisms     : ANONYMOUS\n")
   fp ( f, "  authenticatePeer   : no\n")
   fp ( f, "  http               : true\n")
-  //fp ( f, "  httpRoot           : %s\n", r.console_path)
   fp ( f, "}\n")
 
   // The Router Listener -----------------

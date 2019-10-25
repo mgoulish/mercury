@@ -25,6 +25,7 @@ import ( "errors"
          "io/ioutil"
          "os"
          "strings"
+         "math/rand"
          "sync"
          "time"
 
@@ -93,33 +94,46 @@ func check_path ( name string, path string, must_exist bool ) {
 
 func new_version_with_roots ( name          string,
                               dispatch_root string,
-                              proton_root   string ) * Version {
+                              proton_root   string,
+                              verbose       bool ) * Version {
+
+  // First make sure that what the caller gave us is real.
+  check_path ( "dispatch root", dispatch_root, true )
+  check_path ( "proton root",   proton_root,   true )
 
   v := & Version { Name          : name,
                    dispatch_root : dispatch_root,
                    proton_root   : proton_root } 
-
   v.Router_path = dispatch_root + "/sbin/qdrouterd"
+  check_path ( "router path", v.Router_path, true )
 
   // Calculate LD_LIBRARY_PATH for this version.
   DISPATCH_LIBRARY_PATH := v.dispatch_root + "/lib"
   PROTON_LIBRARY_PATH   := v.proton_root   + "/lib64"
   v.Ld_library_path      = DISPATCH_LIBRARY_PATH +":"+ PROTON_LIBRARY_PATH
+  check_path ( "dispatch library path", DISPATCH_LIBRARY_PATH, true )
+  check_path (   "proton library path",   PROTON_LIBRARY_PATH, true )
+
 
   // Calculate PYTHONPATH for this version.
   DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
   DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
   PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH   + "/proton/bindings/python"
+  check_path ( "dispatch python path",  DISPATCH_PYTHONPATH,  true )
+  check_path ( "dispatch pythonpath 2", DISPATCH_PYTHONPATH2, true )
+  check_path ( "proton python path",    PROTON_PYTHONPATH,    true )
 
   v.Pythonpath          =  DISPATCH_PYTHONPATH +":"+ DISPATCH_PYTHONPATH2 +":"+ PROTON_LIBRARY_PATH +":"+ PROTON_PYTHONPATH
   v.Console_path        =  v.dispatch_root + "/share/qpid-dispatch/console"
   v.Include_path        =  v.dispatch_root + "/lib/qpid-dispatch/python"
+  check_path ( "include path", v.Include_path, true )
+  check_path ( "console path", v.Console_path, false ) // The console is an optional install.
 
-  check_path ( "dispatch_root", v.dispatch_root, true )
-  check_path ( "proton_root",   v.proton_root,   true )
-  check_path ( "Router_path",   v.Router_path,   true )
-  check_path ( "Include_path",  v.Include_path,  true )
-  check_path ( "Console_path",  v.Console_path,  false )
+  umi ( verbose, "router path     |%s|", v.Router_path )
+  umi ( verbose, "ld library path |%s|", v.Ld_library_path )
+  umi ( verbose, "python path     |%s|", v.Pythonpath )
+  umi ( verbose, "include path    |%s|", v.Include_path )
+  umi ( verbose, "console path    |%s|", v.Console_path )
 
   return v
 }
@@ -131,12 +145,31 @@ func new_version_with_roots ( name          string,
 func new_version_with_paths ( name            string,
                               router_path     string,
                               pythonpath      string,
-                              ld_library_path string ) * Version {
+                              ld_library_path string,
+                              include_path    string ) * Version {
 
   v := & Version { Name            : name,
                    Router_path     : router_path,
                    Pythonpath      : pythonpath,
-                   Ld_library_path : ld_library_path }
+                   Ld_library_path : ld_library_path,
+                   Include_path    : include_path }
+
+  check_path ( "Router_path",     router_path,     true )
+  //check_path ( "Pythonpath",      pythonpath,      true )
+  check_path ( "Include_path",    include_path,    true )
+  // check_path ( "Ld_library_path", ld_library_path, true )
+
+  var paths = strings.Split ( pythonpath, ":")
+  for _, path := range paths  {
+    check_path ( "Pythonpath", path, true )
+  }
+
+  paths = strings.Split ( ld_library_path, ":")
+  for _, path := range paths  {
+    check_path ( "Ld_library_path", path, true )
+  }
+
+
 
   // In this constructor, the two 'roots' 
   // are left nil. They will never be used.
@@ -181,6 +214,26 @@ type Router_network struct {
 
   Failsafe                    int
   failsafe_timer            * time.Ticker
+
+  init_only                   bool
+}
+
+
+
+
+
+func ( rn * Router_network ) Kill_and_restart_random_client ( ) {
+  n_clients := len ( rn.clients )
+  if n_clients <= 0 {
+    ume ( "router_network.Kill_and_restart_random_client error: no clients.\n" )
+    return
+  }
+
+  client_number := rand.Intn ( n_clients )
+  fp ( os.Stdout,  "Kill_and_restart_random_client: %d\n", client_number )
+
+  client := rn.clients [ client_number ]
+  client.Kill_and_restart ( 15 )
 }
 
 
@@ -205,6 +258,14 @@ func ( rn * Router_network ) Last_router_name ( ) ( string ) {
 
 
 
+func ( rn * Router_network ) Init_only ( val bool ) {
+  rn.init_only = val
+}
+
+
+
+
+
 func ( rn * Router_network ) Reset ( ) {
   rn.Halt ( )
   rn.Running         = false
@@ -216,6 +277,7 @@ func ( rn * Router_network ) Reset ( ) {
   rn.n_senders       = 0
   rn.Failsafe        = 0
   rn.failsafe_timer  = nil
+  rn.init_only       = false
 }
 
 
@@ -249,7 +311,8 @@ func New_router_network ( name         string,
 
   rn.client_path = mercury_root + "/clients/c_proactor_client" 
   if ! utils.Path_exists ( rn.client_path  ) {
-    ume ( "network error; client path |%s| does not exist.", rn.client_path )
+    ume ( "network error; client path |%s| does not exist. It probably needs to be built.", 
+          rn.client_path )
     os.Exit ( 1 )
   }
 
@@ -275,8 +338,10 @@ func ( rn * Router_network ) Add_version_with_roots ( name          string,
                                                       proton_root   string,
                                                       dispatch_root string ) {
 
-  version := new_version_with_roots ( name, dispatch_root, proton_root )
+  version := new_version_with_roots ( name, dispatch_root, proton_root, rn.verbose )
   rn.Versions = append ( rn.Versions, version )
+
+  // If this is the first one, make it the default.
   if 1 == len ( rn.Versions ) {
     rn.Default_version = version
   }
@@ -288,11 +353,21 @@ func ( rn * Router_network ) Add_version_with_roots ( name          string,
 
 func ( rn * Router_network ) Add_version_with_paths ( name            string,
                                                       router_path     string,
+                                                      ld_library_path string,
                                                       pythonpath      string,
-                                                      ld_library_path string ) {
+                                                      include_path    string ) {
 
-  version := new_version_with_paths ( name, router_path, pythonpath, ld_library_path )
+  version := new_version_with_paths ( name, 
+                                      router_path, 
+                                      pythonpath, 
+                                      ld_library_path,
+                                      include_path )
   rn.Versions = append ( rn.Versions, version )
+
+  // If this is the first one, make it the default.
+  if 1 == len ( rn.Versions ) {
+    rn.Default_version = version
+  }
 }
 
 
@@ -488,10 +563,11 @@ func ( rn * Router_network ) Add_receiver ( name               string,
                                             config_path        string,
                                             n_messages         int, 
                                             max_message_length int, 
-                                            router_name        string ) {
+                                            router_name        string,
+                                            delay              string,
+                                            soak               string ) {
 
   throttle := "0" // Receivers do not get throttled.
-  delay    := "0" // Receivers do not have delays.
 
   rn.add_client ( name, 
                   config_path,
@@ -501,7 +577,8 @@ func ( rn * Router_network ) Add_receiver ( name               string,
                   max_message_length, 
                   router_name, 
                   throttle,
-                  delay )
+                  delay,
+                  soak )
 }
 
 
@@ -514,7 +591,8 @@ func ( rn * Router_network ) Add_sender ( name               string,
                                           max_message_length int, 
                                           router_name        string, 
                                           throttle           string,
-                                          delay              string ) {
+                                          delay              string,
+                                          soak               string ) {
   rn.add_client ( name, 
                   config_path,
                   rn.results_path,
@@ -523,7 +601,8 @@ func ( rn * Router_network ) Add_sender ( name               string,
                   max_message_length, 
                   router_name, 
                   throttle,
-                  delay )
+                  delay,
+                  soak )
 }
 
 
@@ -538,7 +617,9 @@ func ( rn * Router_network ) add_client ( name               string,
                                           max_message_length int, 
                                           router_name        string, 
                                           throttle           string,
-                                          delay              string ) {
+                                          delay              string,
+                                          soak               string ) {
+
 
   var operation string
   if sender {
@@ -577,7 +658,8 @@ func ( rn * Router_network ) add_client ( name               string,
                            max_message_length,
                            throttle,
                            rn.verbose,
-                           delay )
+                           delay,
+                           soak )
 
   rn.clients = append ( rn.clients, c )
 }
@@ -664,6 +746,10 @@ func ( rn * Router_network ) Init ( ) {
   }
   
   umi ( rn.verbose, "Network is initialized." )
+  if rn.init_only {
+    umi ( rn.verbose, "Init only is set : halting." )
+    os.Exit ( 0 )
+  }
 }
 
 

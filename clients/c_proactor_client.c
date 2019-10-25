@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 #include <proton/codec.h>
 #include <proton/delivery.h>
 #include <proton/engine.h>
@@ -44,6 +43,10 @@
 #include <unistd.h>
 
 
+
+#define BUGALERT_MESSAGE_LENGTHS   100
+
+
 static
 double
 get_timestamp ( void )
@@ -58,7 +61,7 @@ get_timestamp ( void )
 
 #define MAX_NAME   100
 #define MAX_ADDRS  1000
-#define MAX_MESSAGE 1000000
+#define MAX_MESSAGE 2000000
 
 
 typedef
@@ -95,17 +98,19 @@ struct context_s
   char            * port;
   char            * log_file_name;
   FILE            * log_file;
-  int               messages_sent;
   
-  int               received,
-                    accepted,
+  int               sent,             // reset periodically during soak test.
+                    received,         // reset periodically during soak test.
+                    accepted,         // reset periodically during soak test.
+                    total_sent,
+                    total_received,
+                    total_accepted,
                     rejected,
                     released,
                     modified;
 
   pn_message_t    * message;
-  uint64_t          total_bytes_sent,
-                    total_bytes_received;
+
   //
   // expected_messages is per address.
   // total_expected_messages is for all of them put together.
@@ -129,7 +134,10 @@ struct context_s
                     send_start_time,
                     stop_time;
 
-  bool              doing_throughput;
+  bool              dumped_flight_times;
+  bool              soak;
+
+  int               report_frequency;
 }
 context_t,
 * context_p;
@@ -160,6 +168,49 @@ log ( context_p context, char const * format, ... )
 
 
 void
+log_no_timestamp ( context_p context, char const * format, ... )
+{
+  if ( ! context->log_file )
+    return;
+
+  va_list ap;
+  va_start ( ap, format );
+  vfprintf ( context->log_file, format, ap );
+  va_end ( ap );
+  fflush ( context->log_file );
+}
+
+
+
+
+
+void 
+halt ( context_p context )
+{
+  if ( context->connection )
+    pn_connection_close(context->connection);
+  if ( context->listener )
+    pn_listener_close(context->listener);
+}
+
+
+
+
+
+void
+reset_stats ( context_p context )
+{
+  context->sent           = 0;
+  context->received       = 0;
+  context->accepted       = 0;
+  context->n_flight_times = 0;
+}
+
+
+
+
+
+void
 dump_flight_times ( context_p context )
 {
   // Only receivers store and then dump their flight times.
@@ -174,6 +225,8 @@ dump_flight_times ( context_p context )
     return;
   }
 
+  log ( context, "Dumping %d flight times.\n", context->n_flight_times );
+
   char default_file_name[1000];
   char * file_name = context->flight_times_file_name;
 
@@ -183,7 +236,9 @@ dump_flight_times ( context_p context )
     file_name = default_file_name;
   }
 
-  FILE * fp = fopen ( file_name, "w" );
+  // Append to the file, because in the case of soak tests
+  // we are doing this repeatedly.
+  FILE * fp = fopen ( file_name, "a" );
   for ( int i = 0; i < context->n_flight_times; i ++ )
   {
     fprintf ( fp, 
@@ -193,6 +248,9 @@ dump_flight_times ( context_p context )
             );
   }
   fclose ( fp );
+
+  context->dumped_flight_times = true;
+  reset_stats ( context );
 }
 
 
@@ -243,9 +301,19 @@ make_timestamped_message ( context_p context )
 {
   double ts = get_timestamp();
 
-  context->message_length = 100;
+  context->message_length = BUGALERT_MESSAGE_LENGTHS;  
   memset ( context->outgoing_buffer, 'x', context->message_length );
   sprintf ( context->outgoing_buffer, "%.7lf", ts );
+}
+
+
+
+
+
+void
+write_report ( )
+{
+  dump_flight_times ( context_g );
 }
 
 
@@ -293,16 +361,37 @@ store_flight_time ( context_p context, double flight_time, double recv_time )
   context->flight_times [ context->n_flight_times ] = flight_time;
   context->time_stamps  [ context->n_flight_times ] = recv_time;
   context->n_flight_times ++;
-}
 
-
-
-
-
-void
-write_report ( )
-{
-  dump_flight_times ( context_g );
+  if ( context->n_flight_times >= context->max_flight_times )
+  {
+    {
+      // If we are doing a soak-test there is no need for a delay before 
+      // writing the report. Soak-tests are not performance tests. And a 
+      // delay wouldn't help anyway, since the otehr clients are still 
+      // working.
+      if ( context->soak )
+      {
+        if ( ! context->sending )
+        {
+          dump_flight_times ( context );
+        }
+      }
+      else
+      {
+        // Use the same delay that we use at start-up, here at the
+        // end to avoid dumping stats while other clients are still
+        // running.
+        int delay = context->delay;
+        log ( context, "Dumping flight times in %d seconds.\n", delay );
+        struct itimerval timer;
+        timer.it_value.tv_sec  = delay;
+        timer.it_value.tv_usec =  0;
+        timer.it_interval = timer.it_value;
+        signal ( SIGALRM, (void (*)(int)) write_report );
+        setitimer ( ITIMER_REAL, & timer, NULL );
+      }
+    }
+  }
 }
 
 
@@ -337,7 +426,7 @@ decode_message ( context_p context, pn_delivery_t * delivery )
   }
   else
   {
-    char temp[1000];
+    char temp[200000];
     char * dst = temp;
     pn_string_t *s = pn_string ( NULL );
     pn_inspect ( pn_message_body(msg), s );
@@ -346,34 +435,21 @@ decode_message ( context_p context, pn_delivery_t * delivery )
     const char * message_content = pn_string_get(s);
     const char * src = message_content + 1; // first char is a double-quote!
 
+    // log ( context, "received %d bytes.\n", strlen(message_content) );
+
+    // BUGALERT
     while ( *src != 'x' && *src != '\\' )
       * dst ++ = * src ++;
     * dst = 0;
 
     sscanf ( temp, "%lf", & send_timestamp );
-    context->total_bytes_received += strlen ( message_content );
     pn_free ( s );
 
-    double flight_time = receive_timestamp - send_timestamp;
-    store_flight_time ( context, flight_time, receive_timestamp );
-
-    if ( context->n_flight_times >= context->max_flight_times )
+    if ( ! context->sending ) 
     {
-      // Only receivers record their flight times.
-      if ( ! context->sending ) 
-      {
-        // Use the same delay that we use at start-up, here at the
-        // end to avoid dumping stats while other clients are still
-        // running.
-        int delay = context->delay;
-        log ( context, "Dumping flight times in %d seconds.\n", delay );
-        struct itimerval timer;
-        timer.it_value.tv_sec  = delay;
-        timer.it_value.tv_usec =  0;
-        timer.it_interval = timer.it_value;
-        signal ( SIGALRM, (void (*)(int)) write_report );
-        setitimer ( ITIMER_REAL, & timer, NULL );
-      }
+      // Only receivers record message flight times.
+      double flight_time = receive_timestamp - send_timestamp;
+      store_flight_time ( context, flight_time, receive_timestamp );
     }
   }
 }
@@ -402,7 +478,7 @@ send_message ( context_p context )
   // We are about to send a message.
   // If this is the first one, record this as the start-time
   // to be used for throughput measurement.
-  if ( context->messages_sent == 0 )
+  if ( context->sent == 0 )
   {
     context->send_start_time = get_timestamp();
   }
@@ -414,19 +490,19 @@ send_message ( context_p context )
     if ( ! link )
     {
       // No send link yet.
+      log ( context, "no send link yet.\n" );
       return;
     }
 
    // Set messages ID from sent count.
     pn_atom_t id_atom;
     char id_string [ 20 ];
-    sprintf ( id_string, "%d", context->messages_sent );
+    sprintf ( id_string, "%d", context->sent );
     id_atom.type = PN_STRING;
     id_atom.u.as_bytes = pn_bytes ( strlen(id_string), id_string );
     pn_message_set_id ( context->message, id_atom );
 
 
-    // make_random_message ( context );
     make_timestamped_message ( context );
     pn_data_t * body = pn_message_body ( context->message );
     pn_data_clear ( body );
@@ -436,31 +512,28 @@ send_message ( context_p context )
     pn_data_exit ( body );
     size_t outgoing_size = encode_outgoing_message ( context );
 
+    // log ( context, "sending %d bytes.\n", outgoing_size );
+
     pn_delivery ( link, 
-                  pn_dtag ( (const char *) & context->messages_sent, sizeof(context->messages_sent) ) 
+                  pn_dtag ( (const char *) & context->sent, sizeof(context->sent) ) 
                 );
     pn_link_send ( link, 
                    context->outgoing_buffer, 
                    outgoing_size 
                  );
 
-    if ( context->messages_sent == 0 )
+    if ( context->total_sent == 0 )
     {
       log ( context, "first_send\n" );
     }
 
-    context->messages_sent ++;
+    context->sent       ++;
+    context->total_sent ++;
 
-    /*
-    if ( ! ( context->messages_sent % 1000 ) )
-    {
-      log ( context, "sent %d\n", context->messages_sent );
-    }
-    */
+    // log ( context, "%d messages sent.\n", context->total_sent );
 
-    // log ( context, "sent: %d\n", context->messages_sent );
+
     pn_link_advance ( link );
-    context->total_bytes_sent += outgoing_size;
   }
 }
 
@@ -545,7 +618,6 @@ process_event ( context_p context, pn_event_t * event )
       if ( pn_link_is_receiver ( event_link ) )
       {
         pn_link_flow ( event_link, context->credit_window );
-        // log ( context, "receiver sent flow of %d\n", context->credit_window );
       }
     break;
 
@@ -554,10 +626,16 @@ process_event ( context_p context, pn_event_t * event )
     {
       if ( context->throttle > 0 )
       {
-        if ( context->messages_sent < context->total_expected_messages )
+        if ( context->total_sent < context->total_expected_messages || context->soak )
         {
           send_message ( context );
           pn_proactor_set_timeout ( context->proactor, context->throttle );
+        }
+
+        if ( context->sent >= context->total_expected_messages )
+        {
+          // log ( context, "%d messages sent.\n", context->total_sent );
+          reset_stats ( context );
         }
       }
       break;
@@ -580,7 +658,9 @@ process_event ( context_p context, pn_event_t * event )
 
       if ( context->throttle > 0 )
       {
-        if ( context->messages_sent < context->total_expected_messages )
+        // If the throttle setting is greater than 0, we are throttling, 
+        // which means using the timeout-and-wake mechanism to send messages.
+        if ( context->sent < context->total_expected_messages )
         {
           if ( pn_link_is_sender(event_link) )
           {
@@ -590,9 +670,11 @@ process_event ( context_p context, pn_event_t * event )
       }
       else
       {
-        if ( pn_link_is_sender(event_link) && context->messages_sent < context->total_expected_messages )
+        // When we are *not* throttling, that means we send messages as fast as 
+        // we are allowed to by the amount of credit available.
+        if ( pn_link_is_sender(event_link) )
         {
-          while ( pn_link_credit ( event_link ) > 0 && context->messages_sent < context->total_expected_messages )
+          while ( pn_link_credit ( event_link ) > 0 && context->sent < context->total_expected_messages )
             send_message ( context );
         }
       }
@@ -607,22 +689,27 @@ process_event ( context_p context, pn_event_t * event )
       if ( pn_link_is_sender ( event_link ) ) 
       {
         int state = pn_delivery_remote_state(event_delivery);
+        // Whatever happens here, we always want to settle.
+        pn_delivery_settle ( event_delivery );
+
         switch ( state ) 
         {
           case PN_RECEIVED:
-            context->received ++;
           break;
 
           case PN_ACCEPTED:
             context->accepted ++;
+            context->total_accepted ++;
 
-            /*
-            if (! (context->accepted % 100 ) )
+            if ( context->total_accepted >= context->total_expected_messages && (! context->soak) )
             {
-              log ( context, "accepted: %d\n", context->accepted );
+              double send_stop_time = get_timestamp();
+              double total_time = send_stop_time - context->send_start_time;
+              double throughput = context->total_accepted / total_time;
+              log ( context, "%d messages accepted. sender halting.\n", context->total_accepted );
+              log ( context, "throughput %.3lf\n", throughput );
+              halt ( context );
             }
-            */
-
           break;
 
           case PN_REJECTED:
@@ -641,23 +728,6 @@ process_event ( context_p context, pn_event_t * event )
             log ( context, "error : unknown remote state! %d\n", state );
           break;
         }
-
-        pn_delivery_settle ( event_delivery );
-
-        if ( context->accepted + context->released + context->modified >= context->total_expected_messages) 
-        {
-          // Calculate throughput.
-          context->stop_time = get_timestamp();
-          double duration = context->stop_time - context->send_start_time;
-          double messages_per_second = double(context->total_expected_messages) / duration;
-          log ( context, "throughput: %.3lf messages per second.\n", messages_per_second );
-
-          if ( context->connection )
-            pn_connection_close(context->connection);
-          if ( context->listener )
-            pn_listener_close(context->listener);
-          break;
-        }
       }
       else 
       if ( pn_link_is_receiver ( event_link ) )
@@ -674,9 +744,13 @@ process_event ( context_p context, pn_event_t * event )
 
         // As the receiver, we only count that a message has been received.
         context->received ++;
+        context->total_received ++;
 
-        //if ( ! (context->received % 100 ) )
-          //log ( context, "received %d\n", context->received );
+        if ( ! ( context->total_received % 10 ) )
+        {
+          log ( context, "%d messages received.\n", context->total_received );
+        }
+
 
         int index = find_addr ( context, event_link );
         if ( index < 0 )
@@ -689,14 +763,18 @@ process_event ( context_p context, pn_event_t * event )
           context->addrs[index].messages ++;
         }
 
-
+        // We are the receiver. If we have received enough messages
+        // we either dump stats and keep going, or halt.
         if ( context->received >= context->total_expected_messages) 
         {
-          if ( context->connection )
-            pn_connection_close(context->connection);
-          if ( context->listener )
-            pn_listener_close(context->listener);
-          break;
+          dump_flight_times ( context );
+          if ( ! context->soak )
+          {
+            log ( context, "%d messages received. receiver halting.\n", context->total_received );
+            log ( context, "%d total expected.\n", context->total_expected_messages );
+            halt ( context );
+            break;
+          }
         }
         pn_link_flow ( event_link, context->credit_window - pn_link_credit(event_link) );
       }
@@ -752,19 +830,21 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->sending                 = 0;
   context->link_count              = 0;
-  context->messages_sent           = 0;
 
+  context->sent                    = 0;
   context->received                = 0;
   context->accepted                = 0;
   context->rejected                = 0;
   context->released                = 0;
   context->modified                = 0;
 
+  context->total_sent              = 0;
+  context->total_received          = 0;
+  context->total_accepted          = 0;
+
   context->log_file_name           = 0;
   context->log_file                = 0;
   context->message                 = 0;
-  context->total_bytes_sent        = 0;
-  context->total_bytes_received    = 0;
 
   context->expected_messages       = 0;
   context->total_expected_messages = 0;
@@ -778,7 +858,9 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->grand_start_time        = get_timestamp();
 
-  context->doing_throughput        = false;
+  context->dumped_flight_times     = false;
+  context->soak                    = false;
+  context->report_frequency        = 10000;
 
 
   for ( int i = 1; i < argc; ++ i )
@@ -883,11 +965,15 @@ init_context ( context_p context, int argc, char ** argv )
       context->expected_messages = atoi ( NEXT_ARG );
       i ++;
     }
-    // throughput ----------------------------------------------
+    // soak ----------------------------------------------
     else
-    if ( ! strcmp ( "--throughput", argv[i] ) )
+    if ( ! strcmp ( "--soak", argv[i] ) )
     {
-      context->doing_throughput = true;
+      context->soak = true;
+      // If 'soak' is set, the test will run forever. (Well, it will 
+      // run until something stops it.) In this case the --messages flag
+      // is still used -- but it only controls how many flight times are
+      // stored until they are dumped. Then the array starts to fill again.
     }
     // unknown ----------------------------------------------
     else
@@ -896,6 +982,32 @@ init_context ( context_p context, int argc, char ** argv )
       exit ( 1 );
     }
   }
+}
+
+
+
+
+
+void
+log_context ( context_p context )
+{
+  log_no_timestamp ( context, "context\n" );
+  log_no_timestamp ( context, "{\n" );
+  for ( int i = 0; i < context->n_addrs; i ++ )
+  {
+    log_no_timestamp ( context, "  address   : |%s|\n", context->addrs[i].path );
+  }
+  log_no_timestamp ( context, "  throttle           : %d\n", context->throttle );
+  log_no_timestamp ( context, "  delay              : %d\n", context->delay );
+
+  log_no_timestamp ( context, "  operation          : %s\n", context->sending ? "sending" : "receiving" );
+  log_no_timestamp ( context, "  name               : %s\n", context->name );
+  log_no_timestamp ( context, "  max_message_length : %d\n", context->max_send_length );
+  log_no_timestamp ( context, "  port               : %s\n", context->port );
+  log_no_timestamp ( context, "  log                : %s\n", context->log_file_name );
+  log_no_timestamp ( context, "  messages           : %d\n", context->expected_messages );
+  log_no_timestamp ( context, "  soak               : %s\n", context->soak ? "true" : "false" );
+  log_no_timestamp ( context, "}\n" );
 }
 
 
@@ -913,7 +1025,11 @@ main ( int argc, char ** argv )
 
   if ( context.log_file_name ) 
   {
-    context.log_file = fopen ( context.log_file_name, "w" );
+    // Open the log file for append, because in some tests
+    // this client (i.e. the client with this name) will
+    // get killed and restarted. We want to see everything 
+    // from all the instantiations.
+    context.log_file = fopen ( context.log_file_name, "a" );
   }
   log ( & context, "start\n" );
 
@@ -924,16 +1040,18 @@ main ( int argc, char ** argv )
   }
 
   context.total_expected_messages = context.expected_messages * context.n_addrs;
-  log ( & context, "total_expected_messages == %d\n", context.total_expected_messages );
+  log_context ( & context );
   context.flight_times    = (double *) malloc ( sizeof(double) * context.total_expected_messages );
   context.time_stamps     = (double *) malloc ( sizeof(double) * context.total_expected_messages );
   context.max_flight_times = context.total_expected_messages;
   context.n_flight_times   = 0;
 
+  log ( & context, "BUGALERT !  using fixed message lengths of size %d\n", BUGALERT_MESSAGE_LENGTHS );
+
   // Make the max send length larger than the max receive length 
   // to account for the extra header bytes.
-  context.max_receive_length   = 1000;
-  context.outgoing_buffer_size = 1000;
+  context.max_receive_length   = 2000000;
+  context.outgoing_buffer_size = 2000000;
   context.outgoing_buffer = (char *) malloc ( context.outgoing_buffer_size );
 
   context.message = pn_message();
@@ -961,7 +1079,12 @@ main ( int argc, char ** argv )
     pn_proactor_done ( context.proactor, events );
   }
 
-  write_report ( );
+  while ( ! context.dumped_flight_times )
+  {
+    sleep ( 1 );
+  }
+
+  log ( & context, "client exiting.\n" );
 
   return 0;
 }
