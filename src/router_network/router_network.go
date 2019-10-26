@@ -24,6 +24,7 @@ import ( "errors"
          "fmt"
          "io/ioutil"
          "os"
+         "os/exec"
          "strings"
          "math/rand"
          "sync"
@@ -57,6 +58,21 @@ type Version struct {
   Include_path    string
 }
 
+
+
+
+func ( v * Version ) Print_version ( ) {
+  fp ( os.Stdout, "Version -----------------------------\n" )
+  fp ( os.Stdout, "  Name             |%s|\n", v.Name             )
+  fp ( os.Stdout, "  dispatch_root    |%s|\n", v.dispatch_root    )
+  fp ( os.Stdout, "  proton_root      |%s|\n", v.proton_root      )
+  fp ( os.Stdout, "  Router_path      |%s|\n", v.Router_path      )
+  fp ( os.Stdout, "  Pythonpath       |%s|\n", v.Pythonpath       )
+  fp ( os.Stdout, "  Ld_library_path  |%s|\n", v.Ld_library_path  )
+  fp ( os.Stdout, "  Console_path     |%s|\n", v.Console_path     )
+  fp ( os.Stdout, "  Include_path     |%s|\n", v.Include_path     )
+  fp ( os.Stdout, "----------------------------- end Version\n" )
+}
 
 
 
@@ -142,50 +158,14 @@ func new_version_with_roots ( name          string,
 
 
 
-func new_version_with_paths ( name            string,
-                              router_path     string,
-                              pythonpath      string,
-                              ld_library_path string,
-                              include_path    string ) * Version {
-
-  v := & Version { Name            : name,
-                   Router_path     : router_path,
-                   Pythonpath      : pythonpath,
-                   Ld_library_path : ld_library_path,
-                   Include_path    : include_path }
-
-  check_path ( "Router_path",     router_path,     true )
-  //check_path ( "Pythonpath",      pythonpath,      true )
-  check_path ( "Include_path",    include_path,    true )
-  // check_path ( "Ld_library_path", ld_library_path, true )
-
-  var paths = strings.Split ( pythonpath, ":")
-  for _, path := range paths  {
-    check_path ( "Pythonpath", path, true )
-  }
-
-  paths = strings.Split ( ld_library_path, ":")
-  for _, path := range paths  {
-    check_path ( "Ld_library_path", path, true )
-  }
-
-
-
-  // In this constructor, the two 'roots' 
-  // are left nil. They will never be used.
-  return v
-}
-
-
-
-
-
 type Router_network struct {
   Name                        string
   Running                     bool
 
   results_path                string
   log_path                    string
+
+  mercury_root                string
 
   /*
     The Network, rather than the Version has
@@ -297,6 +277,52 @@ func ( rn * Router_network ) get_client_by_name ( target_name string ) ( * clien
 
 
 
+func ( rn * Router_network )  Build_clients ( ) {
+
+  client_dir  := rn.mercury_root + "/clients"
+  client_name := "c_proactor_client"
+  rn.client_path = client_dir + "/" + client_name
+
+  if ! utils.Path_exists ( rn.client_path  ) {
+    fp ( os.Stdout, "Client |%s| does not exist. Building...\n", rn.client_path )
+    proton_include_path := rn.Default_version.proton_root + "/include"
+    proton_link_path    := rn.Default_version.proton_root + "/lib64"
+
+    // Compile --------------------------------------------------------
+    command_name := "g++"
+    args         := "-fpermissive -O3 -I" + proton_include_path + " -c c_proactor_client.c"
+    args_list    := strings.Fields ( args )
+    cmd          := exec.Command ( command_name, args_list... )
+    cmd.Dir       = client_dir
+    out, err     := cmd.Output ( )
+    if err != nil {
+      fp ( os.Stderr, "New_router_network error : Can't compile c_proactor_client. |%s|\n", err.Error() )
+      fp ( os.Stderr, "  command output: |%s|\n", out )
+      os.Exit ( 1 )
+    }
+
+    // Link --------------------------------------------------------
+    command_name = "g++"
+    args         = "-o c_proactor_client -L" + proton_link_path + " c_proactor_client.o -lqpid-proton -lpthread"
+    args_list    = strings.Fields ( args )
+    cmd          = exec.Command ( command_name, args_list... )
+    cmd.Dir      = client_dir
+    out, err     = cmd.Output ( )
+    if err != nil {
+      fp ( os.Stderr, "New_router_network error : Can't link c_proactor_client. |%s|\n", err.Error() )
+      fp ( os.Stderr, "  command output: |%s|\n", out )
+      os.Exit ( 1 )
+    }
+
+    fp ( os.Stdout, "New_router_network: built c_proactor_client.\n" )
+  }
+
+}
+
+
+
+
+
 // Create a new router network.
 // Tell it how many worker threads each router should have,
 // and provide lots of paths.
@@ -307,15 +333,8 @@ func New_router_network ( name         string,
 
   rn := & Router_network { Name         : name,
                            log_path     : log_path,
-                           channel      : channel }
-
-  rn.client_path = mercury_root + "/clients/c_proactor_client" 
-  if ! utils.Path_exists ( rn.client_path  ) {
-    ume ( "network error; client path |%s| does not exist. It probably needs to be built.", 
-          rn.client_path )
-    os.Exit ( 1 )
-  }
-
+                           channel      : channel,
+                           mercury_root : mercury_root }
   rn.ticker_frequency = 10
 
   return rn
@@ -341,32 +360,14 @@ func ( rn * Router_network ) Add_version_with_roots ( name          string,
   version := new_version_with_roots ( name, dispatch_root, proton_root, rn.verbose )
   rn.Versions = append ( rn.Versions, version )
 
-  // If this is the first one, make it the default.
-  if 1 == len ( rn.Versions ) {
-    rn.Default_version = version
-  }
-}
-
-
-
-
-
-func ( rn * Router_network ) Add_version_with_paths ( name            string,
-                                                      router_path     string,
-                                                      ld_library_path string,
-                                                      pythonpath      string,
-                                                      include_path    string ) {
-
-  version := new_version_with_paths ( name, 
-                                      router_path, 
-                                      pythonpath, 
-                                      ld_library_path,
-                                      include_path )
-  rn.Versions = append ( rn.Versions, version )
+  fp ( os.Stdout,  "Added version |%s|.\n", name )
+  version.Print_version ( )
 
   // If this is the first one, make it the default.
+  // And build the clients using this version.
   if 1 == len ( rn.Versions ) {
     rn.Default_version = version
+    rn.Build_clients ( )
   }
 }
 

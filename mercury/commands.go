@@ -602,20 +602,10 @@ func ( merc * Merc ) find_standard_versions ( ) ( bool ) {
 
 
 func routers ( merc  * Merc, command_line * lisp.List, _ string ) {
+
   if len(merc.network.Versions) < 1 {
-    umi ( merc.verbose, "No versions provided: looking for standard install." )
-    if merc.find_standard_versions ( ) {
-      umi ( merc.verbose, "Standard install found." )
-      merc.network.Add_version_with_paths ( "standard",
-                                            "/usr/local/sbin/qdrouterd",
-                                            "/usr/local/lib/qpid-dispatch:/usr/local/lib64",
-                                            "/usr/local/lib/qpid-dispatch/python:/usr/local/lib/python2.7/site-packages",
-                                            "/usr/local/lib/qpid-dispatch/python" )
-     // TODO make ^^^ return successs bool, and check it!
-    } else {
-      umi ( merc.verbose, "Standard install not found -- exiting." )
-      os.Exit ( 1 )
-    }
+    ume ( "Can't make routers because no versions have been defined. Exiting." )
+    os.Exit ( 1 )
   }
 
   cmd := merc.commands [ "routers" ]

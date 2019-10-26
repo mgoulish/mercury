@@ -515,7 +515,7 @@ func main ( ) {
 
 
   //=======================================================================
-  // End Topology Commands.
+  // Begin Topology Commands.
   //=======================================================================
 
 
@@ -939,6 +939,23 @@ func main ( ) {
                 "int",
                 "60",
                 "The number of seconds until forced failure." )
+
+
+
+
+  /*---------------------------------------------
+    If the standard install exists, make it the
+    first entry in the versions list.
+  ---------------------------------------------*/
+    if merc.find_standard_versions ( ) {
+      merc.network.Add_version_with_roots ( "standard",
+                                            "/usr/local",
+                                            "/usr/local" )
+
+      fp ( os.Stdout,  "Standard install found in /usr/local/lib." )
+    } else {
+      fp ( os.Stdout,  "Standard install not found. We will need user-defined versions.\n" )
+    }
 
 
 
