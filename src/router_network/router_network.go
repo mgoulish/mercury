@@ -173,7 +173,9 @@ type Router_network struct {
     from the Mercury install, not from the Dispatch
     or Proton installs, which are contained in Version.
   */
-  client_path                 string
+  client_names           []   string
+
+  client_dir                  string
 
   Versions               [] * Version
   Default_version           * Version
@@ -279,42 +281,50 @@ func ( rn * Router_network ) get_client_by_name ( target_name string ) ( * clien
 
 func ( rn * Router_network )  Build_clients ( ) {
 
-  client_dir  := rn.mercury_root + "/clients"
-  client_name := "c_proactor_client"
-  rn.client_path = client_dir + "/" + client_name
+  rn.client_dir = rn.mercury_root + "/clients"
 
-  if ! utils.Path_exists ( rn.client_path  ) {
-    fp ( os.Stdout, "Client |%s| does not exist. Building...\n", rn.client_path )
-    proton_include_path := rn.Default_version.proton_root + "/include"
-    proton_link_path    := rn.Default_version.proton_root + "/lib64"
+  rn.client_names = append ( rn.client_names, "c_proactor_client" )
+  rn.client_names = append ( rn.client_names, "chaos_links_1" )
 
-    // Compile --------------------------------------------------------
-    command_name := "g++"
-    args         := "-fpermissive -O3 -I" + proton_include_path + " -c c_proactor_client.c"
-    args_list    := strings.Fields ( args )
-    cmd          := exec.Command ( command_name, args_list... )
-    cmd.Dir       = client_dir
-    out, err     := cmd.Output ( )
-    if err != nil {
-      fp ( os.Stderr, "New_router_network error : Can't compile c_proactor_client. |%s|\n", err.Error() )
-      fp ( os.Stderr, "  command output: |%s|\n", out )
-      os.Exit ( 1 )
+
+  for _, client_name := range ( rn.client_names ) {
+
+    client_path := rn.client_dir + "/" + client_name
+
+    if ! utils.Path_exists ( client_path  ) {
+      fp ( os.Stdout, "\nClient |%s| does not exist. Building...\n", client_name )
+      proton_include_path := rn.Default_version.proton_root + "/include"
+      proton_link_path    := rn.Default_version.proton_root + "/lib64"
+
+      // Compile --------------------------------------------------------
+      command_name := "g++"
+      args         := "-fpermissive -O3 -I" + proton_include_path + " -c " + client_name + ".c"
+      args_list    := strings.Fields ( args )
+      cmd          := exec.Command ( command_name, args_list... )
+      cmd.Dir       = rn.client_dir
+      out, err     := cmd.Output ( )
+      if err != nil {
+        fp ( os.Stderr, "New_router_network error : Can't compile c_proactor_client. |%s|\n", err.Error() )
+        fp ( os.Stderr, "  command output: |%s|\n", out )
+        os.Exit ( 1 )
+      }
+
+      // Link --------------------------------------------------------
+      command_name = "g++"
+      // args         = "-o c_proactor_client -L" + proton_link_path + " c_proactor_client.o -lqpid-proton -lpthread"
+      args         = "-o " + client_name + " -L" + proton_link_path + " " + client_name + ".o -lqpid-proton -lpthread"
+      args_list    = strings.Fields ( args )
+      cmd          = exec.Command ( command_name, args_list... )
+      cmd.Dir      = rn.client_dir
+      out, err     = cmd.Output ( )
+      if err != nil {
+        fp ( os.Stderr, "New_router_network error : Can't link c_proactor_client. |%s|\n", err.Error() )
+        fp ( os.Stderr, "  command output: |%s|\n", out )
+        os.Exit ( 1 )
+      }
+
+      fp ( os.Stdout, "New_router_network: built client at path |%s|.\n\n", client_path )
     }
-
-    // Link --------------------------------------------------------
-    command_name = "g++"
-    args         = "-o c_proactor_client -L" + proton_link_path + " c_proactor_client.o -lqpid-proton -lpthread"
-    args_list    = strings.Fields ( args )
-    cmd          = exec.Command ( command_name, args_list... )
-    cmd.Dir      = client_dir
-    out, err     = cmd.Output ( )
-    if err != nil {
-      fp ( os.Stderr, "New_router_network error : Can't link c_proactor_client. |%s|\n", err.Error() )
-      fp ( os.Stderr, "  command output: |%s|\n", out )
-      os.Exit ( 1 )
-    }
-
-    fp ( os.Stdout, "New_router_network: built c_proactor_client.\n" )
   }
 
 }
@@ -651,7 +661,7 @@ func ( rn * Router_network ) add_client ( name               string,
                            results_path,
                            operation,
                            r.Client_port ( ),
-                           rn.client_path,
+                           rn.client_dir + "/" + rn.client_names[0],
                            ld_library_path,
                            pythonpath,
                            status_file,
