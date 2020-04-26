@@ -18,22 +18,6 @@
  */
 
 
-/*
-  Package router implements a dispatch router.
-  The normal order for operations on a router is:
-    * create
-    * connect to other routers
-    * init
-    * run
-    * halt
-  It is during the initialization step that the 
-  configuration file is written that will be read at 
-  router startup. So any connecting that you want to do
-  should be done before you call Init.
-  Every router is created with a normal-mode listener, so 
-  you can always attach a client to it, or send it 
-  management commands.
-*/
 package client
 
 import ( "fmt"
