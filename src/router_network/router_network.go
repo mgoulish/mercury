@@ -284,8 +284,9 @@ func ( rn * Router_network )  Build_clients ( ) {
 
   rn.client_dir = rn.mercury_root + "/clients"
 
+  // TODO -- make it discover the client source files -- not hallucinate them.
   rn.client_names = append ( rn.client_names, "c_proactor_client" )
-  rn.client_names = append ( rn.client_names, "chaos_links_1" )
+  // rn.client_names = append ( rn.client_names, "chaos_links_1" )
 
 
   for _, client_name := range ( rn.client_names ) {
