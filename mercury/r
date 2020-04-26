@@ -5,7 +5,7 @@ export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
 
-SCRIPT=./basic
+SCRIPT=./clif
 
 echo "Using script ${SCRIPT}"
 sleep 2

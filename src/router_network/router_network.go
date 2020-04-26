@@ -81,7 +81,8 @@ func check_path ( name string, path string, must_exist bool ) {
   if ! utils.Path_exists ( path ) {
     if must_exist {
       ume ( "rn.check_path: Path |%s| does not exist at |%s|", name, path )
-      os.Exit ( 1 )
+      // os.Exit ( 1 )
+      ume ( "rn.check_path: But I'm not exiting...\n" )
     } else {
       umi ( true, "rn.check_path: Path |%s| does not exist at |%s|", name, path )
     }

@@ -578,6 +578,7 @@ process_event ( context_p context, pn_event_t * event )
           pn_link_set_rcv_settle_mode ( context->addrs[i].link, PN_RCV_FIRST );
 
           pn_link_open ( context->addrs[i].link );
+          log ( context, "I am a sender on addr |%s|.\n", context->addrs[i].path );
         }
 
       }
@@ -589,6 +590,7 @@ process_event ( context_p context, pn_event_t * event )
           context->addrs[i].link = pn_receiver( event_session, link_name );
           pn_terminus_set_address ( pn_link_source(context->addrs[i].link), context->addrs[i].path );
           pn_link_open ( context->addrs[i].link );
+          log ( context, "I am a receiver on addr |%s|\n", context->addrs[i].path );
         }
       }
 
