@@ -133,7 +133,7 @@ func new_version_with_roots ( name          string,
 
   // Calculate PYTHONPATH for this version.
   DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
+  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python3.7/site-packages"
   PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH   + "/proton/bindings/python"
   check_path ( "dispatch python path",  DISPATCH_PYTHONPATH,  true )
   check_path ( "dispatch pythonpath 2", DISPATCH_PYTHONPATH2, true )
