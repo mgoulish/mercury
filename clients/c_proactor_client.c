@@ -1,21 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
 #include <proton/codec.h>
 #include <proton/delivery.h>
 #include <proton/engine.h>
@@ -49,7 +31,7 @@
 
 static
 double
-get_timestamp ( void )
+get_timestamp_seconds ( void )
 {
   struct timeval t;
   gettimeofday ( & t, 0 );
@@ -155,7 +137,7 @@ log ( context_p context, char const * format, ... )
   if ( ! context->log_file )
     return;
 
-  fprintf ( context->log_file, "%.6f  ", get_timestamp() );
+  fprintf ( context->log_file, "%.6f  ", get_timestamp_seconds() );
   va_list ap;
   va_start ( ap, format );
   vfprintf ( context->log_file, format, ap );
@@ -299,7 +281,7 @@ make_random_message ( context_p context )
 void
 make_timestamped_message ( context_p context )
 {
-  double ts = get_timestamp();
+  double ts = get_timestamp_seconds();
 
   context->message_length = BUGALERT_MESSAGE_LENGTHS;  
   memset ( context->outgoing_buffer, 'x', context->message_length );
@@ -401,7 +383,7 @@ store_flight_time ( context_p context, double flight_time, double recv_time )
 void 
 decode_message ( context_p context, pn_delivery_t * delivery ) 
 {
-  double receive_timestamp = get_timestamp();
+  double receive_timestamp = get_timestamp_seconds();
 
   pn_message_t * msg  = context->message;
   pn_link_t    * link = pn_delivery_link ( delivery );
@@ -461,7 +443,7 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 void 
 send_message ( context_p context ) 
 {
-  double now = get_timestamp();
+  double now = get_timestamp_seconds();
   double time_since_start = now - context->grand_start_time;
 
   // This is the enforced delay to prevent senders from sending
@@ -480,7 +462,7 @@ send_message ( context_p context )
   // to be used for throughput measurement.
   if ( context->sent == 0 )
   {
-    context->send_start_time = get_timestamp();
+    context->send_start_time = get_timestamp_seconds();
   }
 
   for ( int i = 0; i < context->n_addrs; i ++ )
@@ -561,7 +543,7 @@ process_event ( context_p context, pn_event_t * event )
 
 
     case PN_CONNECTION_INIT:
-      snprintf ( context->id, MAX_NAME, "%d_%d", int(getpid()), int(get_timestamp()) );
+      snprintf ( context->id, MAX_NAME, "%d_%d", int(getpid()), int(get_timestamp_seconds()) );
       log ( context, "connection id is |%s|\n", context->id );
       pn_connection_set_container ( pn_event_connection( event ), context->id );
       event_session = pn_session ( pn_event_connection( event ) );
@@ -705,7 +687,7 @@ process_event ( context_p context, pn_event_t * event )
 
             if ( context->total_accepted >= context->total_expected_messages && (! context->soak) )
             {
-              double send_stop_time = get_timestamp();
+              double send_stop_time = get_timestamp_seconds();
               double total_time = send_stop_time - context->send_start_time;
               double throughput = context->total_accepted / total_time;
               log ( context, "%d messages accepted. sender halting.\n", context->total_accepted );
@@ -858,7 +840,7 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->n_addrs                 = 0;
 
-  context->grand_start_time        = get_timestamp();
+  context->grand_start_time        = get_timestamp_seconds();
 
   context->dumped_flight_times     = false;
   context->soak                    = false;
