@@ -1,18 +1,16 @@
 #! /usr/bin/bash
 
-
 export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
 
-SCRIPT=./clif
+SCRIPT=./script
 
 echo "Using script ${SCRIPT}"
 sleep 2
 
 
 go run ./*.go  ${SCRIPT}
-
 
 
 
