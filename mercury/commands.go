@@ -709,7 +709,9 @@ func linear ( merc * Merc, command_line * lisp.List, _ string ) {
   var version string
   if requested_version == "" {
     version = merc.network.Default_version.Name
-  } 
+  } else {
+    version = requested_version
+  }
 
   // Make the requested routers.
   var router_name string
