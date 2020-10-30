@@ -104,7 +104,7 @@ struct context_s
   pn_listener_t   * listener;
   pn_connection_t * connection;
   int               throttle;
-  int               delay;
+  double            delay;
 
   double          * flight_times;
   double          * time_stamps;
@@ -363,7 +363,8 @@ store_flight_time ( context_p context, double flight_time, double recv_time )
         // Use the same delay that we use at start-up, here at the
         // end to avoid dumping stats while other clients are still
         // running.
-        int delay = context->delay;
+        // TODO Make this its own thing. Trigger it somehow?
+        int delay = 100;
         log ( context, "Dumping flight times in %d seconds.\n", delay );
         struct itimerval timer;
         timer.it_value.tv_sec  = delay;
@@ -444,13 +445,13 @@ void
 send_message ( context_p context ) 
 {
   double now = get_timestamp_seconds();
-  double time_since_start = now - context->grand_start_time;
+  //double time_since_start = now - context->grand_start_time;
 
   // This is the enforced delay to prevent senders from sending
   // // while other senders are still attaching.
-  if ( time_since_start < context->delay ) 
+  if ( now < context->delay ) 
   {
-    log ( context, "too soon to send: %.3lf\n", time_since_start );
+    log ( context, "too soon to send: %.3lf : %.3lf\n", now, context->delay );
     // Gotta pause if it's still too soon to send,
     // or we will spend a lot of cycles just doing this.
     sleep ( 1 );
@@ -861,6 +862,7 @@ init_context ( context_p context, int argc, char ** argv )
     if ( ! strcmp ( "--delay", argv[i] ) )
     {
       context->delay = atoi(NEXT_ARG);
+      fprintf ( stderr, "MDEBUG delay set to %d\n", context->delay );
       i ++;
     }
     // address ----------------------------------------------

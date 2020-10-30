@@ -18,8 +18,8 @@ inc versions
 
 linear 1 version latest
 
-send A count 10 address addr_%d
-recv A count 10 address addr_%d
+send A count 10 address addr_%d delay 1604044300 throttle
+recv A count 10 address addr_%d delay 1604044300 throttle
 
 run
 
