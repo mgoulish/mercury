@@ -134,7 +134,7 @@ func new_version_with_roots ( name          string,
 
   // Calculate PYTHONPATH for this version.
   DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python3.7/site-packages"
+  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
   PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH   + "/proton/bindings/python"
   check_path ( "dispatch python path",  DISPATCH_PYTHONPATH,  true )
   check_path ( "dispatch pythonpath 2", DISPATCH_PYTHONPATH2, true )
@@ -497,7 +497,7 @@ func ( rn * Router_network ) add_router ( name         string,
   version := rn.Get_version_from_name ( version_name )
 
   // TODO -- pass this down from on high
-  worker_threads := 16
+  worker_threads := 30
 
   r := router.New_Router ( name,
                            version.Name,
@@ -801,6 +801,7 @@ func ( rn * Router_network ) Run ( ) {
 
     for _, c := range rn.clients {
       c.Run ( )
+      time.Sleep ( 20 * time.Millisecond )
     }
   }
 

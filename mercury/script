@@ -1,10 +1,6 @@
 echo 
 echo ==============================================
-echo test: 05_addresses
-echo -----------------------------
-echo Make 10 senders and 10 receivers at opposite
-echo ends of the linear network.
-echo Try out the address-counting-up feature.
+echo latency test
 echo ==============================================
 echo 
 echo 
@@ -18,8 +14,8 @@ inc versions
 
 linear 1 version latest
 
-send A count 10 address addr_%d delay 1604044300 throttle
-recv A count 10 address addr_%d delay 1604044300 throttle
+recv A count 1000 address addr_%d 
+send A count 1000 address addr_%d throttle 100 delay 1604128267
 
 run
 

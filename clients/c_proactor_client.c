@@ -364,7 +364,8 @@ store_flight_time ( context_p context, double flight_time, double recv_time )
         // end to avoid dumping stats while other clients are still
         // running.
         // TODO Make this its own thing. Trigger it somehow?
-        int delay = 100;
+        int delay = 200;
+        // BUGALERT -- this can collide with messaging !!!
         log ( context, "Dumping flight times in %d seconds.\n", delay );
         struct itimerval timer;
         timer.it_value.tv_sec  = delay;
