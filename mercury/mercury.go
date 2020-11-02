@@ -915,6 +915,13 @@ func main ( ) {
 
 
 
+  // start_sending command -------------------------------------------------------
+  cmd = merc.add_command ( "start_sending",
+                           start_sending,
+                           "Signal all senders to start sending." )
+
+
+
   // kill_and_restart_random_clients command -------------------------------------------------------
   cmd = merc.add_command ( "kill_and_restart_random_clients",
                            kill_and_restart_random_clients,

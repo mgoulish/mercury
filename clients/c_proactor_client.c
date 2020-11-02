@@ -117,6 +117,7 @@ struct context_s
                     send_start_time,
                     stop_time;
 
+  bool              start_signal_received;
   bool              dumped_flight_times;
   bool              soak;
 
@@ -161,6 +162,29 @@ log_no_timestamp ( context_p context, char const * format, ... )
   vfprintf ( context->log_file, format, ap );
   va_end ( ap );
   fflush ( context->log_file );
+}
+
+
+
+
+
+void
+wait_for_start_signal ( context_p context )
+{
+  char start_signal_path[1000];
+  sprintf ( start_signal_path, "%s/start_sending", context->events_path );
+
+  while ( 1 )
+  {
+    if ( -1 !=  access ( start_signal_path, F_OK ) )
+    {
+      log ( context, "start signal received\n" );
+      context->start_signal_received = true;
+      return;
+    }
+
+    sleep ( 5 );
+  }
 }
 
 
@@ -446,6 +470,11 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 void 
 send_message ( context_p context ) 
 {
+  if ( ! context->start_signal_received )
+  {
+    wait_for_start_signal ( context );
+  }
+
   double now = get_timestamp_seconds();
   //double time_since_start = now - context->grand_start_time;
 
@@ -845,6 +874,7 @@ init_context ( context_p context, int argc, char ** argv )
 
   context->grand_start_time        = get_timestamp_seconds();
 
+  context->start_signal_received   = false;
   context->dumped_flight_times     = false;
   context->soak                    = false;
   context->report_frequency        = 10000;

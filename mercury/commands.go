@@ -131,6 +131,16 @@ func edges ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
+func start_sending ( merc * Merc, command_line * lisp.List, _ string ) {
+  cmd := merc.commands [ "start_sending" ]
+  parse_command_line ( merc, cmd, command_line )
+  os.Create ( merc.session.name + "/events/start_sending" )
+}
+
+
+
+
+
 func seed ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "seed" ]
   parse_command_line ( merc, cmd, command_line )
