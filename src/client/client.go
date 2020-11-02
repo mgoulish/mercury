@@ -1,23 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
-
 package client
 
 import ( "fmt"
@@ -59,6 +39,7 @@ type Client struct {
   Name                 string
   config_path          string
   results_path         string
+  events_path          string
   Operation            string
   Port                 string
 
@@ -103,6 +84,7 @@ type Client struct {
 func New_client ( name                  string,
                   config_path           string,
                   results_path          string,
+                  events_path           string,
                   operation             string,
                   port                  string,
                   path                  string,
@@ -120,6 +102,7 @@ func New_client ( name                  string,
   c = & Client { Name                  : name,
                  config_path           : config_path,
                  results_path          : results_path,
+                 events_path           : events_path,
                  Operation             : operation,
                  Port                  : port,
                  Path                  : path,
@@ -179,6 +162,7 @@ func ( c * Client ) Run ( ) {
 
   args := " --name " + c.Name + 
           " --flight_times_file_name " + c.results_path + 
+          " --events_path " + c.events_path +
           " --operation " + c.Operation + 
           " --port " + c.Port + 
           " --log " + c.log_file + 

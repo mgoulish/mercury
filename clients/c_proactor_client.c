@@ -111,6 +111,7 @@ struct context_s
   int               max_flight_times;
   int               n_flight_times;
   char              flight_times_file_name [ 1000 ];
+  char              events_path [ 1000 ];
 
   double            grand_start_time,
                     send_start_time,
@@ -945,6 +946,13 @@ init_context ( context_p context, int argc, char ** argv )
               );
       i ++;
     }
+    // events_path ----------------------------------------------
+    else
+    if ( ! strcmp ( "--events_path", argv[i] ) )
+    {
+      strcpy ( context->events_path, NEXT_ARG );
+      i ++;
+    }
     // messages ----------------------------------------------
     else
     if ( ! strcmp ( "--messages", argv[i] ) )
@@ -994,6 +1002,7 @@ log_context ( context_p context )
   log_no_timestamp ( context, "  log                : %s\n", context->log_file_name );
   log_no_timestamp ( context, "  messages           : %d\n", context->expected_messages );
   log_no_timestamp ( context, "  soak               : %s\n", context->soak ? "true" : "false" );
+  log_no_timestamp ( context, "  events path        : %s\n", context->events_path );
   log_no_timestamp ( context, "}\n" );
 }
 

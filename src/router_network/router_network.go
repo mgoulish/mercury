@@ -1,23 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
-
 package router_network
 
 import ( "errors"
@@ -164,6 +144,7 @@ type Router_network struct {
   Running                     bool
 
   results_path                string
+  events_path                 string
   log_path                    string
 
   mercury_root                string
@@ -359,6 +340,15 @@ func New_router_network ( name         string,
 func ( rn * Router_network ) Set_results_path ( path string ) {
   rn.results_path = path
   utils.Find_or_create_dir ( rn.results_path )
+}
+
+
+
+
+
+func ( rn * Router_network ) Set_events_path ( path string ) {
+  rn.events_path = path
+  utils.Find_or_create_dir ( rn.events_path )
 }
 
 
@@ -585,6 +575,7 @@ func ( rn * Router_network ) Add_receiver ( name               string,
   rn.add_client ( name, 
                   config_path,
                   rn.results_path,
+                  rn.events_path,
                   false, 
                   n_messages, 
                   max_message_length, 
@@ -609,6 +600,7 @@ func ( rn * Router_network ) Add_sender ( name               string,
   rn.add_client ( name, 
                   config_path,
                   rn.results_path,
+                  rn.events_path,
                   true, 
                   n_messages, 
                   max_message_length, 
@@ -625,6 +617,7 @@ func ( rn * Router_network ) Add_sender ( name               string,
 func ( rn * Router_network ) add_client ( name               string, 
                                           config_path        string,
                                           results_path       string,
+                                          events_path        string,
                                           sender             bool, 
                                           n_messages         int, 
                                           max_message_length int, 
@@ -661,6 +654,7 @@ func ( rn * Router_network ) add_client ( name               string,
   c := client.New_client ( name,
                            config_path,
                            results_path,
+                           events_path,
                            operation,
                            r.Client_port ( ),
                            rn.client_dir + "/" + rn.client_names[0],
