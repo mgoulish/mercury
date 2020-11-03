@@ -191,6 +191,22 @@ wait_for_start_signal ( context_p context )
 
 
 
+void
+signal_mercury ( context_p context, char * msg ) 
+{
+  log ( context, "signalling mercury...\n" );
+
+  char done_signal [ 1000 ];
+  sprintf ( done_signal, "%s/%s_%d", context->events_path, msg, getpid() );
+  FILE * fp = fopen ( done_signal, "w" );
+  fprintf ( fp, "\n" );
+  fclose ( fp );
+}
+
+
+
+
+
 void 
 halt ( context_p context )
 {
@@ -762,10 +778,12 @@ process_event ( context_p context, pn_event_t * event )
         context->received ++;
         context->total_received ++;
 
+        /*
         if ( ! ( context->total_received % 10 ) )
         {
           log ( context, "%d messages received.\n", context->total_received );
         }
+        */
 
 
         int index = find_addr ( context, event_link );
@@ -783,6 +801,9 @@ process_event ( context_p context, pn_event_t * event )
         // we either dump stats and keep going, or halt.
         if ( context->received >= context->total_expected_messages) 
         {
+          // TODO : do not dump flight times here! Wait for dump signal from Mercury!
+          signal_mercury ( context, (char *) "done_receiving" );
+
           dump_flight_times ( context );
           if ( ! context->soak )
           {
