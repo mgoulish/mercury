@@ -4,7 +4,7 @@ export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
 
-SCRIPT=./script
+SCRIPT=./throughput_1.script
 
 echo "Using script ${SCRIPT}"
 sleep 2

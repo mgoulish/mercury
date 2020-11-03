@@ -130,6 +130,17 @@ type command struct {
 
 
 
+// Everything in this data structure can be read by any
+// goroutine in Mercury, but can be written only by 
+// read_messages_from_clients().
+type messages_from_clients struct {
+  receiver_PIDs [] string
+}
+
+
+
+
+
 // Mercury Context
 type Merc struct {
   session                  * Session
@@ -160,6 +171,8 @@ type Merc struct {
   default_version          * rn.Version
 
   cpu_freqs             []   string
+
+  client_messages            messages_from_clients
 }
 
 
