@@ -132,7 +132,7 @@ type command struct {
 
 // Everything in this data structure can be read by any
 // goroutine in Mercury, but can be written only by 
-// read_messages_from_clients().
+// listen_for_messages_from_clients().
 type messages_from_clients struct {
   receiver_PIDs [] string
 }
@@ -327,15 +327,10 @@ func this_is_an_interior_router_name ( merc * Merc, name string ) ( bool ) {
 
 
 
-func listen_for_network_halt ( merc * Merc, channel chan string ) {
-  msg := <- channel
-  umi ( merc.verbose, "network has halted.\n" )
-
-  result_file_name := merc.session.name + "/result"
-  result_file, _ := os.Create ( result_file_name )
-  if result_file != nil {
-    defer result_file.Close() 
-    fmt.Fprintf ( result_file, "%s\n", msg )
+func listen_for_messages_from_clients ( merc * Merc ) {
+  for {
+    time.Sleep ( 5 * time.Second )
+    fp ( os.Stdout, "MDEBUG listen_for_messages_from_clients!\n" )
   }
 }
 
@@ -354,21 +349,11 @@ func main ( ) {
 
   merc := new_merc ( )
 
-  // NOTE: to run this code, your username needs
-  // to have sudo NOPASSWD privileges,
-  // and you need to have installed cpufrequtils.
-  // i.e.   dnf install cpufrequtils
-  /*
-    TODO  This really just doesn't belong here
-          at all.Put it in a command or something,
-          and make it smart enough to tell the user
-          what's wrong if it doesn't work.
-  merc.cpu_freqs = utils.Get_CPU_freqs ( )
-  fp ( os.Stdout, "main: cpu freqs: \n" )
-  for _, freq := range merc.cpu_freqs {
-    fp ( os.Stdout, "   %s\n", freq )
-  }
-  */
+  // TODO : make a new layer under session called "test".
+  // TODO : write a session-description into session dir, 
+  //        and a test-description into test-dir.
+  // TODO : new data structure for tests. Array of them stored in session.
+
 
   // Put this outside of new_merc because in future we 
   // might want the choice of loading a session, based
@@ -396,11 +381,10 @@ func main ( ) {
   utils.Find_or_create_dir ( event_path )
   merc.network.Set_events_path ( event_path )
 
-  // In the background, listen for the network telling us 
-  // that it has completed. (This happens if it is runs a test 
-  // successfully.)
-  // TODO  Gotta think about this.
-  // go listen_for_network_halt ( merc, network_channel )
+  // Now that the events path is set, start the 
+  // listener for client events. ( No clients are running yet,
+  // but they will be.)
+  go listen_for_messages_from_clients ( merc )
 
   /*===========================================
     Make commands. 
