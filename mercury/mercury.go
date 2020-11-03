@@ -6,6 +6,7 @@ import (
   "io/ioutil"
   "os"
   "regexp"
+  "strings"
   "time"
   // "errors"
 
@@ -335,9 +336,19 @@ func listen_for_messages_from_clients ( merc * Merc ) {
     time.Sleep ( 5 * time.Second )
     fp ( os.Stdout, "MDEBUG listen_for_messages_from_clients: event_path is : |%s|\n", merc.event_path )
 
+    done_receiving_count := 0
     files, _ := ioutil.ReadDir ( merc.event_path )
     for _, f := range files {
       fp ( os.Stdout, "MDEBUG file |%s|\n", f.Name() )
+      if strings.HasPrefix ( f.Name(), "done_receiving" ) {
+        done_receiving_count ++
+      }
+    }
+
+    fp ( os.Stdout, "MDEBUG receiver count is %d\n", merc.receiver_count )
+
+    if done_receiving_count >= merc.receiver_count {
+      fp ( os.Stdout, "MDEBUG WE ARE DONE RECEIVING!\n" )
     }
   }
 }
@@ -944,15 +955,17 @@ func main ( ) {
     If the standard install exists, make it the
     first entry in the versions list.
   ---------------------------------------------*/
-    if merc.find_standard_versions ( ) {
-      merc.network.Add_version_with_roots ( "standard",
-                                            "/usr/local",
-                                            "/usr/local" )
+  /*
+  if merc.find_standard_versions ( ) {
+    merc.network.Add_version_with_roots ( "standard",
+                                          "/usr/local",
+                                          "/usr/local" )
 
-      fp ( os.Stdout,  "Standard install found in /usr/local/lib." )
-    } else {
-      fp ( os.Stdout,  "Standard install not found. We will need user-defined versions.\n" )
-    }
+    fp ( os.Stdout,  "Standard install found in /usr/local/lib." )
+  } else {
+    fp ( os.Stdout,  "Standard install not found. We will need user-defined versions.\n" )
+  }
+  */
 
 
 
