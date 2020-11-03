@@ -1,14 +1,12 @@
 package main
 
 import (
-  "bufio"
   "fmt"
   "io/ioutil"
   "os"
   "regexp"
   "strings"
   "time"
-  // "errors"
 
   "utils"
   rn "router_network"
@@ -331,7 +329,7 @@ func this_is_an_interior_router_name ( merc * Merc, name string ) ( bool ) {
 
 
 
-func listen_for_messages_from_clients ( merc * Merc ) {
+func listen_for_messages_from_clients ( merc * Merc, client_events_channel chan string ) {
   for {
     time.Sleep ( 5 * time.Second )
     fp ( os.Stdout, "MDEBUG listen_for_messages_from_clients: event_path is : |%s|\n", merc.event_path )
@@ -348,7 +346,8 @@ func listen_for_messages_from_clients ( merc * Merc ) {
     fp ( os.Stdout, "MDEBUG receiver count is %d\n", merc.receiver_count )
 
     if done_receiving_count >= merc.receiver_count {
-      fp ( os.Stdout, "MDEBUG WE ARE DONE RECEIVING!\n" )
+      client_events_channel <- "done receiving"
+      break
     }
   }
 }
@@ -383,12 +382,12 @@ func main ( ) {
   merc.mercury_log_name = merc.session.name + "/mercury_log"
   merc.mercury_log_file, _ = os.Create ( merc.mercury_log_name )
 
+  // TODO -- remove this channel. Not used.
   network_channel := make ( chan string )
   merc.network = rn.New_router_network ( "network", 
                                          mercury_root,
                                          merc.session.log_path,
                                          network_channel )
-
 
   // Set a default results path here. 
   // Some commands may want to replace this with their own.
@@ -403,7 +402,9 @@ func main ( ) {
   // Now that the events path is set and created, start the 
   // listener for client events. ( No clients are running yet,
   // but they will be.)
-  go listen_for_messages_from_clients ( merc )
+  client_events_channel := make ( chan string, 5 )
+
+  go listen_for_messages_from_clients ( merc, client_events_channel )
 
   /*===========================================
     Make commands. 
@@ -948,27 +949,6 @@ func main ( ) {
                 "60",
                 "The number of seconds until forced failure." )
 
-
-
-
-  /*---------------------------------------------
-    If the standard install exists, make it the
-    first entry in the versions list.
-  ---------------------------------------------*/
-  /*
-  if merc.find_standard_versions ( ) {
-    merc.network.Add_version_with_roots ( "standard",
-                                          "/usr/local",
-                                          "/usr/local" )
-
-    fp ( os.Stdout,  "Standard install found in /usr/local/lib." )
-  } else {
-    fp ( os.Stdout,  "Standard install not found. We will need user-defined versions.\n" )
-  }
-  */
-
-
-
   /*--------------------------------------------
     Process files named on command line.
   --------------------------------------------*/
@@ -981,16 +961,28 @@ func main ( ) {
     read_file ( merc, file )
   }
 
+  for {
+    msg := <- client_events_channel
+    switch msg {
+      case "done receiving" :
+        fp ( os.Stdout, "MDEBUG main: done receiving !\n" )
+        os.Exit ( 0 )
+      
+      default :
+        fp ( os.Stdout, "MDEBUG main: unknown message: |%s|\n", msg )
+    }
+  }
+
   /*--------------------------------------------
     Prompt for and read lines of input until
     the user tells us to quit.
-  --------------------------------------------*/
   reader := bufio.NewReader ( os.Stdin )
   for {
     fp ( os.Stdout, "%c ", mercury )  // prompt
     line, _ := reader.ReadString ( '\n' )
     process_line ( merc, line )
   }
+  --------------------------------------------*/
 }
 
 
