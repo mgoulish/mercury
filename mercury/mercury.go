@@ -3,6 +3,7 @@ package main
 import (
   "bufio"
   "fmt"
+  "io/ioutil"
   "os"
   "regexp"
   "time"
@@ -173,6 +174,8 @@ type Merc struct {
   cpu_freqs             []   string
 
   client_messages            messages_from_clients
+
+  event_path                 string
 }
 
 
@@ -330,7 +333,12 @@ func this_is_an_interior_router_name ( merc * Merc, name string ) ( bool ) {
 func listen_for_messages_from_clients ( merc * Merc ) {
   for {
     time.Sleep ( 5 * time.Second )
-    fp ( os.Stdout, "MDEBUG listen_for_messages_from_clients!\n" )
+    fp ( os.Stdout, "MDEBUG listen_for_messages_from_clients: event_path is : |%s|\n", merc.event_path )
+
+    files, _ := ioutil.ReadDir ( merc.event_path )
+    for _, f := range files {
+      fp ( os.Stdout, "MDEBUG file |%s|\n", f.Name() )
+    }
   }
 }
 
@@ -377,11 +385,11 @@ func main ( ) {
   // will use their path.
   merc.network.Set_results_path ( merc.session.name + "/results" )
 
-  event_path := merc.session.name + "/events"
-  utils.Find_or_create_dir ( event_path )
-  merc.network.Set_events_path ( event_path )
+  merc.event_path = merc.session.name + "/events"
+  utils.Find_or_create_dir ( merc.event_path )
+  merc.network.Set_events_path ( merc.event_path )
 
-  // Now that the events path is set, start the 
+  // Now that the events path is set and created, start the 
   // listener for client events. ( No clients are running yet,
   // but they will be.)
   go listen_for_messages_from_clients ( merc )
