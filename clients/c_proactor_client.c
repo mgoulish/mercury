@@ -112,6 +112,7 @@ struct context_s
   int               n_flight_times;
   char              flight_times_file_name [ 1000 ];
   char              events_path [ 1000 ];
+  char              start_signal_path[1000];
 
   double            grand_start_time,
                     send_start_time,
@@ -215,23 +216,20 @@ log_no_timestamp ( context_p context, char const * format, ... )
 
 
 
-void
-wait_for_start_signal ( context_p context )
+bool
+start_signal_received ( context_p context )
 {
-  char start_signal_path[1000];
-  sprintf ( start_signal_path, "%s/start_sending", context->events_path );
-
-  while ( 1 )
-  {
-    if ( -1 !=  access ( start_signal_path, F_OK ) )
-    {
-      log ( context, "start signal received\n" );
-      context->start_signal_received = true;
-      return;
-    }
-
-    sleep ( 5 );
+  if ( context->start_signal_received ) {
+    return true;
   }
+
+  if ( -1 !=  access ( context->start_signal_path, F_OK ) )
+  {
+    log ( context, "start signal received\n" );
+    return context->start_signal_received = true;
+  }
+
+  return false;
 }
 
 
@@ -514,9 +512,9 @@ decode_message ( context_p context, pn_delivery_t * delivery )
 void 
 send_message ( context_p context ) 
 {
-  if ( ! context->start_signal_received )
+  if ( ! start_signal_received ( context ) )
   {
-    wait_for_start_signal ( context );
+    return;
   }
 
   double now = get_timestamp_seconds();
@@ -694,7 +692,7 @@ process_event ( context_p context, pn_event_t * event )
 
         if ( context->sent >= context->total_expected_messages )
         {
-          // log ( context, "%d messages sent.\n", context->total_sent );
+          log ( context, "%d messages sent.\n", context->total_sent );
           reset_stats ( context );
         }
       }
@@ -1030,6 +1028,7 @@ init_context ( context_p context, int argc, char ** argv )
     if ( ! strcmp ( "--events_path", argv[i] ) )
     {
       strcpy ( context->events_path, NEXT_ARG );
+      sprintf ( context->start_signal_path, "%s/start_sending", context->events_path );
       i ++;
     }
     // messages ----------------------------------------------
