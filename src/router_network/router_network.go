@@ -795,7 +795,7 @@ func ( rn * Router_network ) Run ( ) {
 
     for _, c := range rn.clients {
       c.Run ( )
-      time.Sleep ( 20 * time.Millisecond )
+      time.Sleep ( 5 * time.Millisecond )
     }
   }
 

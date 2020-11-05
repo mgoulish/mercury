@@ -68,7 +68,7 @@ struct context_s
 
   int               link_count;
   char              name [ MAX_NAME ];
-  int               sending;
+  int               sending;          // Are we a sender?
   char              id [ MAX_NAME ];
   char              host [ MAX_NAME ];
   size_t            max_send_length,
@@ -133,6 +133,9 @@ context_t,
 context_p context_g = 0;
 
 
+
+
+
 void
 log ( context_p context, char const * format, ... )
 {
@@ -145,6 +148,50 @@ log ( context_p context, char const * format, ... )
   vfprintf ( context->log_file, format, ap );
   va_end ( ap );
   fflush ( context->log_file );
+}
+
+
+
+
+
+#define MAX_EVENTS 100
+int events [ MAX_EVENTS ];
+int next_event = 0;
+
+void
+store_event ( int e ) 
+{
+  events [ next_event ] = e;
+  next_event ++;
+
+  if ( next_event >= MAX_EVENTS )
+  {
+    next_event = 0;
+  }
+}
+
+
+
+
+
+void
+sig_handler ( int signum )
+{
+  if ( context_g->sending ) 
+  {
+    log ( context_g, 
+          "sent: %d   accepted: %d   rejected: %d   released: %d   modified: %d\n", 
+          context_g->sent, 
+          context_g->accepted,
+          context_g->rejected,
+          context_g->released,
+          context_g->modified
+        );
+  }
+  else
+  {
+    log ( context_g, "received: %d\n", context_g->received);
+  }
 }
 
 
@@ -280,6 +327,30 @@ dump_flight_times ( context_p context )
 
 
 
+void
+wait_for_dump_data_signal ( context_p context )
+{
+  char signal_path[1000];
+  sprintf ( signal_path, "%s/dump_data", context->events_path );
+
+  while ( 1 )
+  { 
+    if ( -1 !=  access ( signal_path, F_OK ) )
+    {
+      log ( context, "dumping data\n" );
+      dump_flight_times ( context );
+      return;
+    }
+    
+    log ( context, "still waiting for |%s|\n", signal_path );
+    sleep ( 5 );
+  }
+}
+
+
+
+
+
 int
 find_addr ( context_p context, pn_link_t * target_link )
 {
@@ -333,16 +404,6 @@ make_timestamped_message ( context_p context )
 
 
 
-void
-write_report ( )
-{
-  dump_flight_times ( context_g );
-}
-
-
-
-
-
 size_t 
 encode_outgoing_message ( context_p context ) 
 {
@@ -384,39 +445,6 @@ store_flight_time ( context_p context, double flight_time, double recv_time )
   context->flight_times [ context->n_flight_times ] = flight_time;
   context->time_stamps  [ context->n_flight_times ] = recv_time;
   context->n_flight_times ++;
-
-  if ( context->n_flight_times >= context->max_flight_times )
-  {
-    {
-      // If we are doing a soak-test there is no need for a delay before 
-      // writing the report. Soak-tests are not performance tests. And a 
-      // delay wouldn't help anyway, since the otehr clients are still 
-      // working.
-      if ( context->soak )
-      {
-        if ( ! context->sending )
-        {
-          dump_flight_times ( context );
-        }
-      }
-      else
-      {
-        // Use the same delay that we use at start-up, here at the
-        // end to avoid dumping stats while other clients are still
-        // running.
-        // TODO Make this its own thing. Trigger it somehow?
-        int delay = 200;
-        // BUGALERT -- this can collide with messaging !!!
-        log ( context, "Dumping flight times in %d seconds.\n", delay );
-        struct itimerval timer;
-        timer.it_value.tv_sec  = delay;
-        timer.it_value.tv_usec =  0;
-        timer.it_interval = timer.it_value;
-        signal ( SIGALRM, (void (*)(int)) write_report );
-        setitimer ( ITIMER_REAL, & timer, NULL );
-      }
-    }
-  }
 }
 
 
@@ -804,7 +832,7 @@ process_event ( context_p context, pn_event_t * event )
           // TODO : do not dump flight times here! Wait for dump signal from Mercury!
           signal_mercury ( context, (char *) "done_receiving" );
 
-          dump_flight_times ( context );
+          //dump_flight_times ( context );
           if ( ! context->soak )
           {
             log ( context, "%d messages received. receiver halting.\n", context->total_received );
@@ -1064,6 +1092,7 @@ log_context ( context_p context )
 int 
 main ( int argc, char ** argv ) 
 {
+  signal ( SIGTERM, sig_handler );
 
   srand ( getpid() );
   context_t context;
@@ -1126,10 +1155,14 @@ main ( int argc, char ** argv )
     pn_proactor_done ( context.proactor, events );
   }
 
+  /*
   while ( ! context.dumped_flight_times )
   {
     sleep ( 1 );
   }
+  */
+  log ( & context, "Waiting for dump_data signal.\n" );
+  wait_for_dump_data_signal ( & context );
 
   log ( & context, "client exiting.\n" );
 

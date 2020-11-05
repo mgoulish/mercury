@@ -4,13 +4,11 @@ export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
 
-SCRIPT=./throughput_1.script
-
-echo "Using script ${SCRIPT}"
+echo "Using script ${1}"
 sleep 2
 
 
-go run ./*.go  ${SCRIPT}
+go run ./*.go  ${1}
 
 
 

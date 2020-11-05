@@ -330,20 +330,35 @@ func this_is_an_interior_router_name ( merc * Merc, name string ) ( bool ) {
 
 
 func listen_for_messages_from_clients ( merc * Merc, client_events_channel chan string ) {
+
+  previous_count := 0
+  same_count     := 0
+
   for {
     time.Sleep ( 5 * time.Second )
-    fp ( os.Stdout, "MDEBUG listen_for_messages_from_clients: event_path is : |%s|\n", merc.event_path )
 
     done_receiving_count := 0
     files, _ := ioutil.ReadDir ( merc.event_path )
     for _, f := range files {
-      fp ( os.Stdout, "MDEBUG file |%s|\n", f.Name() )
       if strings.HasPrefix ( f.Name(), "done_receiving" ) {
         done_receiving_count ++
       }
     }
 
-    fp ( os.Stdout, "MDEBUG receiver count is %d\n", merc.receiver_count )
+    if done_receiving_count > 0 {
+      if done_receiving_count == previous_count {
+        same_count ++
+      }
+
+      if same_count > 2 {
+        umi ( merc.verbose, "Receiver count not changing." )
+        client_events_channel <- "done receiving"
+        break
+      }
+
+      umi ( merc.verbose, "%d receivers have finished.\n", done_receiving_count )
+      previous_count = done_receiving_count
+    }
 
     if done_receiving_count >= merc.receiver_count {
       client_events_channel <- "done receiving"
@@ -952,8 +967,8 @@ func main ( ) {
   /*--------------------------------------------
     Process files named on command line.
   --------------------------------------------*/
-  for i := 1; i < len(os.Args); i ++ {
-    file := os.Args[i]
+  for i := 1; i < len ( os.Args ); i ++ {
+    file := os.Args [ i ]
     if ! utils.Path_exists ( file ) {
       ume ( "main: Can't find script file |%s|.", file )
       os.Exit ( 1 )
@@ -965,11 +980,23 @@ func main ( ) {
     msg := <- client_events_channel
     switch msg {
       case "done receiving" :
-        fp ( os.Stdout, "MDEBUG main: done receiving !\n" )
-        os.Exit ( 0 )
-      
+          umi ( merc.verbose, "All receivers have stopped." )
+
+          umi ( merc.verbose, "Sending dump_data signal." )
+          os.Create ( merc.session.name + "/events/dump_data" )
+
+          umi ( merc.verbose, "Sleeping 20 seconds." )
+          time.Sleep ( 20 * time.Second )
+
+          if merc.network_running {
+            merc.network.Halt ( )
+          }
+          umi ( merc.verbose, "Mercury exiting." )
+          merc.mercury_log_file.Close()
+          os.Exit ( 0 )
+
       default :
-        fp ( os.Stdout, "MDEBUG main: unknown message: |%s|\n", msg )
+        fp ( os.Stdout, "main: unknown message: |%s|\n", msg )
     }
   }
 
