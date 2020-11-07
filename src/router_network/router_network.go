@@ -795,7 +795,10 @@ func ( rn * Router_network ) Run ( ) {
 
     for _, c := range rn.clients {
       c.Run ( )
-      time.Sleep ( 5 * time.Millisecond )
+
+      // TODO replace this with more intelligence in senders.
+      // Inter-client sleep 
+      time.Sleep ( 50 * time.Millisecond )
     }
   }
 
@@ -948,10 +951,15 @@ func (rn * Router_network) Get_edge_list ( ) ( edge_list [] string) {
 
 func halt_client ( wg * sync.WaitGroup, c * client.Client ) {
   defer wg.Done()
+
+  /*
+   This looks like it is not actually an error.
   err := c.Halt ( )
   if err != nil && err.Error() != "process self-terminated." {
     ume ( "Client |%s| halting error: %s", c.Name, err.Error() )
   }
+  */
+  c.Halt ( )
 }
 
 
