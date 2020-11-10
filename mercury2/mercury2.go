@@ -12,6 +12,9 @@ import (
 var fp=fmt.Fprintf
 
 
+
+
+
 func main ( ) {
 
   mercury_root := os.Getenv ( "MERCURY_ROOT" )
@@ -57,10 +60,15 @@ func main ( ) {
 
   network.Run  ( )
 
-  for {
-    fp ( os.Stdout, "MDEBUG The network is running.\n" )
-    time.Sleep ( 5 * time.Second )
-  }
+  fp ( os.Stdout, "MDEBUG The network is running.\n" )
+  time.Sleep ( 20 * time.Second )
+
+  
+  // CAN WE HALT THIS ONE AND MAKE A NEW ONE ???
+  network.Halt ( );
+
+  fp ( os.Stdout, "MDEBUG Is the network halted ?\n" )
+  time.Sleep ( 100 * time.Second )
 }
 
 

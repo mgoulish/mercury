@@ -226,7 +226,6 @@ func ( rn * Router_network ) Init_only ( val bool ) {
 
 
 func ( rn * Router_network ) Reset ( ) {
-  rn.Halt ( )
   rn.Running         = false
   rn.Versions        = nil
   rn.Default_version = nil
@@ -813,6 +812,7 @@ func ( rn * Router_network ) Start_client_status_check  ( ticker_frequency int )
 
 
 
+// TODO this is client communication. replace with new style.
 func ( rn * Router_network ) Client_status_check ( ) ( int ) {
 
   total_received := 0
@@ -1052,6 +1052,7 @@ func ( rn * Router_network ) Get_nth_interior_router_name ( index int ) ( string
 
 
 
+// TODO this is client communication. replace with new style.
 
 
 func ( rn * Router_network ) read_client_status_file ( client_name, file_name string ) ( bool ) {
