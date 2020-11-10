@@ -172,12 +172,7 @@ type Router_network struct {
   client_status_files    []   string
   completed_clients           int
 
-  channel                     chan string
-
   n_senders                   int
-
-  Failsafe                    int
-  failsafe_timer            * time.Ticker
 
   init_only                   bool
 }
@@ -239,8 +234,6 @@ func ( rn * Router_network ) Reset ( ) {
   rn.routers         = nil
   rn.clients         = nil
   rn.n_senders       = 0
-  rn.Failsafe        = 0
-  rn.failsafe_timer  = nil
   rn.init_only       = false
 }
 
@@ -287,7 +280,7 @@ func ( rn * Router_network )  Build_clients ( ) {
       cmd.Dir       = rn.client_dir
       out, err     := cmd.Output ( )
       if err != nil {
-        fp ( os.Stderr, "New_router_network error : Can't compile c_proactor_client. |%s|\n", err.Error() )
+        fp ( os.Stderr, "Build_clients error : Can't compile c_proactor_client. |%s|\n", err.Error() )
         fp ( os.Stderr, "  command output: |%s|\n", out )
         os.Exit ( 1 )
       }
@@ -301,12 +294,12 @@ func ( rn * Router_network )  Build_clients ( ) {
       cmd.Dir      = rn.client_dir
       out, err     = cmd.Output ( )
       if err != nil {
-        fp ( os.Stderr, "New_router_network error : Can't link c_proactor_client. |%s|\n", err.Error() )
+        fp ( os.Stderr, "Build_clients error : Can't link c_proactor_client. |%s|\n", err.Error() )
         fp ( os.Stderr, "  command output: |%s|\n", out )
         os.Exit ( 1 )
       }
 
-      fp ( os.Stdout, "New_router_network: built client at path |%s|.\n\n", client_path )
+      fp ( os.Stdout, "Build_clients: built client at path |%s|.\n\n", client_path )
     }
   }
 
@@ -321,12 +314,10 @@ func ( rn * Router_network )  Build_clients ( ) {
 // and provide lots of paths.
 func New_router_network ( name         string,
                           mercury_root string,
-                          log_path     string,
-                          channel      chan string ) * Router_network {
+                          log_path     string ) * Router_network {
 
   rn := & Router_network { Name         : name,
                            log_path     : log_path,
-                           channel      : channel,
                            mercury_root : mercury_root }
   rn.ticker_frequency = 10
 
@@ -768,11 +759,6 @@ func ( rn * Router_network ) Init ( ) {
 */
 func ( rn * Router_network ) Run ( ) {
 
-  if rn.Failsafe > 0 {
-    rn.failsafe_timer = time.NewTicker ( time.Duration(rn.Failsafe) * time.Second )
-    go rn.failsafe_halt()
-  }
-
   router_run_count := 0
 
   for _, r := range rn.routers {
@@ -821,16 +807,6 @@ func ( rn * Router_network ) Start_client_status_check  ( ticker_frequency int )
   rn.client_ticker  = time.NewTicker ( ticker_time )
 
   go rn.Client_status_check ( )
-}
-
-
-
-
-func ( rn * Router_network ) failsafe_halt ( ) {
-  for _ = range rn.failsafe_timer.C {
-    umi ( rn.verbose, "network halting: failsafe." )
-    rn.channel <- "failsafe"
-  }
 }
 
 
@@ -1151,12 +1127,9 @@ func ( rn * Router_network ) read_client_status_file ( client_name, file_name st
   }
 
   if rn.completed_clients >= rn.n_senders {
-    // debug the failsafe by not halting here.
-    // return is_it_completed
+    // TODO -- replace all client communication with new method
     umi ( true, "network: all %d senders have successfully completed.", rn.n_senders )
     umi ( rn.verbose, "halting network.\n" )
-    // rn.client_ticker.Stop()
-    // rn.channel <- "success"
   }
 
   return is_it_completed

@@ -1,0 +1,10 @@
+#! /usr/bin/bash
+
+export MERCURY_ROOT=${HOME}/mercury
+export GOPATH=${MERCURY_ROOT}
+
+
+
+
+go run ./*.go 
+
