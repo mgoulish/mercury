@@ -28,6 +28,28 @@ func main ( ) {
                        ".",    // config_path
                        "." )   // log_path
   network.Init ( )
+  network.Set_results_path ( "." )
+
+  network.Add_sender ( "sender",   // name
+                       ".",        // config_path
+                       100,        // n_messages
+                       100,        // max_message_length  -- TODO get rid of this.
+                       "A",        // router name
+                       "100",      // throttle (msec)
+                       "0",          // delay               -- and this
+                       "0" )         // soak                -- and this
+
+  network.Add_receiver ( "receiver",
+                         ".",
+                         100,
+                         100,
+                         "A",
+                         "0",
+                         "0" )
+                        
+  network.Add_Address_To_Client ( "sender",   "addr" )
+  network.Add_Address_To_Client ( "receiver", "addr" )
+
   network.Run  ( )
 
   for {
