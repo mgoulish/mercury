@@ -29,6 +29,11 @@ func main ( ) {
                        "." )   // log_path
   network.Init ( )
   network.Set_results_path ( "." )
+  network.Set_events_path  ( "." )
+
+  // Send both signals right now.
+  os.Create ( "./start_sending" )
+  os.Create ( "./dump_data" )
 
   network.Add_sender ( "sender",   // name
                        ".",        // config_path
