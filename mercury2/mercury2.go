@@ -1,9 +1,11 @@
 package main
 
 import (
+            "bufio"
             "fmt"
             "io/ioutil"
             "os"
+            "os/exec"
             "path/filepath"
             "sort"
             "strconv"
@@ -126,14 +128,73 @@ func ( t * test_result ) read ( dir string, signifier string ) ( error ) {
 
 
 
-func ( t * test_result ) process ( ) {
+func ( t * test_result ) process ( graphics_path string ) {
 
-  fp ( os.Stdout, "MDEBUG sorting %d...\n", len(t.results) )
   sort.Sort ( message_result_list ( t.results ) )
-  fp ( os.Stdout, "MDEBUG done sorting %d...\n", len(t.results) )
+
+  first_time := t.results[0].arrival_time
 
   for _, result := range ( t.results ) {
-    fp ( os.Stdout, "MDEBUG %.8f\n", result.arrival_time )
+    result.arrival_time -= first_time
+  }
+
+  // Delete first and last 1-second intervals.
+  last_time  := t.results[len(t.results)-1].arrival_time
+
+  for _, result := range ( t.results ) {
+
+    // first 1-second
+    if result.arrival_time < 1.0 {
+      result.arrival_time = -1.0
+    }
+
+    // last 1-second
+    if last_time - result.arrival_time <= 1.0 {
+      result.arrival_time = -1.0
+    }
+  }
+
+
+  // Make the timeline data file.
+  f, _ := os.Create ( graphics_path + "/timeline.data" )
+  defer f.Close()
+  w := bufio.NewWriter ( f )
+
+  for _, result := range ( t.results ) {
+    if result.arrival_time >= 0 {
+      fp ( w, "%.6f %.6f\n", result.arrival_time, result.latency )
+    }
+  }
+  w.Flush ( )
+
+  // Make the timeline gnuplot file.
+  gnuplot_script := "set autoscale\n"
+  gnuplot_script += "unset key\n"
+  gnuplot_script += "set ylabel \"latency\"\n"
+  gnuplot_script += "set xlabel \"time\"\n"
+  gnuplot_script += "set terminal jpeg size 2000,500\n"
+  gnuplot_script += fmt.Sprintf ( "set output \"timeline_n-routers_%d_n-clients_%d.jpg\"\n", t.n_routers, t.n_client_pairs )
+  gnuplot_script += fmt.Sprintf ( "set title \"Timeline View of Trimmed Data -- %d Client-Pairs\"\n", t.n_client_pairs )
+  gnuplot_script += "plot \"timeline.data\" with points\n"
+
+  // Write out the gnuplot script.
+  gnuplot_script_name := graphics_path + "/timeline.gplot"
+  file, err := os.Create ( gnuplot_script_name )
+  if err != nil {
+    fp ( os.Stdout, "Can't create gplot script file: |%s|\n", err.Error() )
+    os.Exit ( 1 )
+  }
+  defer file.Close()
+  fmt.Fprintf ( file, "%s", gnuplot_script )
+
+  args_list := [] string { "timeline.gplot" }
+  command := exec.Command ( "/usr/bin/gnuplot", args_list ... )
+  command.Dir = graphics_path
+  //err = command.Run ( )
+  output, err := command.CombinedOutput ( )
+  if err != nil {
+    fp ( os.Stdout, "test_result.process : error running gnuplot: stdout: |%s|  error: |%s|\n", output, err.Error() )
+    return
   }
 }
 
@@ -296,10 +357,15 @@ func main ( ) {
   mercury_root := os.Getenv ( "MERCURY_ROOT" )
   client_events_channel := make ( chan string, 5 )
 
+
   for n_routers := 1; n_routers <= 3; n_routers ++ {
     for n_client_pairs := 100; n_client_pairs <= 4000; n_client_pairs += 100 {
       run_name := fmt.Sprintf ( "n-routers_%d_n-clients_%d", n_routers, n_client_pairs )
       fp ( os.Stdout, "Running: %s at %v\n", run_name, time.Now() )
+
+      graphics_path := run_name + "/graphics"
+      utils.Find_or_create_dir ( graphics_path )
+
       results_dir := run_linear_network ( run_name, 
                                           mercury_root, 
                                           n_routers, 
@@ -308,12 +374,10 @@ func main ( ) {
 
       result := new_test_result ( time.Now(), n_routers, n_client_pairs )
       result.read ( results_dir, "flight_times" )
-      fp ( os.Stdout, "MDEBUG in main %d results\n", len ( result.results ) )
-      result.process ( )
+      result.process ( graphics_path )
 
       // A little pause before starting next one.
       time.Sleep ( 10 * time.Second )
-      os.Exit ( 0 ) // TEMP
     }
   }
 }
