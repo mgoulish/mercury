@@ -5,6 +5,7 @@ import (
             "io/ioutil"
             "os"
             "path/filepath"
+            "strconv"
             "strings"
             "time"
 
@@ -69,7 +70,7 @@ func new_test_result ( test_time time.Time, n_routers, n_pairs int ) ( * test_re
 
 
 
-func ( t test_result ) read ( dir string, signifier string ) {
+func ( t test_result ) read ( dir string, signifier string ) ( error ) {
   // Get a list of all the file names in 'dir' 
   // whose names contain 'signifier'.
   var file_names [] string
@@ -83,12 +84,43 @@ func ( t test_result ) read ( dir string, signifier string ) {
                         return nil
                       } )
 
-  fp ( os.Stdout, "MDEBUG I have %d file names.\n", len(file_names) )
-  /*
   for _, file_name := range file_names {
-    
+    // Get the message results out of the file.
+    // Two floats per line.
+    content, err := ioutil.ReadFile ( file_name )
+    if err != nil {
+      return err
+    }
+
+    lines := strings.Split ( string(content), "\n" )
+
+    for _, line := range lines {
+
+      fp ( os.Stdout, "MDEBUG line |%v|\n", line )
+      if line == "" {
+        // This file is finished.
+        break
+      }
+
+      numbers := strings.Split ( line, " " )
+      result := message_result{}
+      result.arrival_time, err = strconv.ParseFloat ( numbers[0], 64 )
+      if err != nil {
+        fp ( os.Stdout, "MDEBUG err 1 : %s\n", err.Error() )
+        return err
+      }
+      result.latency, err      = strconv.ParseFloat ( numbers[1], 64 )
+      if err != nil {
+        fp ( os.Stdout, "MDEBUG err 2 : %s\n", err.Error() )
+        return err
+      }
+      t.results = append ( t.results, result )
+    }
   }
-  */
+
+  fp ( os.Stdout, "MDEBUG I got %d results.\n", len ( t.results ) )
+
+  return nil
 }
 
 
