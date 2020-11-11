@@ -5,6 +5,7 @@ import (
             "io/ioutil"
             "os"
             "path/filepath"
+            "sort"
             "strconv"
             "strings"
             "time"
@@ -25,7 +26,7 @@ type message_result struct {
 }
 
 
-type message_result_list [] message_result
+type message_result_list [] *message_result
 
 
 // Functions to satisfy the Sort interface.
@@ -64,13 +65,14 @@ func new_test_result ( test_time time.Time, n_routers, n_pairs int ) ( * test_re
   return & test_result { test_time      : test_time,
                          n_routers      : n_routers,
                          n_client_pairs : n_pairs }
+                         
 }
 
 
 
 
 
-func ( t test_result ) read ( dir string, signifier string ) ( error ) {
+func ( t * test_result ) read ( dir string, signifier string ) ( error ) {
   // Get a list of all the file names in 'dir' 
   // whose names contain 'signifier'.
   var file_names [] string
@@ -96,7 +98,6 @@ func ( t test_result ) read ( dir string, signifier string ) ( error ) {
 
     for _, line := range lines {
 
-      fp ( os.Stdout, "MDEBUG line |%v|\n", line )
       if line == "" {
         // This file is finished.
         break
@@ -106,23 +107,35 @@ func ( t test_result ) read ( dir string, signifier string ) ( error ) {
       result := message_result{}
       result.arrival_time, err = strconv.ParseFloat ( numbers[0], 64 )
       if err != nil {
-        fp ( os.Stdout, "MDEBUG err 1 : %s\n", err.Error() )
         return err
       }
       result.latency, err      = strconv.ParseFloat ( numbers[1], 64 )
       if err != nil {
-        fp ( os.Stdout, "MDEBUG err 2 : %s\n", err.Error() )
         return err
       }
-      t.results = append ( t.results, result )
+      t.results = append ( t.results, &result )
     }
   }
 
-  fp ( os.Stdout, "MDEBUG I got %d results.\n", len ( t.results ) )
+  fp ( os.Stdout, "MDEBUG read: %d results.\n", len ( t.results ) )
 
   return nil
 }
 
+
+
+
+
+func ( t * test_result ) process ( ) {
+
+  fp ( os.Stdout, "MDEBUG sorting %d...\n", len(t.results) )
+  sort.Sort ( message_result_list ( t.results ) )
+  fp ( os.Stdout, "MDEBUG done sorting %d...\n", len(t.results) )
+
+  for _, result := range ( t.results ) {
+    fp ( os.Stdout, "MDEBUG %.8f\n", result.arrival_time )
+  }
+}
 
 
 
@@ -295,6 +308,8 @@ func main ( ) {
 
       result := new_test_result ( time.Now(), n_routers, n_client_pairs )
       result.read ( results_dir, "flight_times" )
+      fp ( os.Stdout, "MDEBUG in main %d results\n", len ( result.results ) )
+      result.process ( )
 
       // A little pause before starting next one.
       time.Sleep ( 10 * time.Second )
