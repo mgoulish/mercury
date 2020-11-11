@@ -96,6 +96,7 @@ func run_linear_network ( run_name     string,
 
   fp ( os.Stdout, "MDEBUG network |%s| is running.\n", run_name )
 
+  // TODO NEXT ! -- make it get signals!
   // TODO -- replace this with client-to-router comms
   time.Sleep ( 20 * time.Second )
   
@@ -114,20 +115,15 @@ func main ( ) {
 
   mercury_root := os.Getenv ( "MERCURY_ROOT" )
 
-  run_linear_network ( "network_one", 
-                mercury_root,
-                2,
-                2 )
-
-  // A little pause before starting next one.
-  time.Sleep ( 10 * time.Second )
-
-  run_linear_network ( "network_two", 
-                mercury_root,
-                3,
-                5 )
-
-
+  for n_routers := 1; n_routers <= 3; n_routers ++ {
+    for n_client_pairs := 100; n_client_pairs <= 4000; n_client_pairs += 100 {
+      run_name := fmt.Sprintf ( "n-routers_%d_n-clients_%d", n_routers, n_client_pairs )
+      fp ( os.Stdout, "Running: %s at %v\n", run_name, time.Now() )
+      run_linear_network ( run_name, mercury_root, n_routers, n_client_pairs )
+      // A little pause before starting next one.
+      time.Sleep ( 10 * time.Second )
+    }
+  }
 }
 
 
