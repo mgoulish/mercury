@@ -2,7 +2,9 @@ package main
 
 import (
             "fmt"
+            "io/ioutil"
             "os"
+            "strings"
             "time"
 
          rn "router_network"
@@ -14,11 +16,52 @@ var fp=fmt.Fprintf
 
 
 
+func listen_for_messages_from_clients ( event_path string, 
+                                        receiver_count int,
+                                        client_events_channel chan string ) {
+  previous_count := 0
+  same_count     := 0
+
+  for {
+    time.Sleep ( 5 * time.Second )
+
+    done_receiving_count := 0
+    files, _ := ioutil.ReadDir ( event_path )
+    for _, f := range files {
+      if strings.HasPrefix ( f.Name(), "done_receiving" ) {
+        done_receiving_count ++
+      }
+    }
+
+    if done_receiving_count > 0 {
+      if done_receiving_count == previous_count {
+        same_count ++
+      }
+
+      if same_count > 5 {
+        client_events_channel <- "not changing"
+        break
+      }
+
+      previous_count = done_receiving_count
+    }
+
+    if done_receiving_count >= receiver_count {
+      client_events_channel <- "done receiving"
+      break
+    }
+  }
+}
+
+
+
+
 
 func run_linear_network ( run_name     string, 
                           mercury_root string,
                           n_routers    int,
-                          n_pairs      int ) {
+                          n_pairs      int,
+                          client_events_channel chan string ) {
 
   log_path    := run_name + "/log"
   config_path := run_name + "/config"
@@ -98,13 +141,25 @@ func run_linear_network ( run_name     string,
 
   // TODO NEXT ! -- make it get signals!
   // TODO -- replace this with client-to-router comms
-  time.Sleep ( 20 * time.Second )
+  go listen_for_messages_from_clients ( event_path, 
+                                        n_pairs,
+                                        client_events_channel ) 
+
+  for {
+    msg := <- client_events_channel
+
+    switch msg {
+      case "done receiving" :
+        fp ( os.Stdout, "test ran successfully.\n" )
+
+      default :
+        fp ( os.Stdout, "test failed.\n" )
+    }
+
+    break
+  }
   
   network.Halt ( );
-
-  // Clean up the signals
-  os.Remove ( "./start_sending" )
-  os.Remove ( "./dump_data" )
 }
 
 
@@ -114,12 +169,17 @@ func run_linear_network ( run_name     string,
 func main ( ) {
 
   mercury_root := os.Getenv ( "MERCURY_ROOT" )
+  client_events_channel := make ( chan string, 5 )
 
   for n_routers := 1; n_routers <= 3; n_routers ++ {
     for n_client_pairs := 100; n_client_pairs <= 4000; n_client_pairs += 100 {
       run_name := fmt.Sprintf ( "n-routers_%d_n-clients_%d", n_routers, n_client_pairs )
       fp ( os.Stdout, "Running: %s at %v\n", run_name, time.Now() )
-      run_linear_network ( run_name, mercury_root, n_routers, n_client_pairs )
+      run_linear_network ( run_name, 
+                           mercury_root, 
+                           n_routers, 
+                           n_client_pairs,
+                           client_events_channel )
       // A little pause before starting next one.
       time.Sleep ( 10 * time.Second )
     }
