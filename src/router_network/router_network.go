@@ -64,7 +64,7 @@ func check_path ( name string, path string, must_exist bool ) {
       // os.Exit ( 1 )
       ume ( "rn.check_path: But I'm not exiting...\n" )
     } else {
-      umi ( true, "rn.check_path: Path |%s| does not exist at |%s|", name, path )
+      //umi ( true, "rn.check_path: Path |%s| does not exist at |%s|", name, path )
     }
   }
 }
@@ -352,8 +352,8 @@ func ( rn * Router_network ) Add_version_with_roots ( name          string,
   version := new_version_with_roots ( name, dispatch_root, proton_root, rn.verbose )
   rn.Versions = append ( rn.Versions, version )
 
-  fp ( os.Stdout,  "Added version |%s|.\n", name )
-  version.Print_version ( )
+  // fp ( os.Stdout,  "Added version |%s|.\n", name )
+  // version.Print_version ( )
 
   // If this is the first one, make it the default.
   // And build the clients using this version.

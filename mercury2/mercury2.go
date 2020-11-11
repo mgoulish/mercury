@@ -4,6 +4,7 @@ import (
             "fmt"
             "io/ioutil"
             "os"
+            "path/filepath"
             "strings"
             "time"
 
@@ -13,6 +14,85 @@ import (
 
 
 var fp=fmt.Fprintf
+
+
+
+
+type message_result struct {
+  arrival_time float64 
+  latency      float64
+}
+
+
+type message_result_list [] message_result
+
+
+// Functions to satisfy the Sort interface.
+func ( mrl message_result_list ) Len ( ) ( int ) {
+  return len ( mrl )
+}
+
+
+func ( mrl message_result_list ) Less ( i, j int ) bool {
+  return mrl[i].arrival_time < mrl[j].arrival_time
+}
+
+
+func ( mrl message_result_list ) Swap ( i, j int ) {
+  mrl[i] , mrl[j] = mrl[j], mrl[i]
+}
+
+
+
+
+
+type test_result struct {
+  test_time      time.Time
+  n_routers      int
+  n_client_pairs int
+  results        message_result_list
+  mean_latency   float64
+  layency_99     float64
+}
+
+
+
+
+
+func new_test_result ( test_time time.Time, n_routers, n_pairs int ) ( * test_result ) {
+  return & test_result { test_time      : test_time,
+                         n_routers      : n_routers,
+                         n_client_pairs : n_pairs }
+}
+
+
+
+
+
+func ( t test_result ) read ( dir string, signifier string ) {
+  // Get a list of all the file names in 'dir' 
+  // whose names contain 'signifier'.
+  var file_names [] string
+  _ = filepath.Walk ( dir,
+                      func ( path string, info os.FileInfo, err error) error {
+                        if ! info.IsDir ( ) {
+                          if strings.Contains ( path, signifier ) {
+                            file_names = append ( file_names, path )
+                          }
+                        }
+                        return nil
+                      } )
+
+  fp ( os.Stdout, "MDEBUG I have %d file names.\n", len(file_names) )
+  /*
+  for _, file_name := range file_names {
+    
+  }
+  */
+}
+
+
+
 
 
 
@@ -61,7 +141,7 @@ func run_linear_network ( run_name     string,
                           mercury_root string,
                           n_routers    int,
                           n_pairs      int,
-                          client_events_channel chan string ) {
+                          client_events_channel chan string ) ( string )  {
 
   log_path    := run_name + "/log"
   config_path := run_name + "/config"
@@ -137,10 +217,8 @@ func run_linear_network ( run_name     string,
 
   network.Run  ( )
 
-  fp ( os.Stdout, "MDEBUG network |%s| is running.\n", run_name )
+  fp ( os.Stdout, "network |%s| is running.\n", run_name )
 
-  // TODO NEXT ! -- make it get signals!
-  // TODO -- replace this with client-to-router comms
   go listen_for_messages_from_clients ( event_path, 
                                         n_pairs,
                                         client_events_channel ) 
@@ -160,6 +238,8 @@ func run_linear_network ( run_name     string,
   }
   
   network.Halt ( );
+
+  return result_path
 }
 
 
@@ -175,13 +255,18 @@ func main ( ) {
     for n_client_pairs := 100; n_client_pairs <= 4000; n_client_pairs += 100 {
       run_name := fmt.Sprintf ( "n-routers_%d_n-clients_%d", n_routers, n_client_pairs )
       fp ( os.Stdout, "Running: %s at %v\n", run_name, time.Now() )
-      run_linear_network ( run_name, 
-                           mercury_root, 
-                           n_routers, 
-                           n_client_pairs,
-                           client_events_channel )
+      results_dir := run_linear_network ( run_name, 
+                                          mercury_root, 
+                                          n_routers, 
+                                          n_client_pairs,
+                                          client_events_channel )
+
+      result := new_test_result ( time.Now(), n_routers, n_client_pairs )
+      result.read ( results_dir, "flight_times" )
+
       // A little pause before starting next one.
       time.Sleep ( 10 * time.Second )
+      os.Exit ( 0 ) // TEMP
     }
   }
 }
