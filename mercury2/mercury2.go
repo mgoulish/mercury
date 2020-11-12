@@ -243,17 +243,19 @@ func listen_for_messages_from_clients ( event_path string,
 
 
 
-func run_linear_network ( run_name     string, 
+func run_linear_network ( test_name    string,
+                          run_name     string, 
                           mercury_root string,
                           n_routers    int,
                           n_pairs      int,
                           client_events_channel chan string ) ( string )  {
 
-  log_path    := run_name + "/log"
-  config_path := run_name + "/config"
-  event_path  := run_name + "/event"
-  result_path := run_name + "/result"
+  log_path    := test_name + "/" + run_name + "/log"
+  config_path := test_name + "/" + run_name + "/config"
+  event_path  := test_name + "/" + run_name + "/event"
+  result_path := test_name + "/" + run_name + "/result"
 
+  fp ( os.Stdout, "MDEBUG log path is |%s|\n", log_path )
   utils.Find_or_create_dir ( log_path )
   utils.Find_or_create_dir ( config_path )
   utils.Find_or_create_dir ( event_path )
@@ -290,6 +292,7 @@ func run_linear_network ( run_name     string,
   network.Set_events_path  ( event_path )
 
   // Send both signals right now.
+  // TODO -- do these the right way.
   os.Create ( event_path + "/start_sending" )
   os.Create ( event_path + "/dump_data" )
 
@@ -352,21 +355,152 @@ func run_linear_network ( run_name     string,
 
 
 
+func run_horizontal_network ( run_name              string, 
+                              mercury_root          string,
+                              n_routers             int,
+                              n_pairs_per_router    int,
+                              client_events_channel chan string ) ( string )  {
+
+  log_path    := run_name + "/log"
+  config_path := run_name + "/config"
+  event_path  := run_name + "/event"
+  result_path := run_name + "/result"
+
+  utils.Find_or_create_dir ( log_path )
+  utils.Find_or_create_dir ( config_path )
+  utils.Find_or_create_dir ( event_path )
+  utils.Find_or_create_dir ( result_path )
+
+  network := rn.New_router_network ( run_name,
+                                     mercury_root,
+                                     log_path )
+
+  // TODO fix this!
+  network.Add_version_with_roots ( "latest",
+                                   "/home/mick/latest/install/proton",
+                                   "/home/mick/latest/install/dispatch" )
+
+  // N router linear network in which each connects to the previous.
+  for i := 0; i < n_routers; i ++ {
+    current_router   := 'A' + i
+    network.Add_router ( string(rune(current_router)),
+                         "latest",
+                         config_path,
+                         log_path )
+    if i > 0 {
+      network.Connect_router ( string(rune(current_router)), 
+                               string(rune(current_router - 1)) )
+    }
+  }
+
+  network.Init ( )
+  network.Set_results_path ( result_path )
+  network.Set_events_path  ( event_path )
+
+
+  for i := 0; i < n_routers; i ++ {
+    current_router := string(rune('A' + i))
+    for j := 0; j < n_pairs_per_router; j ++ {
+
+      sender_name := fmt.Sprintf ( "sender_%d_%05d", i, j )
+
+      network.Add_sender ( sender_name,
+                           ".",        // config_path
+                           1000000,    // n_messages
+                           100,        // max_message_length  -- TODO get rid of this.
+                           current_router,
+                           "0",        // NO THROTTLE
+                           "0",        // delay               -- and this
+                           "0" )       // soak                -- and this
+
+      receiver_name := fmt.Sprintf ( "receiver_%d_%05d", i, j )
+      network.Add_receiver ( receiver_name,
+                             ".",
+                             1000000,
+                             100,
+                             current_router,
+                             "0",
+                             "0" )
+      
+      address := fmt.Sprintf ( "addr_%d_%05d", i, j )
+      network.Add_Address_To_Client ( sender_name,   address )
+      network.Add_Address_To_Client ( receiver_name, address )
+    }
+  }
+                        
+
+  network.Run  ( )
+
+  fp ( os.Stdout, "network |%s| is running.\n", run_name )
+
+  time.Sleep ( 5 * time.Second )
+  // TODO make a fn "send_signal" 
+  os.Create ( event_path + "/start_sending" )
+  time.Sleep ( 5 * time.Second )
+  os.Create ( event_path + "/dump_data" )
+
+  go listen_for_messages_from_clients ( event_path, 
+                                        n_pairs_per_router * n_routers,
+                                        client_events_channel ) 
+
+  for {
+    msg := <- client_events_channel
+
+    switch msg {
+      case "done receiving" :
+        fp ( os.Stdout, "test ran successfully.\n" )
+
+      default :
+        fp ( os.Stdout, "test failed: |%s|.\n", msg )
+    }
+
+    break
+  }
+  
+  network.Halt ( );
+
+  return result_path
+}
+
+
+
+
+
 func main ( ) {
 
   mercury_root := os.Getenv ( "MERCURY_ROOT" )
   client_events_channel := make ( chan string, 5 )
 
 
+/*
+  n_routers := 7
+  n_pairs_per_router := 5
+  run_name := fmt.Sprintf ( "horizontal_nr_%d_nppr_%d", n_routers, n_pairs_per_router )
+  graphics_path := run_name + "/graphics"
+  utils.Find_or_create_dir ( graphics_path )
+
+  run_horizontal_network ( run_name, 
+                           mercury_root, 
+                           n_routers, 
+                           n_pairs_per_router,
+                           client_events_channel )
+
+  fp ( os.Stdout, "main: done.\n" )
+*/
+
+
+  test_name := "latency" + "_" + time.Now().Format ( "2006_01_02_1504" )
+
   for n_routers := 1; n_routers <= 3; n_routers ++ {
     for n_client_pairs := 100; n_client_pairs <= 4000; n_client_pairs += 100 {
       run_name := fmt.Sprintf ( "n-routers_%d_n-clients_%d", n_routers, n_client_pairs )
       fp ( os.Stdout, "Running: %s at %v\n", run_name, time.Now() )
 
-      graphics_path := run_name + "/graphics"
+      graphics_path := test_name + "/" + run_name + "/graphics"
       utils.Find_or_create_dir ( graphics_path )
 
-      results_dir := run_linear_network ( run_name, 
+      results_dir := run_linear_network ( test_name,
+                                          run_name, 
                                           mercury_root, 
                                           n_routers, 
                                           n_client_pairs,
@@ -378,8 +512,11 @@ func main ( ) {
 
       // A little pause before starting next one.
       time.Sleep ( 10 * time.Second )
+
+      os.Exit ( 0 ) // TEMP
     }
   }
+
 }
 
 

@@ -5,6 +5,7 @@ export GOPATH=${MERCURY_ROOT}
 
 
 rm -rf ./n-routers_*
+rm -rf ./hor*
 
 go run ./*.go 
 
