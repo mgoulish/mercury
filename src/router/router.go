@@ -80,7 +80,7 @@ type Router struct {
   edge_port                      string
   verbose                        bool
 
-  pid                            int
+  Pid                            int
   state                          router_state            
   cmd                          * exec.Cmd
   i_connect_to_ports            [] string
@@ -203,7 +203,7 @@ func ( r * Router ) Print_console_port () {
 
 func ( r * Router ) Print () {
   fp ( os.Stdout, "router %s -------------\n", r.name )
-  fp ( os.Stdout, "  PID: %d\n", r.pid )
+  fp ( os.Stdout, "  PID: %d\n", r.Pid )
   fp ( os.Stdout, "  state:  %s\n", state_to_string ( r.state ) )
   fp ( os.Stdout, "  client  port: %s\n", r.client_port )
   fp ( os.Stdout, "  router  port: %s\n", r.router_port )
@@ -463,39 +463,39 @@ func ( r * Router ) write_config_file ( ) error {
   This fn sets up the router's environment variables, 
   and runs the router as a separate process.
 */
-func ( r * Router ) Run ( ) error {
+func ( r * Router ) Run ( ) ( int, error ) {
   if r.state == running {
     ume ( "Attempt to re-run running router |%s|.", r.name )
-    return nil
+    return 0, nil
   }
 
   // Set up the environment for the router process.
   os.Setenv ( "LD_LIBRARY_PATH", r.ld_library_path )
   os.Setenv ( "PYTHONPATH"     , r.pythonpath )
 
-  router_args     := " --config " + r.config_file_path + " -I " + r.include_path
-  args            := router_args
+  router_args := " --config " + r.config_file_path + " -I " + r.include_path
+  args        := router_args
 
   args_list := strings.Fields ( args )
 
-  // Start the router process and get its pid for the result directory name.
+  // Start the router process and get its Pid for the result directory name.
   // After the Start() call, the router process is running detached.
   r.cmd = exec.Command ( r.executable_path,  args_list... )
   if r.cmd == nil {
     fp ( os.Stdout, "   router.Run error: can't execute |%s|\n", r.executable_path )
-    return errors.New ( "Can't execute router executable." )
+    return 0, errors.New ( "Can't execute router executable." )
   }
   r.cmd.Start ( )
   r.state = running
 
   if r.cmd.Process == nil {
     fp ( os.Stdout, "   router.Run error: can't execute |%s|\n", r.executable_path )
-    return errors.New ( "Can't execute router executable." )
+    return 0, errors.New ( "Can't execute router executable." )
   }
 
-  r.pid = r.cmd.Process.Pid
+  r.Pid = r.cmd.Process.Pid
 
-  umi ( r.verbose, "Router |%s| has started with pid %d .", r.name, r.pid )
+  umi ( r.verbose, "Router |%s| has started with Pid %d .", r.name, r.Pid )
 
   // Write the environment variables to the config directory.
   // This helps the user to reproduce this test, if desired.
@@ -517,7 +517,7 @@ func ( r * Router ) Run ( ) error {
   command_string := r.executable_path + " " + args
   command_file.WriteString ( command_string + "\n" )
 
-  return nil
+  return r.Pid, nil
 }
 
 
@@ -620,14 +620,6 @@ func ( r * Router ) Halt ( ) error {
   }
 
   return nil
-}
-
-
-
-
-
-func ( r * Router ) Pid ( ) ( int )  {
-  return int ( r.cmd.Process.Pid )
 }
 
 

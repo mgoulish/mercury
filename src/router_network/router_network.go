@@ -2,7 +2,6 @@ package router_network
 
 import ( "errors"
          "fmt"
-         "io/ioutil"
          "os"
          "os/exec"
          "strings"
@@ -112,6 +111,7 @@ func new_version_with_roots ( name          string,
   check_path (   "proton library path",   PROTON_LIBRARY_PATH, true )
 
 
+  // TODO -- fix this Python path.
   // Calculate PYTHONPATH for this version.
   DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
   DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
@@ -169,12 +169,14 @@ type Router_network struct {
 
   ticker_frequency            int
   client_ticker             * time.Ticker
-  client_status_files    []   string
+  router_ticker             * time.Ticker
   completed_clients           int
 
   n_senders                   int
 
   init_only                   bool
+
+  Router_PIDs            []   int
 }
 
 
@@ -639,8 +641,6 @@ func ( rn * Router_network ) add_client ( name               string,
 
   status_file := rn.log_path + "/" + name
 
-  rn.client_status_files = append ( rn.client_status_files, status_file )
-
   c := client.New_client ( name,
                            config_path,
                            results_path,
@@ -758,14 +758,18 @@ func ( rn * Router_network ) Init ( ) {
 */
 func ( rn * Router_network ) Run ( ) {
 
+  fp ( os.Stdout, "MDEBUG starting network !\n" )
   router_run_count := 0
 
   for _, r := range rn.routers {
     if r.State() == "initialized" {
-      r.Run ( )
+      pid, _ := r.Run ( )
       router_run_count ++
+      rn.Router_PIDs = append ( rn.Router_PIDs, pid )
     }
   }
+
+  go rn.Router_status_check ( )
 
   if len(rn.clients) > 0 {
     if router_run_count > 0 {
@@ -778,12 +782,17 @@ func ( rn * Router_network ) Run ( ) {
       time.Sleep ( time.Duration(nap_time) * time.Second )
     }
 
+    count := 0
     for _, c := range rn.clients {
       c.Run ( )
 
       // TODO replace this with more intelligence in senders.
       // Inter-client sleep 
       time.Sleep ( 50 * time.Millisecond )
+      count ++
+      if 0 == (count % 20) {
+        fp ( os.Stdout, "MDEBUG started %d clients.\n", count )
+      }
     }
   }
 
@@ -794,61 +803,16 @@ func ( rn * Router_network ) Run ( ) {
 
 
 
-func ( rn * Router_network ) Start_client_status_check  ( ticker_frequency int ) {
-  rn.ticker_frequency = ticker_frequency
+func ( rn * Router_network ) Router_status_check ( ) ( ) {
 
-  if ticker_frequency <= 0 {
-    ume ( "router_network: ticker_frequency must be > 0." )
-    return
-  }
-
-  ticker_time      := time.Second * time.Duration ( rn.ticker_frequency )
-  rn.client_ticker  = time.NewTicker ( ticker_time )
-
-  go rn.Client_status_check ( )
-}
-
-
-
-
-
-// TODO this is client communication. replace with new style.
-func ( rn * Router_network ) Client_status_check ( ) ( int ) {
-
-  total_received := 0
-  total_accepted := 0
-  total_rejected := 0
-  total_released := 0
-  total_modified := 0
-
-
-  for index, file_name := range rn.client_status_files {
-    client := rn.clients [ index ]
-    // I only care about senders, because only they have
-    // access to information about all the messages.
-    if strings.HasPrefix ( client.Name, "send") {
-      if ! client.Completed {
-        client.Completed = rn.read_client_status_file ( client.Name, file_name )
-
-        total_received += client.Received
-        total_accepted += client.Accepted
-        total_rejected += client.Rejected
-        total_released += client.Released
-        total_modified += client.Modified
-      }
+  fp ( os.Stdout, "MDEBUG in Router_status_check!\n" )
+  for {
+    time.Sleep ( 5 * time.Second )
+    fp ( os.Stdout, "MDEBUG check %d routers.\n", len(rn.Router_PIDs) )
+    for _, pid := range rn.Router_PIDs {
+      fp ( os.Stdout, "MDEBUG Router status check for PID %d\n", pid )
     }
   }
-
-  // Once per timer expiration.
-  umi ( rn.verbose, 
-        "client_status_check : received: %d accepted: %d rejected: %d released: %d modified: %d\n", 
-        total_received, 
-        total_accepted, 
-        total_rejected, 
-        total_released, 
-        total_modified )
-
-  return total_accepted + total_rejected + total_released + total_modified
 }
 
 
@@ -970,7 +934,7 @@ func ( rn * Router_network ) Halt ( ) {
 
 func ( rn * Router_network ) Display_routers ( ) {
   for index, r := range rn.routers {
-    umi ( rn.verbose, "router %d: %s %d %s", index, r.Name(), r.Pid(), r.State() )
+    umi ( rn.verbose, "router %d: %s %d %s", index, r.Name(), r.Pid, r.State() )
   }
 }
 
@@ -1048,92 +1012,6 @@ func ( rn * Router_network ) Get_nth_interior_router_name ( index int ) ( string
     }
   }
   return ""
-}
-
-
-
-// TODO this is client communication. replace with new style.
-
-
-func ( rn * Router_network ) read_client_status_file ( client_name, file_name string ) ( bool ) {
-
-  is_it_completed := false
-
-  client := rn.get_client_by_name ( client_name )
-  if client == nil {
-    ume ( "router_network: read_client_status_file: no such client |%s|", client_name )
-    return is_it_completed
-  }
-
-  buf, err := ioutil.ReadFile ( file_name )
-  if err != nil {
-    // The client file does not exist yet.
-    return is_it_completed
-  }
-  lines := strings.Split ( string(buf), "\n" )
-
-  // Find the last line in the file that is not empty.
-  var line string
-  for index := len ( lines ) - 1; index >= 0; index -- {
-    line = lines [ index ]
-    if len(line) > 0 {
-      break
-    }
-  }
-
-  reader := strings.NewReader ( line )
-  var ( timestamp, first_word string )
-  _, err = fmt.Fscanf ( reader, 
-                        "%s%s", 
-                        & timestamp, 
-                        & first_word )
-  if err != nil {
-    // In some conntexts, an error here is normal.
-    return is_it_completed
-  }
-
-  if first_word == "report" {
-    // example of a report-line from the client
-    // 1553527855.073151  report received 0 accepted 0 rejected 0 released 100 modified 0
-    reader := strings.NewReader ( line )
-    var ( received,
-          accepted,
-          rejected,
-          released,
-          modified int ) 
-    _, err = fmt.Fscanf ( reader,
-                          "%s report received %d accepted %d rejected %d released %d modified %d",
-                          & timestamp,
-                          & received,
-                          & accepted,
-                          & rejected,
-                          & released,
-                          & modified )
-
-    client.Received = received
-    client.Accepted = accepted
-    client.Rejected = rejected
-    client.Released = released
-    client.Modified = modified
-
-    if err != nil {
-      // In some conntexts, an error here is normal.
-      return is_it_completed
-    }
-    total_messages_accounted_for := received + accepted + rejected + released + modified
-    if total_messages_accounted_for >= client.N_messages {
-      rn.completed_clients ++
-      is_it_completed = true
-    }
-  }
-
-  if rn.completed_clients >= rn.n_senders {
-    // TODO -- replace all client communication with new method
-    umi ( true, "network: all %d senders have successfully completed.", rn.n_senders )
-    umi ( rn.verbose, "halting network.\n" )
-  }
-
-  return is_it_completed
 }
 
 
