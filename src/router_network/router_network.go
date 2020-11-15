@@ -1,11 +1,13 @@
 package router_network
 
-import ( "errors"
+import ( "bufio"
+         "errors"
          "fmt"
          "os"
          "os/exec"
          "strings"
          "math/rand"
+         "strconv"
          "sync"
          "time"
 
@@ -177,6 +179,7 @@ type Router_network struct {
   init_only                   bool
 
   Router_PIDs            []   int
+  previous_idle_time, previous_total_time uint64
 }
 
 
@@ -812,6 +815,8 @@ func ( rn * Router_network ) Router_status_check ( ) ( ) {
     for _, pid := range rn.Router_PIDs {
       fp ( os.Stdout, "MDEBUG Router status check for PID %d\n", pid )
     }
+    fp ( os.Stdout, "MDEBUG Read CPU: \n" )
+    rn.read_CPU ( )
   }
 }
 
@@ -1129,6 +1134,43 @@ func ( rn * Router_network ) Is_the_network_connected ( ) ( bool ) {
       return true
     }
   }
+}
+
+
+
+
+
+func ( rn * Router_network ) read_CPU ( ) {
+
+  file, err := os.Open ( "/proc/stat" ) 
+  if err != nil {
+    fp ( os.Stdout, "Router_network.read_CPU error: |%s|\n", err.Error() )
+  }
+
+  scanner := bufio.NewScanner ( file ) 
+  scanner.Scan (  ) 
+  first_line := scanner.Text (  ) [5:] // get rid of cpu plus 2 spaces
+  file.Close (  ) 
+  err = scanner.Err (  ) 
+  if err != nil {
+    fp ( os.Stdout, "Router_network.read_CPU error: |%s|\n", err.Error() )
+  }
+
+  split := strings.Fields ( first_line ) 
+  idle_time, _ := strconv.ParseUint ( split[3], 10, 64 ) 
+  total_time := uint64 ( 0 ) 
+  for _, s := range split {
+    u, _ := strconv.ParseUint ( s, 10, 64 ) 
+    total_time += u
+  }
+
+  delta_idle_time := idle_time - rn.previous_idle_time
+  delta_total_time := total_time - rn.previous_total_time
+  cpuUsage :=  ( 1.0 - float64 ( delta_idle_time ) /float64 ( delta_total_time )  )  * 100.0
+  fp ( os.Stdout, "MDEBUG %6.3f\n", cpuUsage )
+
+  rn.previous_idle_time  = idle_time
+  rn.previous_total_time = total_time
 }
 
 

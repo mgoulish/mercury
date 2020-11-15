@@ -418,11 +418,11 @@ func main ( ) {
   test_name := "latency" + "_" + time.Now().Format ( "2006_01_02_1504" )
 
   // Each time through this loop is one 'run' of the test.
-  for n_routers := 1; n_routers <= 3; n_routers ++ { 
+  for n_routers := 1; n_routers < 2; n_routers ++ { 
     
     // This holds the results for one run.
     var test_results [] * test_result
-    for n_client_pairs := 500; n_client_pairs <= 4000; n_client_pairs += 500 { 
+    for n_client_pairs := 500; n_client_pairs <= 1000; n_client_pairs += 500 { 
 
       // This inner loop performs a single run.
       run_name := fmt.Sprintf ( "n-routers_%d_n-clients_%d", n_routers, n_client_pairs )
