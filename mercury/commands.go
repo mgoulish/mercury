@@ -1339,37 +1339,6 @@ func sleep ( merc * Merc, command_line * lisp.List, _ string ) {
 
 
 
-func start_client_status_check ( merc * Merc, command_line * lisp.List, _ string ) {
-  if ! merc.network.Running {
-    ume ( "start_client_status_check: the network is not running." )
-    return
-  }
-
-  cmd := merc.commands [ "start_client_status_check" ]
-  parse_command_line ( merc, cmd, command_line )
-
-  seconds := cmd.unlabelable_int.int_value
-  umi ( merc.verbose, "start_client_status_check: every %d seconds.", seconds )
-  merc.network.Start_client_status_check ( seconds )
-}
-
-
-
-
-
-func failsafe ( merc * Merc, command_line * lisp.List, _ string ) {
-  cmd := merc.commands [ "failsafe" ]
-  parse_command_line ( merc, cmd, command_line )
-
-  seconds := cmd.unlabelable_int.int_value
-  umi ( merc.verbose, "failsafe time set to %d seconds after client status checking begins.\n", seconds )
-  merc.network.Failsafe = seconds
-}
-
-
-
-
-
 func wait_for_network ( merc * Merc, command_line * lisp.List, _ string ) {
   cmd := merc.commands [ "wait_for_network" ]
   parse_command_line ( merc, cmd, command_line )

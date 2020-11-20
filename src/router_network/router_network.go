@@ -772,7 +772,8 @@ func ( rn * Router_network ) Run ( ) {
     }
   }
 
-  go rn.Router_status_check ( )
+  // TODO -- figure ut how to read cpu
+  // go rn.Router_status_check ( )
 
   if len(rn.clients) > 0 {
     if router_run_count > 0 {

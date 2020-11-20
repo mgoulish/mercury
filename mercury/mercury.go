@@ -398,11 +398,9 @@ func main ( ) {
   merc.mercury_log_file, _ = os.Create ( merc.mercury_log_name )
 
   // TODO -- remove this channel. Not used.
-  network_channel := make ( chan string )
   merc.network = rn.New_router_network ( "network", 
                                          mercury_root,
-                                         merc.session.log_path,
-                                         network_channel )
+                                         merc.session.log_path )
 
   // Set a default results path here. 
   // Some commands may want to replace this with their own.
@@ -913,27 +911,6 @@ func main ( ) {
                 "3",
                 "The number of seconds to sleep." )
 
-
-  // start_client_status_check command -------------------------------------------------------
-  cmd = merc.add_command ( "start_client_status_check",
-                            start_client_status_check,
-                           "Start checking on the status of clients every N seconds." )
-  cmd.add_arg ( "seconds",
-                true,   // unlabelable
-                "int",
-                "15",
-                "The number of seconds between status checks." )
-
-
-  // failsafe command -------------------------------------------------------
-  cmd = merc.add_command ( "failsafe",
-                            failsafe,
-                           "Force a failure this many second after first client status check." )
-  cmd.add_arg ( "seconds",
-                true,   // unlabelable
-                "int",
-                "30",
-                "The number of seconds until forced failure." )
 
   // wait_for_network command -------------------------------------------------------
   cmd = merc.add_command ( "wait_for_network",

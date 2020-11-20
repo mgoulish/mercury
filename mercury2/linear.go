@@ -28,23 +28,50 @@ type message_result struct {
 }
 
 
-type message_result_list [] *message_result
+
+/*---------------------------------------------------
+  Result list that will be sorted for arrival time.
+---------------------------------------------------*/
+type arrival_sorted_results [] *message_result
 
 
 // Functions to satisfy the Sort interface.
-func ( mrl message_result_list ) Len ( ) ( int ) {
-  return len ( mrl )
+func ( asr arrival_sorted_results ) Len ( ) ( int ) {
+  return len ( asr )
+}
+
+func ( asr arrival_sorted_results ) Less ( i, j int ) bool {
+  return asr[i].arrival_time < asr[j].arrival_time
+}
+
+func ( asr arrival_sorted_results ) Swap ( i, j int ) {
+  asr[i] , asr[j] = asr[j], asr[i]
 }
 
 
-func ( mrl message_result_list ) Less ( i, j int ) bool {
-  return mrl[i].arrival_time < mrl[j].arrival_time
+
+/*---------------------------------------------------
+  Result list that will be sorted for latency.
+---------------------------------------------------*/
+type latency_sorted_results [] *message_result
+
+
+// Functions to satisfy the Sort interface.
+func ( lsr latency_sorted_results ) Len ( ) ( int ) {
+  return len ( lsr )
+}
+
+func ( lsr latency_sorted_results ) Less ( i, j int ) bool {
+  return lsr[i].latency < lsr[j].latency
+}
+
+func ( lsr latency_sorted_results ) Swap ( i, j int ) {
+  lsr[i] , lsr[j] = lsr[j], lsr[i]
 }
 
 
-func ( mrl message_result_list ) Swap ( i, j int ) {
-  mrl[i] , mrl[j] = mrl[j], mrl[i]
-}
+
+
 
 
 
@@ -54,8 +81,10 @@ type test_result struct {
   test_time      time.Time
   n_routers      int
   n_client_pairs int
-  results        message_result_list
+  a_results      arrival_sorted_results
+  l_results      latency_sorted_results
   mean           float64
+  ninety_nine    float64
 }
 
 
@@ -114,7 +143,7 @@ func ( t * test_result ) read ( dir string, signifier string ) ( error ) {
       if err != nil {
         return err
       }
-      t.results = append ( t.results, &result )
+      t.a_results = append ( t.a_results, &result )
     }
   }
 
@@ -126,6 +155,8 @@ func ( t * test_result ) read ( dir string, signifier string ) ( error ) {
 
 
 func process_all_runs ( results [] * test_result, test_path string ) {
+
+  // Print out means for all runs.
   mean_file_name := test_path + "/mean.data"
   f, _ := os.Create ( mean_file_name )
 
@@ -133,6 +164,17 @@ func process_all_runs ( results [] * test_result, test_path string ) {
     fmt.Fprintf ( f, "%d    %.6f\n", r.n_client_pairs, r.mean )
   }
   f.Close()  // Can't defer!
+
+
+  // Print out 99s for all runs.
+  nn_file_name := test_path + "/99.data"
+  f, _ = os.Create ( nn_file_name )
+
+  for _, r := range results {
+    fmt.Fprintf ( f, "%d    %.6f\n", r.n_client_pairs, r.ninety_nine )
+  }
+  f.Close()  // Can't defer!
+
 
   n_routers := results[0].n_routers // Same number of routers for all runs.
   least_n_clients := results[0].n_client_pairs
@@ -147,7 +189,7 @@ func process_all_runs ( results [] * test_result, test_path string ) {
   gnuplot_script += fmt.Sprintf ( "set output \"latency_n-routers_%d_n-clients_%d_%d.jpg\"\n", n_routers, least_n_clients, most_n_clients )
   gnuplot_script += fmt.Sprintf ( "set title \"Dispatch Router Latency -- N-Routers : %d\"\n", n_routers )
   gnuplot_script += "set mytics 2\n"
-  gnuplot_script += fmt.Sprintf ( "plot \"%s\" with linespoints lt rgb \"red\"    lw 3\n", "mean.data" )
+  gnuplot_script += fmt.Sprintf ( "plot \"%s\" with linespoints lt rgb \"red\" lw 3, \"%s\" with linespoints lt rgb \"gold\" lw 3\n", "mean.data", "99.data" )
 
   gnuplot_script_name := test_path + "/mean.gplot"
   file, err := os.Create ( gnuplot_script_name )
@@ -178,18 +220,18 @@ func process_all_runs ( results [] * test_result, test_path string ) {
 // the gnuplot file.
 func ( t * test_result ) process_run ( graphics_path string ) {
 
-  sort.Sort ( message_result_list ( t.results ) )
+  sort.Sort ( arrival_sorted_results ( t.a_results ) )
 
-  first_time := t.results[0].arrival_time
+  first_time := t.a_results[0].arrival_time
 
-  for _, result := range ( t.results ) {
+  for _, result := range ( t.a_results ) {
     result.arrival_time -= first_time
   }
 
   // Delete first and last 1-second intervals.
-  last_time  := t.results[len(t.results)-1].arrival_time
+  last_time  := t.a_results[len(t.a_results)-1].arrival_time
 
-  for _, result := range ( t.results ) {
+  for _, result := range ( t.a_results ) {
 
     // first 1-second
     if result.arrival_time < 1.0 {
@@ -202,7 +244,6 @@ func ( t * test_result ) process_run ( graphics_path string ) {
     }
   }
 
-
   // Use these to calculate the average.
   sum   := float64(0)
   count := 0
@@ -212,7 +253,7 @@ func ( t * test_result ) process_run ( graphics_path string ) {
   defer f.Close()
   w := bufio.NewWriter ( f )
 
-  for _, result := range ( t.results ) {
+  for _, result := range t.a_results {
     if result.arrival_time >= 0 {
       fp ( w, "%.6f %.6f\n", result.arrival_time, result.latency )
       sum += result.latency
@@ -223,6 +264,31 @@ func ( t * test_result ) process_run ( graphics_path string ) {
 
   // Store the average.
   t.mean = sum / float64(count)
+
+
+  // The a_results are results sorted for arrival time.
+  // Now copy all the ones we have not deleted into the array of 
+  // l_results: results that will be sorted for latency.
+  for _, result := range t.a_results {
+    if result.arrival_time >= 0 {
+      t.l_results = append ( t.l_results, result )
+    }
+  }
+  sort.Sort ( latency_sorted_results ( t.l_results ) )
+  /*
+  f, err := os.Create("./latency_sorted_results")
+  defer f.Close()
+  for _, result := range t.l_results {
+    fmt.Fprintf ( f, "%f %f\n", result.arrival_time, result.latency )
+  }
+  */
+
+  // Find the ninety-nine percent mark.
+  ninety_ninth_percent_index := len(t.l_results) - len(t.l_results)/100
+  t.ninety_nine = t.l_results [ ninety_ninth_percent_index ].latency
+
+  //fp ( os.Stdout, "MDEBUG ninety_ninth_percent_value: %f\n", ninety_ninth_percent_value )
+
 
   // Make the timeline gnuplot file.
   gnuplot_script := "set autoscale\n"
@@ -305,8 +371,11 @@ func run_linear_network ( test_name    string,
                           mercury_root string,
                           n_routers    int,
                           n_pairs      int,
+                          msec_pause   int,
+                          n_messages   int,
                           client_events_channel chan string ) ( string )  {
 
+  fp ( os.Stdout, "Running linear network with pairs: %d, msec: %d, messages: %d\n", n_pairs, msec_pause, n_messages )
   log_path    := test_name + "/" + run_name + "/log"
   config_path := test_name + "/" + run_name + "/config"
   event_path  := test_name + "/" + run_name + "/event"
@@ -347,10 +416,8 @@ func run_linear_network ( test_name    string,
   network.Set_results_path ( result_path )
   network.Set_events_path  ( event_path )
 
-  // Send both signals right now.
-  // TODO -- do these the right way.
-  os.Create ( event_path + "/start_sending" )
-  os.Create ( event_path + "/dump_data" )
+  //mpsps := 1000.0 / float64(msec_pause)
+  msec_pause_str := fmt.Sprintf ( "%d", msec_pause )
 
   for i := 0; i < n_pairs; i ++ {
 
@@ -358,17 +425,17 @@ func run_linear_network ( test_name    string,
 
     network.Add_sender ( sender_name,
                          ".",        // config_path
-                         100,        // n_messages
+                         n_messages,
                          100,        // max_message_length  -- TODO get rid of this.
                          string(rune(first_router_name)),
-                         "100",      // throttle (msec)
+                         msec_pause_str, // throttle (msec)
                          "0",        // delay               -- and this
                          "0" )       // soak                -- and this
 
     receiver_name := fmt.Sprintf ( "receiver_%05d", i )
     network.Add_receiver ( receiver_name,
                            ".",
-                           100,
+                           n_messages,
                            100,
                            string(rune(last_router_name)),
                            "0",
@@ -381,8 +448,13 @@ func run_linear_network ( test_name    string,
                         
 
   network.Run  ( )
-
   fp ( os.Stdout, "network |%s| is running.\n", run_name )
+
+  // TODO fix this with communication!
+  time.Sleep ( 10 * time.Second )
+
+  fp ( os.Stdout, "MDEBUG start_sending at %f\n", utils.Timestamp() )
+  os.Create ( event_path + "/start_sending" )
 
   go listen_for_messages_from_clients ( event_path, 
                                         n_pairs,
@@ -401,6 +473,11 @@ func run_linear_network ( test_name    string,
 
     break
   }
+
+  os.Create ( event_path + "/dump_data" )
+
+  // TODO fix this! -- with communication
+  time.Sleep ( 30 * time.Second )
   
   network.Halt ( );
 
@@ -417,12 +494,20 @@ func main ( ) {
   client_events_channel := make ( chan string, 5 )
   test_name := "latency" + "_" + time.Now().Format ( "2006_01_02_1504" )
 
+  // Hold MPS constant.
+  messages_per_second := 10000.0
+  n_seconds           := 200000.0
+
   // Each time through this loop is one 'run' of the test.
-  for n_routers := 1; n_routers < 2; n_routers ++ { 
+  for n_routers := 1; n_routers <= 1; n_routers ++ { 
     
     // This holds the results for one run.
     var test_results [] * test_result
-    for n_client_pairs := 500; n_client_pairs <= 1000; n_client_pairs += 500 { 
+    for n_client_pairs := 500; n_client_pairs <= 12000; n_client_pairs += 500 { 
+
+      messages_per_second_per_sender := messages_per_second / float64(n_client_pairs)
+      msec_pause := 1000 / messages_per_second_per_sender
+      n_messages := n_seconds / msec_pause
 
       // This inner loop performs a single run.
       run_name := fmt.Sprintf ( "n-routers_%d_n-clients_%d", n_routers, n_client_pairs )
@@ -436,6 +521,8 @@ func main ( ) {
                                           mercury_root, 
                                           n_routers, 
                                           n_client_pairs,
+                                          int(msec_pause),
+                                          int(n_messages),
                                           client_events_channel )
 
       result := new_test_result ( time.Now(), n_routers, n_client_pairs )

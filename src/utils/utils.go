@@ -38,7 +38,7 @@ func Get_homedir ( ) ( string ) {
 
 
 
-func timestamp ( ) ( float64 ) {
+func Timestamp ( ) ( float64 ) {
   now   := time.Now()
   return float64 ( now.UnixNano() ) / 1000000000
 }
@@ -48,7 +48,7 @@ func timestamp ( ) ( float64 ) {
 
 
 func M_error ( format string, args ...interface{} ) {
-  new_format := fmt.Sprintf ( "    %c error %.6f : %s", mercury, timestamp(), format + "\n" )
+  new_format := fmt.Sprintf ( "    %c error %.6f : %s", mercury, Timestamp(), format + "\n" )
   fp ( os.Stdout, "\n------------------------------------------------\n" )
   fp ( os.Stdout, new_format, args ... )
   fp ( os.Stdout,   "------------------------------------------------\n\n" )
@@ -62,7 +62,7 @@ func M_info ( verbose bool, format string, args ...interface{}) {
   if ! verbose {
     return
   }
-  new_format := fmt.Sprintf ( "    %c info %.6f: %s\n", mercury, timestamp(), format )
+  new_format := fmt.Sprintf ( "    %c info %.6f: %s\n", mercury, Timestamp(), format )
   fp ( os.Stdout, new_format, args ... )
 }
 
@@ -228,6 +228,7 @@ func Cpu_usage ( target_pid int ) ( cpu_usage int, err error ) {
 
 
 
+/*
 func Timestamp ( ) ( string ) {
   now := time.Now()
   ts1 := now.Format ( "2006-01-02 15:04:05.000000" )
@@ -235,6 +236,7 @@ func Timestamp ( ) ( string ) {
   fsec := float64(nsec) / 1000000000.0
   return ts1 + fmt.Sprintf ( " %.6f", fsec )
 }
+*/
 
 
 

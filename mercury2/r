@@ -4,8 +4,11 @@ export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
 
-rm -rf ./n-routers_*
-rm -rf ./hor*
+# go run ./linear.go 
 
-go run ./*.go 
+echo "HORIZONTAL"
+
+go run ./horizontal.go
+
+
 

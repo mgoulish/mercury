@@ -472,8 +472,7 @@ func main ( ) {
   client_events_channel := make ( chan string, 5 )
 
 
-/*
-  n_routers := 7
+  n_routers := 4
   n_pairs_per_router := 5
   run_name := fmt.Sprintf ( "horizontal_nr_%d_nppr_%d", n_routers, n_pairs_per_router )
   graphics_path := run_name + "/graphics"
@@ -486,36 +485,7 @@ func main ( ) {
                            client_events_channel )
 
   fp ( os.Stdout, "main: done.\n" )
-*/
 
-
-  test_name := "latency" + "_" + time.Now().Format ( "2006_01_02_1504" )
-
-  for n_routers := 1; n_routers <= 3; n_routers ++ {
-    for n_client_pairs := 100; n_client_pairs <= 4000; n_client_pairs += 100 {
-      run_name := fmt.Sprintf ( "n-routers_%d_n-clients_%d", n_routers, n_client_pairs )
-      fp ( os.Stdout, "Running: %s at %v\n", run_name, time.Now() )
-
-      graphics_path := test_name + "/" + run_name + "/graphics"
-      utils.Find_or_create_dir ( graphics_path )
-
-      results_dir := run_linear_network ( test_name,
-                                          run_name, 
-                                          mercury_root, 
-                                          n_routers, 
-                                          n_client_pairs,
-                                          client_events_channel )
-
-      result := new_test_result ( time.Now(), n_routers, n_client_pairs )
-      result.read ( results_dir, "flight_times" )
-      result.process ( graphics_path )
-
-      // A little pause before starting next one.
-      time.Sleep ( 10 * time.Second )
-
-      os.Exit ( 0 ) // TEMP
-    }
-  }
 
 }
 
