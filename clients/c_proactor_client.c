@@ -71,10 +71,10 @@ struct context_s
   int               sending;          // Are we a sender?
   char              id [ MAX_NAME ];
   char              host [ MAX_NAME ];
-  size_t            max_send_length,
-                    max_receive_length,
+  size_t            max_receive_length,
                     message_length,
-                    outgoing_buffer_size;
+                    outgoing_buffer_size,
+                    bytes_received;
   char            * outgoing_buffer;
   char              incoming_message [ MAX_MESSAGE ];   // BUGALERT
   char            * port;
@@ -336,6 +336,7 @@ wait_for_dump_data_signal ( context_p context )
     if ( -1 !=  access ( signal_path, F_OK ) )
     {
       log ( context, "dumping data\n" );
+      log ( context, "total_bytes_received %zu\n", context->bytes_received );
       dump_flight_times ( context );
       return;
     }
@@ -377,23 +378,10 @@ rand_int ( int one_past_max )
 
 
 void
-make_random_message ( context_p context )
-{
-  context->message_length = rand_int ( context->max_send_length );
-  for ( int i = 0; i < context->message_length; ++ i )
-    context->outgoing_buffer [ i ] = uint8_t ( rand_int ( 256 ) );
-}
-
-
-
-
-
-void
 make_timestamped_message ( context_p context )
 {
   double ts = get_timestamp_seconds();
 
-  context->message_length = BUGALERT_MESSAGE_LENGTHS;  
   memset ( context->outgoing_buffer, 'x', context->message_length );
   sprintf ( context->outgoing_buffer, "%.7lf", ts );
 }
@@ -457,6 +445,8 @@ decode_message ( context_p context, pn_delivery_t * delivery )
   pn_message_t * msg  = context->message;
   pn_link_t    * link = pn_delivery_link ( delivery );
   ssize_t        incoming_size = pn_delivery_pending ( delivery );
+
+  context->bytes_received += incoming_size;
 
   if ( incoming_size >= context->max_receive_length )
   {
@@ -904,15 +894,16 @@ init_context ( context_p context, int argc, char ** argv )
   context->total_sent              = 0;
   context->total_received          = 0;
   context->total_accepted          = 0;
+  context->bytes_received          = 0;
 
   context->log_file_name           = 0;
   context->log_file                = 0;
   context->message                 = 0;
+  context->message_length          = 100;     // Default message length.
 
   context->expected_messages       = 0;
   context->total_expected_messages = 0;
   context->credit_window           = 1000;
-  context->max_send_length         = 100;
 
   context->throttle                = 0;
   context->delay                   = 0;
@@ -941,7 +932,6 @@ init_context ( context_p context, int argc, char ** argv )
     if ( ! strcmp ( "--delay", argv[i] ) )
     {
       context->delay = atoi(NEXT_ARG);
-      fprintf ( stderr, "MDEBUG delay set to %d\n", context->delay );
       i ++;
     }
     // address ----------------------------------------------
@@ -991,11 +981,11 @@ init_context ( context_p context, int argc, char ** argv )
 
       i ++;
     }
-    // max_message_length ----------------------------------------------
+    // message_length ----------------------------------------------
     else
-    if ( ! strcmp ( "--max_message_length", argv[i] ) )
+    if ( ! strcmp ( "--message_length", argv[i] ) )
     {
-      context->max_send_length = atoi ( NEXT_ARG );
+      context->message_length = atoi ( NEXT_ARG );
       i ++;
     }
     // port ----------------------------------------------
@@ -1075,7 +1065,7 @@ log_context ( context_p context )
 
   log_no_timestamp ( context, "  operation          : %s\n", context->sending ? "sending" : "receiving" );
   log_no_timestamp ( context, "  name               : %s\n", context->name );
-  log_no_timestamp ( context, "  max_message_length : %d\n", context->max_send_length );
+  log_no_timestamp ( context, "  message_length     : %d\n", context->message_length );
   log_no_timestamp ( context, "  port               : %s\n", context->port );
   log_no_timestamp ( context, "  log                : %s\n", context->log_file_name );
   log_no_timestamp ( context, "  messages           : %d\n", context->expected_messages );
@@ -1108,20 +1098,12 @@ main ( int argc, char ** argv )
   }
   log ( & context, "start\n" );
 
-  if ( context.max_send_length <= 0 )
-  {
-    fprintf ( stderr, "no max message length.\n" );
-    exit ( 1 );
-  }
-
   context.total_expected_messages = context.expected_messages * context.n_addrs;
   log_context ( & context );
   context.flight_times    = (double *) malloc ( sizeof(double) * context.total_expected_messages );
   context.time_stamps     = (double *) malloc ( sizeof(double) * context.total_expected_messages );
   context.max_flight_times = context.total_expected_messages;
   context.n_flight_times   = 0;
-
-  log ( & context, "BUGALERT !  using fixed message lengths of size %d\n", BUGALERT_MESSAGE_LENGTHS );
 
   // Make the max send length larger than the max receive length 
   // to account for the extra header bytes.

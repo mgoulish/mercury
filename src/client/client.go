@@ -52,7 +52,7 @@ type Client struct {
 
   cmd                * exec.Cmd
   State                Client_state
-  max_message_length   int
+  message_length       int
   addrs             [] string
 
   throttle             string
@@ -92,7 +92,7 @@ func New_client ( name                  string,
                   pythonpath            string,
                   log_file              string,
                   n_messages            int,
-                  max_message_length    int, 
+                  message_length        int, 
                   throttle              string,
                   verbose               bool,
                   delay                 string,
@@ -111,7 +111,7 @@ func New_client ( name                  string,
                  log_file              : log_file,
                  State                 : initialized,
                  N_messages            : n_messages,
-                 max_message_length    : max_message_length,
+                 message_length        : message_length,
                  throttle              : throttle,
                  verbose               : verbose,
                  delay                 : delay,
@@ -167,7 +167,7 @@ func ( c * Client ) Run ( ) {
           " --port " + c.Port + 
           " --log " + c.log_file + 
           " --messages " + strconv.Itoa(c.N_messages) + 
-          " --max_message_length " + strconv.Itoa(c.max_message_length) + 
+          " --message_length " + strconv.Itoa(c.message_length) + 
           " --throttle " + c.throttle +
           " --delay " + c.delay
 

@@ -416,6 +416,8 @@ func run_linear_network ( test_name    string,
   network.Set_results_path ( result_path )
   network.Set_events_path  ( event_path )
 
+  message_length := 100
+
   //mpsps := 1000.0 / float64(msec_pause)
   msec_pause_str := fmt.Sprintf ( "%d", msec_pause )
 
@@ -426,7 +428,7 @@ func run_linear_network ( test_name    string,
     network.Add_sender ( sender_name,
                          ".",        // config_path
                          n_messages,
-                         100,        // max_message_length  -- TODO get rid of this.
+                         message_length,
                          string(rune(first_router_name)),
                          msec_pause_str, // throttle (msec)
                          "0",        // delay               -- and this
@@ -436,7 +438,7 @@ func run_linear_network ( test_name    string,
     network.Add_receiver ( receiver_name,
                            ".",
                            n_messages,
-                           100,
+                           message_length,
                            string(rune(last_router_name)),
                            "0",
                            "0" )
@@ -503,7 +505,9 @@ func main ( ) {
     
     // This holds the results for one run.
     var test_results [] * test_result
-    for n_client_pairs := 500; n_client_pairs <= 12000; n_client_pairs += 500 { 
+    //for n_client_pairs := 500; n_client_pairs <= 12000; n_client_pairs += 500 { 
+    //for n_client_pairs := 14000; n_client_pairs <= 20000; n_client_pairs += 2000 { 
+    for n_client_pairs := 10; n_client_pairs <= 10; n_client_pairs += 10 { 
 
       messages_per_second_per_sender := messages_per_second / float64(n_client_pairs)
       msec_pause := 1000 / messages_per_second_per_sender
