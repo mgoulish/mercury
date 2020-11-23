@@ -4,11 +4,24 @@ export MERCURY_ROOT=${HOME}/mercury
 export GOPATH=${MERCURY_ROOT}
 
 
-# go run ./linear.go 
 
-echo "HORIZONTAL"
 
-go run ./horizontal.go
+
+echo "MESSAGE SIZE"
+sleep 5
+go run ./message_size.go 
+
+
+#echo "LINEAR"
+#sleep 5
+#go run ./linear.go 
+
+
+
+
+# echo "HORIZONTAL"
+# sleep 5
+# go run ./horizontal.go
 
 
 
