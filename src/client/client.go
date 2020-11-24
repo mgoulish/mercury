@@ -99,8 +99,11 @@ func New_client ( name                  string,
                   soak                  string ) ( * Client )  { 
   var c * Client
 
+  full_config_path := config_path + "/" + name
+  utils.Find_or_create_dir ( full_config_path )
+
   c = & Client { Name                  : name,
-                 config_path           : config_path,
+                 config_path           : full_config_path,
                  results_path          : results_path,
                  events_path           : events_path,
                  Operation             : operation,

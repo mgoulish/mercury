@@ -105,7 +105,7 @@ func run_test ( test_name    string,
     sender_name := fmt.Sprintf ( "sender_%05d", i )
 
     network.Add_sender ( sender_name,
-                         ".",        // config_path
+                         config_path,
                          n_messages,
                          message_size,
                          string(rune(router_name)),
@@ -115,7 +115,7 @@ func run_test ( test_name    string,
 
     receiver_name := fmt.Sprintf ( "receiver_%05d", i )
     network.Add_receiver ( receiver_name,
-                           ".",
+                           config_path,
                            n_messages,
                            message_size,
                            string(rune(router_name)),
