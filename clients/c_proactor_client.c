@@ -995,6 +995,13 @@ init_context ( context_p context, int argc, char ** argv )
       context->port = strdup ( NEXT_ARG );
       i ++;
     }
+    // host ----------------------------------------------
+    else
+    if ( ! strcmp ( "--host", argv[i] ) )
+    {
+      sprintf ( context->host, "%s", NEXT_ARG );
+      i ++;
+    }
     // log ----------------------------------------------
     else
     if ( ! strcmp ( "--log", argv[i] ) )
@@ -1066,6 +1073,7 @@ log_context ( context_p context )
   log_no_timestamp ( context, "  operation          : %s\n", context->sending ? "sending" : "receiving" );
   log_no_timestamp ( context, "  name               : %s\n", context->name );
   log_no_timestamp ( context, "  message_length     : %d\n", context->message_length );
+  log_no_timestamp ( context, "  host               : %s\n", context->host );
   log_no_timestamp ( context, "  port               : %s\n", context->port );
   log_no_timestamp ( context, "  log                : %s\n", context->log_file_name );
   log_no_timestamp ( context, "  messages           : %d\n", context->expected_messages );

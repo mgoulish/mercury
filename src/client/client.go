@@ -38,6 +38,7 @@ const (
 type Client struct {
   Name                 string
   config_path          string
+  host                 string
   results_path         string
   events_path          string
   Operation            string
@@ -83,6 +84,7 @@ type Client struct {
 
 func New_client ( name                  string,
                   config_path           string,
+                  host                  string,
                   results_path          string,
                   events_path           string,
                   operation             string,
@@ -104,6 +106,7 @@ func New_client ( name                  string,
 
   c = & Client { Name                  : name,
                  config_path           : full_config_path,
+                 host                  : host,
                  results_path          : results_path,
                  events_path           : events_path,
                  Operation             : operation,
@@ -167,6 +170,7 @@ func ( c * Client ) Run ( ) {
           " --flight_times_file_name " + c.results_path + 
           " --events_path " + c.events_path +
           " --operation " + c.Operation + 
+          " --host " + c.host + 
           " --port " + c.Port + 
           " --log " + c.log_file + 
           " --messages " + strconv.Itoa(c.N_messages) + 
