@@ -116,7 +116,7 @@ func new_version_with_roots ( name          string,
   // TODO -- fix this Python path.
   // Calculate PYTHONPATH for this version.
   DISPATCH_PYTHONPATH   := DISPATCH_LIBRARY_PATH + "/qpid-dispatch/python"
-  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python2.7/site-packages"
+  DISPATCH_PYTHONPATH2  := DISPATCH_LIBRARY_PATH + "/python3.7/site-packages"
   PROTON_PYTHONPATH     := PROTON_LIBRARY_PATH   + "/proton/bindings/python"
   check_path ( "dispatch python path",  DISPATCH_PYTHONPATH,  true )
   check_path ( "dispatch pythonpath 2", DISPATCH_PYTHONPATH2, true )
@@ -180,6 +180,8 @@ type Router_network struct {
 
   Router_PIDs            []   int
   previous_idle_time, previous_total_time uint64
+
+  start_time                  float64
 }
 
 
@@ -324,6 +326,8 @@ func New_router_network ( name         string,
                            log_path     : log_path,
                            mercury_root : mercury_root }
   rn.ticker_frequency = 10
+
+  rn.start_time = utils.Timestamp()
 
   return rn
 }
@@ -767,7 +771,6 @@ func ( rn * Router_network ) Init ( ) {
 */
 func ( rn * Router_network ) Run ( ) {
 
-  fp ( os.Stdout, "MDEBUG starting network !\n" )
   router_run_count := 0
 
   for _, r := range rn.routers {
@@ -778,8 +781,7 @@ func ( rn * Router_network ) Run ( ) {
     }
   }
 
-  // TODO -- figure ut how to read cpu
-  // go rn.Router_status_check ( )
+  go rn.Router_status_check ( )
 
   if len(rn.clients) > 0 {
     if router_run_count > 0 {
@@ -801,7 +803,7 @@ func ( rn * Router_network ) Run ( ) {
       time.Sleep ( 50 * time.Millisecond )
       count ++
       if 0 == (count % 20) {
-        fp ( os.Stdout, "MDEBUG started %d clients.\n", count )
+        fp ( os.Stdout, "started %d clients.\n", count )
       }
     }
   }
@@ -815,15 +817,36 @@ func ( rn * Router_network ) Run ( ) {
 
 func ( rn * Router_network ) Router_status_check ( ) ( ) {
 
-  fp ( os.Stdout, "MDEBUG in Router_status_check!\n" )
   for {
     time.Sleep ( 5 * time.Second )
-    fp ( os.Stdout, "MDEBUG check %d routers.\n", len(rn.Router_PIDs) )
     for _, pid := range rn.Router_PIDs {
-      fp ( os.Stdout, "MDEBUG Router status check for PID %d\n", pid )
+      // TODO -- figure out how to read cpu
+      // fp ( os.Stdout, "MDEBUG Read CPU: \n" )
+      // rn.read_CPU ( )
+      // rss := utils.Memory_usage ( pid )
+      //fp ( os.Stdout, "MDEBUG router %d has RSS == %d\n", pid, rss )
+      // Just use:  show_router_mem.sh   args == pid
+      command_name := fmt.Sprintf ( "show_router_mem.sh" )
+      args         := fmt.Sprintf ( "%d", pid )
+      args_list    := strings.Fields ( args )
+
+      cmd      := exec.Command ( command_name, args_list... )
+      out, err := cmd.Output ( )
+      if err != nil {
+        fp ( os.Stdout, "Router_status_check error: |%s|\n", err.Error() )
+      } else {
+        //rss, err := strconv.Atoi ( string(out) )
+        var rss int
+        fmt.Sscanf ( string(out), "%d", & rss )
+        if err == nil {
+          // fp ( os.Stdout, "router %d rss == %d\n", pid, rss )
+          // umi ( true, "router %d rss == %d\n", pid, rss )
+          utils.M_info_seconds ( rn.start_time, "router %d rss == %d\n", pid, rss )
+        } else {
+          fp ( os.Stdout, "Router_status_check strconv error: |%s|\n", err.Error() )
+        }
+      }
     }
-    fp ( os.Stdout, "MDEBUG Read CPU: \n" )
-    rn.read_CPU ( )
   }
 }
 
@@ -1147,6 +1170,7 @@ func ( rn * Router_network ) Is_the_network_connected ( ) ( bool ) {
 
 
 
+// I don't think this works.
 func ( rn * Router_network ) read_CPU ( ) {
 
   file, err := os.Open ( "/proc/stat" ) 

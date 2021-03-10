@@ -89,6 +89,8 @@ type Router struct {
   // Names of routers that connect to me.
   Connect_to_me_interior        [] string
   connect_to_me_edge            [] string
+
+  start_time                    float64
 }
 
 
@@ -158,6 +160,7 @@ func New_Router ( name                        string,
                  edge_port       : edge_port,
                  verbose         : verbose }
 
+  r.start_time = utils.Timestamp()
   return r
 }
 

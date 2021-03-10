@@ -87,7 +87,7 @@ func run_test ( test_name    string,
                                    "/home/mick/latest/install/proton",
                                    "/home/mick/latest/install/dispatch" )
 
-  // N router linear network in which each connects to the previous.
+  // One-router linear network in which each connects to the previous.
   router_name   := 'A'
   network.Add_router ( string(rune(router_name)),
                        "latest",
@@ -177,10 +177,10 @@ func main ( ) {
   client_events_channel := make ( chan string, 5 )
   test_name := "message-size" + "_" + time.Now().Format ( "2006_01_02_1504" )
 
-  n_messages     := 10
-  n_client_pairs := 1
-  msec_pause     := 100
-  message_size   := 100
+  n_messages     := 1000
+  n_client_pairs := 10
+  msec_pause     := 6
+  message_size   := 200000
 
   // This is how you would make a run name if you were 
   // running a message-size test.

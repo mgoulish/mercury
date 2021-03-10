@@ -1,0 +1,17 @@
+#! /usr/bin/bash
+
+export MERCURY_ROOT=${HOME}/mercury
+export GOPATH=${MERCURY_ROOT}
+
+
+
+
+
+echo "1000 Pairs, 1000 msec"
+sleep 5
+go run ./john.go 
+
+
+
+
+

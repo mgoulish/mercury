@@ -70,6 +70,15 @@ func M_info ( verbose bool, format string, args ...interface{}) {
 
 
 
+func M_info_seconds ( start_time float64, format string, args ...interface{}) {
+  new_format := fmt.Sprintf ( "    %c info %.6f: %s\n", mercury, Timestamp() - start_time, format )
+  fp ( os.Stdout, new_format, args ... )
+}
+
+
+
+
+
 func Available_port () ( port string, err error ) {
 
   server, err := net.Listen ( "tcp", ":0" )
@@ -180,7 +189,10 @@ func Make_paths ( mercury_root, test_id, test_name string ) ( router_path, resul
 
 
 
+// This doesn't work either
 func Memory_usage ( pid int ) ( rss int ) {
+  return -666
+
   proc_file_name := "/proc/" + strconv.Itoa(pid) + "/statm"
   proc_file, err := os.Open ( proc_file_name )
   if err != nil {
@@ -189,6 +201,7 @@ func Memory_usage ( pid int ) ( rss int ) {
   }
   defer proc_file.Close ( )
 
+  fp ( os.Stdout, "MDEBUG Memory_usage proc file is |%s|\n", proc_file_name )
   var vm_size int
   fmt.Fscanf ( proc_file, "%d%d", & vm_size, & rss )
   return rss

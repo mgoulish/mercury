@@ -1,0 +1,17 @@
+#! /usr/bin/bash
+
+export MERCURY_ROOT=${HOME}/mercury
+export GOPATH=${MERCURY_ROOT}
+
+
+
+
+
+echo "FAST_1"
+sleep 5
+go run ./fast_1.go 
+
+
+
+
+

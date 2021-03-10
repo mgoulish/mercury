@@ -437,9 +437,10 @@ store_flight_time ( context_p context, double flight_time, double recv_time )
 
 
 
-void 
+size_t
 decode_message ( context_p context, pn_delivery_t * delivery ) 
 {
+  size_t len = 0;
   double receive_timestamp = get_timestamp_seconds();
 
   pn_message_t * msg  = context->message;
@@ -467,13 +468,14 @@ decode_message ( context_p context, pn_delivery_t * delivery )
   }
   else
   {
-    char temp[200000];
+    char temp[1000000];
     char * dst = temp;
     pn_string_t *s = pn_string ( NULL );
     pn_inspect ( pn_message_body(msg), s );
     //log ( context, "%s\n", pn_string_get(s));
     double send_timestamp;
     const char * message_content = pn_string_get(s);
+    len = strlen(message_content);
     const char * src = message_content + 1; // first char is a double-quote!
 
     // log ( context, "received %d bytes.\n", strlen(message_content) );
@@ -493,6 +495,8 @@ decode_message ( context_p context, pn_delivery_t * delivery )
       store_flight_time ( context, flight_time, receive_timestamp );
     }
   }
+  
+  return len;
 }
 
 
@@ -786,7 +790,7 @@ process_event ( context_p context, pn_event_t * event )
         if ( pn_delivery_partial ( event_delivery ) ) 
           break;
 
-        decode_message ( context, event_delivery );
+        int len = decode_message ( context, event_delivery );
         pn_delivery_update ( event_delivery, PN_ACCEPTED );
         pn_delivery_settle ( event_delivery );
 
@@ -795,11 +799,11 @@ process_event ( context_p context, pn_event_t * event )
         context->total_received ++;
 
         /*
-        if ( ! ( context->total_received % 10 ) )
-        {
-          log ( context, "%d messages received.\n", context->total_received );
-        }
         */
+        if ( ! ( context->total_received % 100 ) )
+        {
+          log ( context, "%d messages received, %ld bytes.\n", context->total_received, context->bytes_received );
+        }
 
 
         int index = find_addr ( context, event_link );

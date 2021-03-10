@@ -1,0 +1,17 @@
+#! /usr/bin/bash
+
+export MERCURY_ROOT=${HOME}/mercury
+export GOPATH=${MERCURY_ROOT}
+
+
+
+
+
+echo "2000 Pairs, 100 msec, 1000 msgs, 500 bytes"
+sleep 5
+go run ./chuck.go 
+
+
+
+
+
